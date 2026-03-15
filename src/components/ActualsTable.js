@@ -147,7 +147,7 @@ export default function ActualsTable({
                             borderColor: hasVal ? (isGood ? '#bbf7d0' : '#fecaca') : '#e8e4dc',
                           }}
                         />
-                        <p style={{ fontSize: 9, color: '#c0bab2', marginTop: 2, paddingLeft: 2 }}>{f(plan, true)}</p>
+                        <p style={{ fontSize: 9, color: '#c0bab2', marginTop: 2, paddingLeft: 2 }}>{f(plan)}</p>
                       </td>
                     );
                   })}
@@ -155,7 +155,7 @@ export default function ActualsTable({
                     padding: '6px 8px', fontWeight: 600, fontSize: 12,
                     color: net === null ? '#d5d0c8' : net >= 0 ? '#2d9e6b' : '#c94040'
                   }}>
-                    {net === null ? '—' : `${net >= 0 ? '+' : ''}${f(net, true)}`}
+                    {net === null ? '—' : `${net >= 0 ? '+' : ''}${f(net)}`}
                   </td>
                 </tr>
               );
@@ -166,14 +166,14 @@ export default function ActualsTable({
               {['income', ...CATEGORIES].forEach(() => {})}
               {['income', ...CATEGORIES].map(key => (
                 <td key={key} style={{ padding: '8px 8px', fontWeight: 600, fontSize: 12, color: '#4a4643' }}>
-                  {yearTotals[key] > 0 ? f(yearTotals[key], true) : '—'}
+                  {yearTotals[key] > 0 ? f(yearTotals[key]) : '—'}
                 </td>
               ))}
               <td style={{
                 padding: '8px 8px', fontWeight: 700, fontSize: 12,
                 color: yearTotals.net >= 0 ? '#2d9e6b' : '#c94040'
               }}>
-                {yearTotals.monthsWithData > 0 ? `${yearTotals.net >= 0 ? '+' : ''}${f(yearTotals.net, true)}` : '—'}
+                {yearTotals.monthsWithData > 0 ? `${yearTotals.net >= 0 ? '+' : ''}${f(yearTotals.net)}` : '—'}
               </td>
             </tr>
           </tbody>
@@ -253,7 +253,7 @@ export default function ActualsTable({
                 <tr key={month} style={{ borderBottom: '1px solid #f9f7f3' }}>
                   <td style={{ padding: '6px 8px', fontWeight: 600, color: '#4a4643' }}>{month}</td>
                   <td style={{ padding: '6px 8px', fontWeight: 500, color: hasData ? '#1a1714' : '#d5d0c8' }}>
-                    {hasData ? f(total, true) : '—'}
+                    {hasData ? f(total) : '—'}
                   </td>
                   <td style={{ padding: '6px 8px' }}>
                     {hasData && prev && prevTotal > 0 && (

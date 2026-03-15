@@ -384,11 +384,10 @@ export default function ExpenseTracker({
                 <Lbl>MONTHLY SPEND</Lbl>
                 <div style={{ marginTop: 10 }}>
                   {(() => {
-                    const barMax = barChartData.length > 0 ? Math.max(...barChartData.map(d => d.total)) : 0;
                     const yFmt = v => {
-                      if (barMax < 1000) return `${currency.symbol}${v.toFixed(0)}`;
-                      if (barMax < 10000) return `${currency.symbol}${(v / 1000).toFixed(1)}k`;
-                      return `${currency.symbol}${(v / 1000).toFixed(0)}k`;
+                      const abs = Math.abs(v);
+                      if (abs >= 1_000_000) return `${currency.symbol}${(abs / 1_000_000).toFixed(1)}m`;
+                      return `${currency.symbol}${new Intl.NumberFormat(currency.locale, { maximumFractionDigits: 0 }).format(abs)}`;
                     };
                     return (
                   <ResponsiveContainer width="100%" height={140}>
@@ -833,7 +832,7 @@ export default function ExpenseTracker({
                       return (
                         <span key={cat} style={{ fontSize: 11, color: '#6b6660', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                           <span style={{ width: 7, height: 7, borderRadius: 2, background: color, display: 'inline-block' }} />
-                          {cat} {f(amt, true)}
+                          {cat} {f(amt)}
                         </span>
                       );
                     })}

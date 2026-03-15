@@ -232,7 +232,7 @@ export default function Plan({ state, set, f, currency, baseIncome, allocByCat, 
                         <span style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', color: '#b0aa9f', fontSize: 13, pointerEvents: 'none' }}>%</span>
                       </div>
                     </td>
-                    <td style={{ padding: '5px 10px', fontWeight: 500, color: '#4a4643' }}>{f(((Number(row.pct) || 0) / 100) * baseIncome, true)}</td>
+                    <td style={{ padding: '5px 10px', fontWeight: 500, color: '#4a4643' }}>{f(((Number(row.pct) || 0) / 100) * baseIncome)}</td>
                     <td style={{ padding: '5px 10px' }}><DelBtn onClick={() => set('allocation', prev => prev.filter(x => x.id !== row.id))} /></td>
                   </tr>
                 ))}

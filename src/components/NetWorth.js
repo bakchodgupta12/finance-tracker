@@ -125,7 +125,7 @@ export default function NetWorth({
                               {localVal > 0 ? `${accCur.symbol}${new Intl.NumberFormat(accCur.locale, { maximumFractionDigits: 0 }).format(localVal)}` : <span style={{ color: '#d5d0c8' }}>—</span>}
                             </td>
                             <td style={{ padding: '9px 12px', color: localVal > 0 ? '#2d2a26' : '#d5d0c8', fontWeight: localVal > 0 ? 600 : 400 }}>
-                              {localVal > 0 ? (homeVal !== null ? f(homeVal, true) : 'Rate unavailable') : '—'}
+                              {localVal > 0 ? (homeVal !== null ? f(homeVal) : 'Rate unavailable') : '—'}
                             </td>
                           </tr>
                         );
@@ -154,7 +154,7 @@ export default function NetWorth({
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f0ece4" />
                 <XAxis dataKey="month" stroke="#e8e4dc" tick={{ fill: '#b0aa9f', fontSize: 11 }} />
-                <YAxis stroke="#e8e4dc" tick={{ fill: '#b0aa9f', fontSize: 11 }} tickFormatter={v => `${currency.symbol}${(v / 1000).toFixed(0)}k`} />
+                <YAxis stroke="#e8e4dc" tick={{ fill: '#b0aa9f', fontSize: 11 }} tickFormatter={v => { const abs = Math.abs(v); if (abs >= 1_000_000) return `${currency.symbol}${(abs / 1_000_000).toFixed(1)}m`; return `${currency.symbol}${new Intl.NumberFormat(currency.locale, { maximumFractionDigits: 0 }).format(abs)}`; }} />
                 <Tooltip content={<ChartTip />} />
                 <Area type="monotone" dataKey="total" name="Net Worth" stroke="#7ec8a0" fill="url(#nwGrad)" strokeWidth={2} dot={{ fill: '#7ec8a0', r: 3 }} />
               </AreaChart>

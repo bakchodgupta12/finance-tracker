@@ -68,14 +68,11 @@ export function getCurrency(code) {
   return CURRENCIES.find(c => c.code === code) || CURRENCIES[0];
 }
 
-export function fmt(v = 0, sym = '£', locale = 'en-GB', compact = false) {
+export function fmt(v = 0, sym = '£', locale = 'en-GB') {
   const n = Number(v) || 0;
   const abs = Math.abs(n);
   const sign = n < 0 ? '-' : '';
-  if (compact) {
-    if (abs >= 1_000_000) return `${sign}${sym}${(abs / 1_000_000).toFixed(1)}m`;
-    if (abs >= 10_000)    return `${sign}${sym}${(abs / 1_000).toFixed(1)}k`;
-  }
+  if (abs >= 1_000_000) return `${sign}${sym}${(abs / 1_000_000).toFixed(1)}m`;
   return `${sign}${sym}${new Intl.NumberFormat(locale, { maximumFractionDigits: 0 }).format(abs)}`;
 }
 
