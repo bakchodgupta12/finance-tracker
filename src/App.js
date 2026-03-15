@@ -249,7 +249,9 @@ export default function App() {
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         height: 52, position: 'sticky', top: 0, zIndex: 10
       }}>
-        <p style={{ fontFamily: 'Lora, serif', fontSize: 18, fontWeight: 500, color: '#1a1714' }}>Finance Tracker</p>
+        <p style={{ fontFamily: 'Lora, serif', fontSize: 18, fontWeight: 500, color: '#1a1714' }}>
+          {(state.displayName?.trim() || (state.userId ? state.userId.charAt(0).toUpperCase() + state.userId.slice(1).toLowerCase() : ''))}'s Finance Tracker
+        </p>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           {/* Year selector */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>

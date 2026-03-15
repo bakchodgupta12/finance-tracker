@@ -107,9 +107,9 @@ export const makeDefaultState = () => ({
   ],
   // Plan: Subscriptions
   subscriptions: [
-    { id:1, label:'Gym Membership',              amount:0 },
-    { id:2, label:'Streaming (Netflix/Spotify)',  amount:0 },
-    { id:3, label:'Cloud Storage',               amount:0 },
+    { id:1, label:'Rent',          amount:0 },
+    { id:2, label:'Utilities',     amount:0 },
+    { id:3, label:'Subscriptions', amount:0 },
   ],
   // Plan: starting balance, savings goal & net worth goal
   startingBalance: 0, goalSavings: 10000, goalNetWorth: 0,
