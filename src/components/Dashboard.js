@@ -133,7 +133,7 @@ export default function Dashboard({
     const newCount = dismissCount + 1;
     if (newCount >= 4) {
       // 4th dismiss: permanently hide
-      set('checklistPermanentlyDismissed', true);
+      set('checklistPermanentlyDismissed');
     } else {
       set('checklistDismissCount', newCount);
     }
@@ -206,10 +206,10 @@ export default function Dashboard({
         <div style={{ ...s.card, padding: '14px 16px', position: 'relative', overflow: 'hidden' }}>
           <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: '#7eb5d6', opacity: 0.7 }} />
           <div style={{ marginTop: 4, marginBottom: 6 }}><span style={s.label}>NET WORTH</span></div>
-          <p style={{ fontSize: 19, fontWeight: 600, color: '#1a1714', marginBottom: 2 }}>{f(netWorth, true)}</p>
+          <p style={{ fontSize: 19, fontWeight: 600, color: '#1a1714', marginBottom: 2 }}>{f(netWorth)}</p>
           {momChange ? (
             <p style={{ fontSize: 11, color: momChange.diff >= 0 ? '#2d9e6b' : '#c94040', fontWeight: 600 }}>
-              {momChange.diff >= 0 ? '+' : ''}{f(momChange.diff, true)}
+              {momChange.diff >= 0 ? '+' : ''}{f(momChange.diff)}
               {momChange.pct !== null && ` (${momChange.pct >= 0 ? '+' : ''}${momChange.pct.toFixed(1)}%)`} vs prev
             </p>
           ) : (
@@ -222,7 +222,7 @@ export default function Dashboard({
           <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: '#7ec8a0', opacity: 0.7 }} />
           <div style={{ marginTop: 4, marginBottom: 6 }}><span style={s.label}>TOTAL SAVINGS</span></div>
           <p style={{ fontSize: 19, fontWeight: 600, color: '#1a1714', marginBottom: 2 }}>
-            {ytdSavings > 0 ? f(ytdSavings, true) : '—'}
+            {ytdSavings > 0 ? f(ytdSavings) : '—'}
           </p>
           <p style={{ fontSize: 11, color: '#b0aa9f' }}>this year so far</p>
         </div>
@@ -232,7 +232,7 @@ export default function Dashboard({
           <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: '#b5a8d6', opacity: 0.7 }} />
           <div style={{ marginTop: 4, marginBottom: 6 }}><span style={s.label}>TOTAL INVESTED</span></div>
           <p style={{ fontSize: 19, fontWeight: 600, color: '#1a1714', marginBottom: 2 }}>
-            {ytdInvested > 0 ? f(ytdInvested, true) : '—'}
+            {ytdInvested > 0 ? f(ytdInvested) : '—'}
           </p>
           <p style={{ fontSize: 11, color: '#b0aa9f' }}>this year so far</p>
         </div>
@@ -269,11 +269,10 @@ export default function Dashboard({
           <Lbl>NET WORTH TREND</Lbl>
           <div style={{ marginTop: 16 }}>
             {(() => {
-              const chartMax = chartData.length > 0 ? Math.max(...chartData.map(d => Math.abs(d.total))) : 0;
               const yFmt = v => {
-                if (chartMax < 1000) return `${currency.symbol}${v.toFixed(0)}`;
-                if (chartMax < 10000) return `${currency.symbol}${(v / 1000).toFixed(1)}k`;
-                return `${currency.symbol}${(v / 1000).toFixed(0)}k`;
+                const abs = Math.abs(v);
+                if (abs >= 1_000_000) return `${currency.symbol}${(abs / 1_000_000).toFixed(1)}m`;
+                return `${currency.symbol}${new Intl.NumberFormat(currency.locale, { maximumFractionDigits: 0 }).format(abs)}`;
               };
               return (
             <ResponsiveContainer width="100%" height={160}>
@@ -335,7 +334,7 @@ export default function Dashboard({
                             : <span style={{ color: '#d5d0c8' }}>—</span>}
                         </td>
                         <td style={{ ...tdStyle, color: localVal > 0 ? '#2d2a26' : '#d5d0c8', fontWeight: localVal > 0 ? 600 : 400 }}>
-                          {localVal > 0 ? (homeVal !== null ? f(homeVal, true) : 'Rate unavailable') : '—'}
+                          {localVal > 0 ? (homeVal !== null ? f(homeVal) : 'Rate unavailable') : '—'}
                         </td>
                       </tr>
                     );

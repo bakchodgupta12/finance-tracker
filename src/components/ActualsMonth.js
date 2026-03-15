@@ -196,7 +196,7 @@ export default function ActualsMonth({
                               </div>
                             </td>
                             <td style={{ padding: '9px 12px', color: homeVal === null ? '#d5d0c8' : '#2d2a26', fontWeight: 500 }}>
-                              {homeVal === null ? (localVal !== '' ? 'Rate unavailable' : '—') : f(homeVal, true)}
+                              {homeVal === null ? (localVal !== '' ? 'Rate unavailable' : '—') : f(homeVal)}
                             </td>
                             <td style={{ padding: '9px 12px' }}>
                               {pct === null ? null : pct === 'no-prev' ? (
@@ -286,7 +286,7 @@ export default function ActualsMonth({
                       </div>
                       {hasActual && (
                         <span style={{ fontSize: 12, fontWeight: 600, color: isGood ? '#2d9e6b' : '#c94040' }}>
-                          {diff >= 0 ? '+' : ''}{f(diff, true)}
+                          {diff >= 0 ? '+' : ''}{f(diff)}
                         </span>
                       )}
                     </div>

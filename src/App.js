@@ -66,7 +66,7 @@ export default function App() {
   , []);
 
   const currency = getCurrency(state.currencyCode || 'GBP');
-  const f = useCallback((v, compact) => fmt(v, currency.symbol, currency.locale, compact), [currency]);
+  const f = useCallback((v) => fmt(v, currency.symbol, currency.locale), [currency]);
 
   // Fetch FX rates whenever home currency changes
   useEffect(() => {
