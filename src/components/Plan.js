@@ -8,14 +8,14 @@ import {
 } from '../shared';
 
 const SUB_TABS = [
-  { id: 'income',     label: 'Income' },
-  { id: 'goals',      label: 'Goals' },
   { id: 'allocation', label: 'Allocation' },
+  { id: 'goals',      label: 'Goals' },
+  { id: 'income',     label: 'Income' },
   { id: 'expenses',   label: 'Expenses' },
 ];
 
 export default function Plan({ state, set, f, currency, baseIncome, allocByCat, totalAllocPct, netWorth, selectedYear }) {
-  const [subTab, setSubTab] = useState('income');
+  const [subTab, setSubTab] = useState('allocation');
 
   return (
     <div>

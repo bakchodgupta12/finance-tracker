@@ -92,7 +92,7 @@ export default function LoginScreen({ onLogin }) {
           <FG label="USERNAME"><Inp value={u} onChange={setU} placeholder="e.g. alex" onKeyDown={enter(checkUser)} /></FG>
           <Toast msg={err} type="error" />
           <button onClick={checkUser} disabled={busy} style={s.btn}>{busy?'Checking…':'Continue →'}</button>
-          <p style={{ fontSize:11, color:'#c0bab2', marginTop:14, textAlign:'center' }}>New username = new profile. Returning = loads your data.</p>
+          <p style={{ fontSize:11, color:'#c0bab2', marginTop:14, textAlign:'center' }}>Your personal finance profile. Private and password protected.</p>
         </>}
 
         {step==='password' && <>

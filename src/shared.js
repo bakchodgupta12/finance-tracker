@@ -143,7 +143,7 @@ export const s = {
 // ─────────────────────────────────────────────
 export const Inp = ({ value, onChange, type='text', style={}, placeholder='', onKeyDown, disabled }) => (
   <input type={type} value={value} placeholder={placeholder} onKeyDown={onKeyDown} disabled={disabled}
-    onChange={e => onChange(type==='number' ? (parseFloat(e.target.value)||0) : e.target.value)}
+    onChange={e => onChange(type==='number' ? (e.target.value === '' ? '' : (parseFloat(e.target.value) || 0)) : e.target.value)}
     style={{ ...s.input, ...style, opacity: disabled ? 0.5 : 1 }} />
 );
 
