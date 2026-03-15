@@ -529,11 +529,20 @@ export default function ExpenseTracker({
         ) : (
           <>
             <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, tableLayout: 'fixed' }}>
+                <colgroup>
+                  <col style={{ width: 110 }} />
+                  <col />
+                  <col style={{ width: 130 }} />
+                  <col style={{ width: 100 }} />
+                  <col style={{ width: 140 }} />
+                  <col style={{ width: 130 }} />
+                  <col style={{ width: 32 }} />
+                </colgroup>
                 <thead>
                   <tr>
                     {['Date', 'Description', 'Amount', 'Currency', 'Category', 'Paid By', ''].map(h => (
-                      <th key={h} style={thSt}>{h}</th>
+                      <th key={h} style={{ ...thSt, textAlign: h === 'Amount' ? 'right' : 'left' }}>{h}</th>
                     ))}
                   </tr>
                 </thead>
@@ -555,7 +564,7 @@ export default function ExpenseTracker({
                             <input
                               type="date" value={exp.date}
                               onChange={e => updateExp(exp.id, 'date', e.target.value)}
-                              style={{ ...inpSt, width: 130 }}
+                              style={{ ...inpSt, width: '100%' }}
                             />
                           </td>
                           {/* Description + dropdown */}
@@ -570,7 +579,7 @@ export default function ExpenseTracker({
                                 if (e.key === 'Enter') saveRow(exp.id);
                                 if (e.key === 'Escape') setShowSugg(false);
                               }}
-                              style={{ ...inpSt, width: 160 }}
+                              style={{ ...inpSt, width: '100%' }}
                             />
                             {showSugg && suggestions.length > 0 && (
                               <div style={{
@@ -598,7 +607,7 @@ export default function ExpenseTracker({
                             <input
                               type="number" value={exp.amount} placeholder="0"
                               onChange={e => updateExp(exp.id, 'amount', e.target.value === '' ? '' : parseFloat(e.target.value) || 0)}
-                              style={{ ...inpSt, width: 90, textAlign: 'right' }}
+                              style={{ ...inpSt, width: '100%', textAlign: 'right' }}
                             />
                           </td>
                           {/* Currency */}
@@ -606,7 +615,7 @@ export default function ExpenseTracker({
                             <select
                               value={exp.currency}
                               onChange={e => updateExp(exp.id, 'currency', e.target.value)}
-                              style={{ ...inpSt, width: 80 }}
+                              style={{ ...inpSt, width: '100%' }}
                             >
                               {CURRENCIES.map(c => <option key={c.code} value={c.code}>{c.code}</option>)}
                             </select>
@@ -616,7 +625,7 @@ export default function ExpenseTracker({
                             <select
                               value={exp.category}
                               onChange={e => { updateExp(exp.id, 'category', e.target.value); setAutoFilled(p => ({ ...p, category: false })); }}
-                              style={{ ...inpSt, width: 130, background: autoFilled.category ? autoFillBg : inpSt.background }}
+                              style={{ ...inpSt, width: '100%', background: autoFilled.category ? autoFillBg : inpSt.background }}
                             >
                               {categories.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
                               {/* keep stale value if category was deleted */}
@@ -649,7 +658,7 @@ export default function ExpenseTracker({
                             <select
                               value={exp.paidBy}
                               onChange={e => { updateExp(exp.id, 'paidBy', e.target.value); setAutoFilled(p => ({ ...p, paidBy: false })); }}
-                              style={{ ...inpSt, width: 130, background: autoFilled.paidBy ? autoFillBg : inpSt.background }}
+                              style={{ ...inpSt, width: '100%', background: autoFilled.paidBy ? autoFillBg : inpSt.background }}
                             >
                               <option value="">—</option>
                               {paymentMethods.map(pm => <option key={pm.id} value={pm.name}>{pm.name}</option>)}

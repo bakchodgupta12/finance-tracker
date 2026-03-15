@@ -181,14 +181,19 @@ export default function ActualsMonth({
                         return (
                           <tr key={acc.id} style={{ borderBottom: '1px solid #f9f7f3' }}>
                             <td style={{ padding: '9px 12px', fontWeight: 500, color: '#1a1714' }}>{acc.name}</td>
-                            <td style={{ padding: '4px 12px' }}>
+                            <td style={{ padding: '4px 8px 4px 12px' }}>
                               <div style={{ display: 'flex', alignItems: 'center' }}>
-                                <span style={{ flexShrink: 0, fontSize: 12, color: '#b0aa9f', marginRight: 4 }}>
-                                  {flag && <span style={{ marginRight: 2 }}>{flag}</span>}{accCur.symbol}
+                                <span style={{
+                                  display: 'inline-block', width: 56, flexShrink: 0,
+                                  textAlign: 'right', paddingRight: 6,
+                                  fontSize: 12, color: '#b0aa9f',
+                                  overflow: 'hidden', whiteSpace: 'nowrap',
+                                }}>
+                                  {flag}{accCur.symbol}
                                 </span>
                                 <Inp type="number" value={localVal} placeholder="—"
                                   onChange={v => setSnap(selectedMonth, acc.id, v)}
-                                  style={{ width: 110 }}
+                                  style={{ width: 120 }}
                                 />
                               </div>
                             </td>
