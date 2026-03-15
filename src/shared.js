@@ -197,6 +197,24 @@ export const Inp = ({ value, onChange, type='text', style={}, placeholder='', on
     style={{ ...s.input, ...style, opacity: disabled ? 0.5 : 1 }} />
 );
 
+export const Select = ({ value, onChange, style = {}, children }) => {
+  const { flex, width = '100%', ...restStyle } = style;
+  return (
+    <div style={{ position: 'relative', flex, width }}>
+      <select value={value} onChange={onChange} style={{
+        background: '#f9f7f3', border: '1px solid #e8e4dc', borderRadius: 7,
+        color: '#2d2a26', fontFamily: 'inherit', outline: 'none',
+        cursor: 'pointer', width: '100%', padding: '9px 12px', fontSize: 14,
+        ...restStyle,
+        appearance: 'none', WebkitAppearance: 'none', paddingRight: 28,
+      }}>
+        {children}
+      </select>
+      <div style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', color: '#9e9890', fontSize: 11 }}>▾</div>
+    </div>
+  );
+};
+
 export const Lbl = ({ children }) => <p style={{ ...s.label, marginBottom:6 }}>{children}</p>;
 
 export const DelBtn = ({ onClick }) => (

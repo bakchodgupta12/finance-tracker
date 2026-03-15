@@ -268,15 +268,25 @@ export default function Dashboard({
         <div style={{ ...s.card, marginBottom: 16 }}>
           <Lbl>NET WORTH TREND</Lbl>
           <div style={{ marginTop: 16 }}>
+            {(() => {
+              const chartMax = chartData.length > 0 ? Math.max(...chartData.map(d => Math.abs(d.total))) : 0;
+              const yFmt = v => {
+                if (chartMax < 1000) return `${currency.symbol}${v.toFixed(0)}`;
+                if (chartMax < 10000) return `${currency.symbol}${(v / 1000).toFixed(1)}k`;
+                return `${currency.symbol}${(v / 1000).toFixed(0)}k`;
+              };
+              return (
             <ResponsiveContainer width="100%" height={160}>
               <LineChart data={chartData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f0ece4" />
                 <XAxis dataKey="month" stroke="#e8e4dc" tick={{ fill: '#b0aa9f', fontSize: 11 }} />
-                <YAxis stroke="#e8e4dc" tick={{ fill: '#b0aa9f', fontSize: 11 }} tickFormatter={v => `${currency.symbol}${(v / 1000).toFixed(0)}k`} />
+                <YAxis stroke="#e8e4dc" tick={{ fill: '#b0aa9f', fontSize: 11 }} tickFormatter={yFmt} />
                 <Tooltip content={<ChartTip />} />
                 <Line type="monotone" dataKey="total" name="Net Worth" stroke="#7ec8a0" strokeWidth={2} dot={{ fill: '#7ec8a0', r: 4, strokeWidth: 0 }} activeDot={{ r: 5 }} />
               </LineChart>
             </ResponsiveContainer>
+              );
+            })()}
           </div>
         </div>
       ) : (

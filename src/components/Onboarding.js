@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { s, Inp, CURRENCIES, ACCOUNT_TYPES } from '../shared';
+import { s, Inp, Select, CURRENCIES, ACCOUNT_TYPES } from '../shared';
 
 export default function Onboarding({ onComplete }) {
   const [step, setStep]           = useState(1);
@@ -65,13 +65,13 @@ export default function Onboarding({ onComplete }) {
             <p style={{ fontSize: 13, fontWeight: 600, color: '#4a4643', marginBottom: 8 }}>
               What's your home currency?
             </p>
-            <select
+            <Select
               value={currency}
               onChange={e => { setCurrency(e.target.value); setAccCurrency(e.target.value); }}
-              style={{ ...s.input, fontSize: 15, padding: '10px 14px', marginBottom: 28 }}
+              style={{ fontSize: 15, padding: '10px 14px', marginBottom: 28 }}
             >
               {CURRENCIES.map(c => <option key={c.code} value={c.code}>{c.symbol} {c.code}</option>)}
-            </select>
+            </Select>
             <button onClick={() => setStep(2)} style={s.btn}>Continue →</button>
             {dots}
           </>
@@ -136,15 +136,15 @@ export default function Onboarding({ onComplete }) {
             <div style={{ display: 'flex', gap: 10, marginBottom: 28 }}>
               <div style={{ flex: 1 }}>
                 <p style={{ fontSize: 11, color: '#9e9890', letterSpacing: '0.1em', fontWeight: 600, marginBottom: 6 }}>TYPE</p>
-                <select value={accType} onChange={e => setAccType(e.target.value)} style={s.input}>
+                <Select value={accType} onChange={e => setAccType(e.target.value)}>
                   {ACCOUNT_TYPES.map(t => <option key={t}>{t}</option>)}
-                </select>
+                </Select>
               </div>
               <div style={{ flex: 1 }}>
                 <p style={{ fontSize: 11, color: '#9e9890', letterSpacing: '0.1em', fontWeight: 600, marginBottom: 6 }}>CURRENCY</p>
-                <select value={accCurrency} onChange={e => setAccCurrency(e.target.value)} style={s.input}>
+                <Select value={accCurrency} onChange={e => setAccCurrency(e.target.value)}>
                   {CURRENCIES.map(c => <option key={c.code} value={c.code}>{c.code}</option>)}
-                </select>
+                </Select>
               </div>
             </div>
             <button onClick={() => finish(false)} style={s.btn}>Finish setup →</button>

@@ -3,7 +3,7 @@ import {
   PieChart, Pie, Cell
 } from 'recharts';
 import {
-  s, Lbl, Inp, DelBtn, AddBtn, Divider,
+  s, Lbl, Inp, DelBtn, AddBtn, Divider, Select,
   CAT_COLORS, CATEGORIES
 } from '../shared';
 
@@ -172,9 +172,9 @@ export default function Plan({ state, set, f, currency, baseIncome, allocByCat, 
                   <tr key={row.id} style={{ borderBottom: '1px solid #f9f7f3' }}>
                     <td style={{ padding: '5px 10px' }}><Inp value={row.label} onChange={v => set('allocation', prev => prev.map(x => x.id === row.id ? { ...x, label: v } : x))} style={{ width: 160 }} /></td>
                     <td style={{ padding: '5px 10px' }}>
-                      <select value={row.category} onChange={e => set('allocation', prev => prev.map(x => x.id === row.id ? { ...x, category: e.target.value } : x))} style={{ ...s.input, width: 'auto' }}>
+                      <Select value={row.category} onChange={e => set('allocation', prev => prev.map(x => x.id === row.id ? { ...x, category: e.target.value } : x))} style={{ width: 'auto' }}>
                         {CATEGORIES.map(c => <option key={c}>{c}</option>)}
-                      </select>
+                      </Select>
                     </td>
                     <td style={{ padding: '5px 10px' }}>
                       <div style={{ position: 'relative', width: 82 }}>

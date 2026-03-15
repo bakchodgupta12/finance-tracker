@@ -3,7 +3,7 @@ import {
   saveData, loadData, loadLatestData, listYears, fetchFxRates, deleteUser
 } from './supabase';
 import {
-  TABS, getCurrency, fmt, getMonthsFromStart, makeDefaultState, s
+  TABS, getCurrency, fmt, getMonthsFromStart, makeDefaultState, s, Select
 } from './shared';
 import LoginScreen from './components/LoginScreen';
 import Onboarding from './components/Onboarding';
@@ -301,16 +301,13 @@ export default function App() {
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           {/* Year selector */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <select
+            <Select
               value={selectedYear}
               onChange={e => switchYear(Number(e.target.value))}
-              style={{
-                ...s.input, width: 'auto', padding: '4px 8px', fontSize: 13,
-                fontWeight: 600, background: '#f9f7f3', cursor: 'pointer'
-              }}
+              style={{ width: 'auto', padding: '4px 8px', fontSize: 13, fontWeight: 600 }}
             >
               {availableYears.map(y => <option key={y} value={y}>{y}</option>)}
-            </select>
+            </Select>
             <button
               onClick={() => setShowNewYearConfirm(true)}
               style={{
