@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import {
   PieChart, Pie, Cell
 } from 'recharts';
@@ -14,6 +14,10 @@ const SUB_TABS = [
 
 export default function Plan({ state, set, f, currency, baseIncome, allocByCat, totalAllocPct, netWorth, selectedYear, navigate }) {
   const [subTab, setSubTab] = useState('allocation');
+  const [dragId, setDragId] = useState(null);
+  const [dragOverId, setDragOverId] = useState(null);
+  const [hoveredRowId, setHoveredRowId] = useState(null);
+  const dragNode = useRef(null);
 
   return (
     <div>
@@ -163,10 +167,10 @@ export default function Plan({ state, set, f, currency, baseIncome, allocByCat, 
               <Lbl>YOUR BENCHMARK</Lbl>
               <p style={{ fontSize: 11, color: '#b0aa9f', marginBottom: 12 }}>Set your target percentages. Default is 50/30/20.</p>
               {[
-                { key: 'benchmarkNeeds', cat: 'Needs', yours: allocByCat['Needs'] || 0, lowerIsBetter: true },
-                { key: 'benchmarkWants', cat: 'Wants', yours: allocByCat['Wants'] || 0, lowerIsBetter: true },
-                { key: 'benchmarkSavingsInvest', cat: 'Savings + Invest', yours: (allocByCat['Savings'] || 0) + (allocByCat['Investments'] || 0), lowerIsBetter: false },
-              ].map(({ key, cat, yours, lowerIsBetter }) => {
+                { key: 'benchmarkNeeds', cat: 'Needs', yours: allocByCat['Needs'] || 0, lowerIsBetter: true, barColor: '#E8A838' },
+                { key: 'benchmarkWants', cat: 'Wants', yours: allocByCat['Wants'] || 0, lowerIsBetter: true, barColor: '#D96B6B' },
+                { key: 'benchmarkSavingsInvest', cat: 'Savings + Invest', yours: (allocByCat['Savings'] || 0) + (allocByCat['Investments'] || 0), lowerIsBetter: false, barColor: '#6dbb8a' },
+              ].map(({ key, cat, yours, lowerIsBetter, barColor }) => {
                 const bench = state[key] ?? (key === 'benchmarkNeeds' ? 50 : key === 'benchmarkWants' ? 30 : 20);
                 const ok = lowerIsBetter ? yours <= bench : yours >= bench;
                 return (
@@ -186,7 +190,7 @@ export default function Plan({ state, set, f, currency, baseIncome, allocByCat, 
                       <span style={{ color: ok ? '#2d9e6b' : '#c94040', fontWeight: 600 }}>{yours.toFixed(0)}%</span>
                     </div>
                     <div style={{ height: 4, background: '#f0ece4', borderRadius: 4, overflow: 'hidden' }}>
-                      <div style={{ height: '100%', width: `${Math.min(bench > 0 ? (yours / bench) * 100 : 0, 100)}%`, background: ok ? '#7ec8a0' : '#e8a598', borderRadius: 4, transition: 'width 0.4s' }} />
+                      <div style={{ height: '100%', width: `${Math.min(bench > 0 ? (yours / bench) * 100 : 0, 100)}%`, background: barColor, borderRadius: 4, transition: 'width 0.4s' }} />
                     </div>
                   </div>
                 );
@@ -204,20 +208,49 @@ export default function Plan({ state, set, f, currency, baseIncome, allocByCat, 
             </div>
             <table style={{ width: '100%', tableLayout: 'fixed', borderCollapse: 'collapse', fontSize: 13 }}>
               <colgroup>
-                <col style={{ width: '30%' }} />
-                <col style={{ width: '25%' }} />
+                <col style={{ width: '28%' }} />
+                <col style={{ width: '24%' }} />
+                <col style={{ width: '17%' }} />
                 <col style={{ width: '18%' }} />
-                <col style={{ width: '20%' }} />
                 <col style={{ width: '7%' }}  />
+                <col style={{ width: '6%' }}  />
               </colgroup>
               <thead>
-                <tr>{['Label', 'Category', '% of Income', 'Monthly Amount', ''].map(h => (
-                  <th key={h} style={{ padding: '8px 10px', color: '#b0aa9f', fontSize: 10, letterSpacing: '0.08em', textAlign: 'left', borderBottom: '1px solid #f0ece4', fontWeight: 500 }}>{h}</th>
+                <tr>{['Label', 'Category', '% of Income', 'Monthly Amount', '', ''].map((h, i) => (
+                  <th key={i} style={{ padding: '8px 10px', color: '#b0aa9f', fontSize: 10, letterSpacing: '0.08em', textAlign: 'left', borderBottom: '1px solid #f0ece4', fontWeight: 500 }}>{h}</th>
                 ))}</tr>
               </thead>
               <tbody>
                 {state.allocation.map(row => (
-                  <tr key={row.id} style={{ borderBottom: '1px solid #f9f7f3' }}>
+                  <tr
+                    key={row.id}
+                    draggable
+                    onMouseEnter={() => setHoveredRowId(row.id)}
+                    onMouseLeave={() => setHoveredRowId(null)}
+                    onDragStart={() => { setDragId(row.id); dragNode.current = row.id; }}
+                    onDragOver={e => { e.preventDefault(); setDragOverId(row.id); }}
+                    onDrop={() => {
+                      if (dragId !== null && dragId !== row.id) {
+                        set('allocation', prev => {
+                          const next = [...prev];
+                          const from = next.findIndex(x => x.id === dragId);
+                          const to = next.findIndex(x => x.id === row.id);
+                          const [moved] = next.splice(from, 1);
+                          next.splice(to, 0, moved);
+                          return next;
+                        });
+                      }
+                      setDragId(null);
+                      setDragOverId(null);
+                    }}
+                    onDragEnd={() => { setDragId(null); setDragOverId(null); }}
+                    style={{
+                      borderBottom: '1px solid #f9f7f3',
+                      borderLeft: `3px solid ${CAT_COLORS[row.category] || '#e8e4dc'}`,
+                      borderTop: dragOverId === row.id && dragId !== row.id ? '2px solid #7eb5d6' : undefined,
+                      opacity: dragId === row.id ? 0.4 : 1,
+                    }}
+                  >
                     <td style={{ padding: '5px 10px' }}>
                       <Inp value={row.label} onChange={v => set('allocation', prev => prev.map(x => x.id === row.id ? { ...x, label: v } : x))} style={{ width: '100%', overflow: 'hidden', textOverflow: 'ellipsis' }} />
                     </td>
@@ -234,6 +267,7 @@ export default function Plan({ state, set, f, currency, baseIncome, allocByCat, 
                     </td>
                     <td style={{ padding: '5px 10px', fontWeight: 500, color: '#4a4643' }}>{f(((Number(row.pct) || 0) / 100) * baseIncome)}</td>
                     <td style={{ padding: '5px 10px' }}><DelBtn onClick={() => set('allocation', prev => prev.filter(x => x.id !== row.id))} /></td>
+                    <td style={{ padding: '5px 6px', textAlign: 'center', color: '#d0ccc5', fontSize: 16, cursor: 'grab', userSelect: 'none', opacity: hoveredRowId === row.id ? 1 : 0 }}>⠿</td>
                   </tr>
                 ))}
               </tbody>
