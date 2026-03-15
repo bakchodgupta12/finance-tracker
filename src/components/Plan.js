@@ -12,7 +12,7 @@ const SUB_TABS = [
   { id: 'goals',      label: 'Goals' },
 ];
 
-export default function Plan({ state, set, f, currency, baseIncome, allocByCat, totalAllocPct, netWorth, selectedYear }) {
+export default function Plan({ state, set, f, currency, baseIncome, allocByCat, totalAllocPct, netWorth, selectedYear, navigate }) {
   const [subTab, setSubTab] = useState('allocation');
 
   return (
@@ -95,6 +95,47 @@ export default function Plan({ state, set, f, currency, baseIncome, allocByCat, 
       {/* ── Allocation ── */}
       {subTab === 'allocation' && (
         <div>
+          {/* Base income input */}
+          <div style={{ ...s.card, marginBottom: 16 }}>
+            <Lbl>BASE MONTHLY INCOME</Lbl>
+            <p style={{ fontSize: 12, color: '#b0aa9f', marginBottom: 10 }}>
+              Used to calculate your monthly allocation amounts.
+            </p>
+            {state.incomeSources.length === 1 ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span style={{ color: '#b0aa9f', fontSize: 13, flexShrink: 0 }}>{currency.symbol}</span>
+                <Inp
+                  type="number"
+                  value={state.incomeSources[0].amount || ''}
+                  onChange={v => set('incomeSources', prev => prev.map((src, i) => i === 0 ? { ...src, amount: v } : src))}
+                  placeholder="0"
+                  style={{ maxWidth: 200 }}
+                />
+              </div>
+            ) : (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span style={{ color: '#b0aa9f', fontSize: 13, flexShrink: 0 }}>{currency.symbol}</span>
+                <input
+                  type="number"
+                  value={baseIncome}
+                  readOnly
+                  style={{ ...s.input, maxWidth: 200, background: '#f0ece4', color: '#9e9890', cursor: 'not-allowed' }}
+                />
+              </div>
+            )}
+            {state.incomeSources.length > 1 && (
+              <p style={{ fontSize: 11, color: '#b0aa9f', marginTop: 6 }}>
+                Total from {state.incomeSources.length} income sources. Edit in Tracker → Income.
+              </p>
+            )}
+            <button
+              onClick={() => navigate && navigate('tracker', 'income')}
+              style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 11, color: '#7eb5d6', padding: 0, marginTop: 8, fontFamily: 'inherit' }}
+            >
+              Manage income sources in Tracker → Income
+            </button>
+          </div>
+
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 16 }}>
             {/* Donut chart */}
             <div style={{ ...s.card, display: 'flex', alignItems: 'center', gap: 20 }}>
