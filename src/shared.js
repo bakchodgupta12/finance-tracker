@@ -5,6 +5,11 @@ import React from 'react';
 // ─────────────────────────────────────────────
 export const ALL_MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 export const TABS = ['dashboard','plan','tracker','net worth','settings'];
+
+export const EXPENSE_CATEGORY_COLORS = [
+  '#7eb5d6','#7ec8a0','#e8a598','#d6a8c8','#fdba74',
+  '#f9a8d4','#b5a8d6','#e8c55a','#84a98c','#b0aa9f',
+];
 export const CAT_COLORS = { Savings:'#7ec8a0', Investments:'#7eb5d6', Needs:'#e8a598', Wants:'#d6a8c8' };
 export const CATEGORIES = ['Savings','Investments','Needs','Wants'];
 
@@ -91,6 +96,8 @@ export const makeDefaultState = () => ({
   manualFxRates: {},
   // Custom benchmark targets (default 50/30/20)
   benchmarkNeeds: 50, benchmarkWants: 30, benchmarkSavingsInvest: 20,
+  // Feature modules
+  modules: { income: true, expenses: true, trades: true },
   // Plan: Income
   incomeSources: [{ id:1, label:'Salary', amount:3000 }],
   monthlyIncomeOverrides: {},
@@ -115,8 +122,8 @@ export const makeDefaultState = () => ({
   startingBalance: 0, goalSavings: 10000, goalNetWorth: 0,
   // Actuals
   actuals: {},
-  // Accounts
-  accounts: DEFAULT_ACCOUNTS,
+  // Accounts (empty by default — new users set up via onboarding)
+  accounts: [],
   accountSnapshots: {},
   // Liabilities
   liabilities: [
@@ -124,6 +131,22 @@ export const makeDefaultState = () => ({
     { id:2, label:'Credit Card',      amount:0 },
     { id:3, label:'Student Loan',     amount:0 },
   ],
+  // Expenses
+  expenses: [],
+  expenseCategories: [
+    { id:1,  name:'Rent',          color:'#7eb5d6' },
+    { id:2,  name:'Groceries',     color:'#7ec8a0' },
+    { id:3,  name:'Food',          color:'#e8a598' },
+    { id:4,  name:'Transport',     color:'#d6a8c8' },
+    { id:5,  name:'Utilities',     color:'#fdba74' },
+    { id:6,  name:'Shopping',      color:'#f9a8d4' },
+    { id:7,  name:'Entertainment', color:'#b5a8d6' },
+    { id:8,  name:'Travel',        color:'#60a5c8' },
+    { id:9,  name:'Drinks',        color:'#e8c55a' },
+    { id:10, name:'Health',        color:'#84a98c' },
+    { id:11, name:'Other',         color:'#b0aa9f' },
+  ],
+  paymentMethods: [],
 });
 
 // ─────────────────────────────────────────────
