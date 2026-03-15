@@ -177,7 +177,7 @@ export const makeDefaultState = () => ({
 export const s = {
   card:  { background:'#fff', border:'1px solid #e8e4dc', borderRadius:14, padding:'22px 24px' },
   label: { fontSize:10, color:'#9e9890', letterSpacing:'0.12em', fontWeight:600, margin:0 },
-  input: { background:'#f9f7f3', border:'1px solid #e8e4dc', borderRadius:7, color:'#2d2a26', padding:'9px 12px', fontSize:14, outline:'none', fontFamily:'inherit', width:'100%' },
+  input: { background:'#f9f7f3', border:'1px solid #e8e4dc', borderRadius:7, color:'#2d2a26', padding:'9px 28px 9px 12px', fontSize:14, outline:'none', fontFamily:'inherit', width:'100%' },
   btn:   { width:'100%', background:'#2d2a26', color:'#f7f5f0', border:'none', borderRadius:8, padding:'10px', fontSize:14, cursor:'pointer', fontFamily:'inherit' },
   btnSec:{ width:'100%', background:'transparent', color:'#9e9890', border:'1px solid #e8e4dc', borderRadius:8, padding:'9px', fontSize:13, cursor:'pointer', fontFamily:'inherit', marginTop:8 },
   btnDanger:{ width:'100%', background:'transparent', color:'#c94040', border:'1px solid #e8a598', borderRadius:8, padding:'9px', fontSize:13, cursor:'pointer', fontFamily:'inherit', marginTop:8 },
