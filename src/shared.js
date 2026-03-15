@@ -4,7 +4,7 @@ import React from 'react';
 // Constants
 // ─────────────────────────────────────────────
 export const ALL_MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-export const TABS = ['dashboard','plan','actuals (table)','actuals (month)','net worth','settings'];
+export const TABS = ['dashboard','plan','tracker','net worth','settings'];
 export const CAT_COLORS = { Savings:'#7ec8a0', Investments:'#7eb5d6', Needs:'#e8a598', Wants:'#d6a8c8' };
 export const CATEGORIES = ['Savings','Investments','Needs','Wants'];
 
@@ -111,8 +111,8 @@ export const makeDefaultState = () => ({
     { id:2, label:'Streaming (Netflix/Spotify)',  amount:0 },
     { id:3, label:'Cloud Storage',               amount:0 },
   ],
-  // Plan: starting balance & goal
-  startingBalance: 0, goalSavings: 10000,
+  // Plan: starting balance, savings goal & net worth goal
+  startingBalance: 0, goalSavings: 10000, goalNetWorth: 0,
   // Actuals
   actuals: {},
   // Accounts

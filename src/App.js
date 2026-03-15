@@ -8,8 +8,7 @@ import {
 import LoginScreen from './components/LoginScreen';
 import Dashboard from './components/Dashboard';
 import Plan from './components/Plan';
-import ActualsTable from './components/ActualsTable';
-import ActualsMonth from './components/ActualsMonth';
+import Tracker from './components/ActualsMonth';
 import NetWorth from './components/NetWorth';
 import Settings from './components/Settings';
 
@@ -147,6 +146,7 @@ export default function App() {
       accounts: JSON.parse(JSON.stringify(state.accounts)),
       liabilities: JSON.parse(JSON.stringify(state.liabilities)),
       goalSavings: state.goalSavings,
+      goalNetWorth: state.goalNetWorth,
     };
 
     // Pre-fill starting balance from previous year's December closing
@@ -308,12 +308,8 @@ export default function App() {
           <Plan {...commonProps} totalAllocPct={totalAllocPct} />
         )}
 
-        {tab === 'actuals (table)' && (
-          <ActualsTable {...commonProps} />
-        )}
-
-        {tab === 'actuals (month)' && (
-          <ActualsMonth {...commonProps} />
+        {tab === 'tracker' && (
+          <Tracker {...commonProps} />
         )}
 
         {tab === 'net worth' && (

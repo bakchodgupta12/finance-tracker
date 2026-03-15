@@ -1,20 +1,20 @@
-import { useState, useMemo } from 'react';
+import { useState } from 'react';
 import {
-  PieChart, Pie, Cell, ResponsiveContainer
+  PieChart, Pie, Cell
 } from 'recharts';
 import {
-  s, Lbl, Inp, DelBtn, AddBtn, Divider, Tag,
-  CAT_COLORS, CATEGORIES, CURRENCIES,
-  getCurrency, fmt
+  s, Lbl, Inp, DelBtn, AddBtn, Divider,
+  CAT_COLORS, CATEGORIES
 } from '../shared';
 
 const SUB_TABS = [
-  { id: 'income', label: 'Income' },
+  { id: 'income',     label: 'Income' },
+  { id: 'goals',      label: 'Goals' },
   { id: 'allocation', label: 'Allocation' },
-  { id: 'subscriptions', label: 'Subscriptions' },
+  { id: 'expenses',   label: 'Expenses' },
 ];
 
-export default function Plan({ state, set, f, currency, baseIncome, allocByCat, totalAllocPct }) {
+export default function Plan({ state, set, f, currency, baseIncome, allocByCat, totalAllocPct, netWorth, selectedYear }) {
   const [subTab, setSubTab] = useState('income');
 
   return (
@@ -39,7 +39,7 @@ export default function Plan({ state, set, f, currency, baseIncome, allocByCat, 
           <div style={s.card}>
             <Lbl>MONTHLY INCOME SOURCES</Lbl>
             <p style={{ fontSize: 12, color: '#b0aa9f', marginBottom: 16 }}>
-              Base income each month. Individual months can be overridden in the Actuals tab.
+              Base income each month. Individual months can be overridden in the Tracker tab.
             </p>
             {state.incomeSources.map(src => (
               <div key={src.id} style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8 }}>
@@ -55,6 +55,67 @@ export default function Plan({ state, set, f, currency, baseIncome, allocByCat, 
               <span style={{ fontSize: 13, color: '#6b6660' }}>Total base monthly income</span>
               <span style={{ fontSize: 17, fontWeight: 600 }}>{f(baseIncome)}</span>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Goals ── */}
+      {subTab === 'goals' && (
+        <div style={{ maxWidth: 560 }}>
+          <div style={s.card}>
+            <Lbl>TARGET NET WORTH BY END OF {selectedYear}</Lbl>
+            <p style={{ fontSize: 12, color: '#b0aa9f', marginBottom: 12 }}>
+              Set an annual net worth target. Your current net worth is tracked against this goal on the Dashboard.
+            </p>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 20 }}>
+              <span style={{ color: '#b0aa9f', fontSize: 13 }}>{currency.symbol}</span>
+              <Inp
+                type="number"
+                value={state.goalNetWorth || 0}
+                onChange={v => set('goalNetWorth', v)}
+                placeholder="e.g. 100000"
+                style={{ flex: 1 }}
+              />
+            </div>
+
+            {/* Progress */}
+            {(() => {
+              const goal = state.goalNetWorth || 0;
+              if (goal <= 0) return (
+                <p style={{ fontSize: 12, color: '#b0aa9f' }}>Enter a target above to track your progress.</p>
+              );
+
+              const pct = Math.max(0, (netWorth / goal) * 100);
+              const reached = pct >= 100;
+
+              return (
+                <div>
+                  {reached ? (
+                    <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 10, padding: '14px 16px' }}>
+                      <p style={{ fontSize: 15, fontWeight: 700, color: '#2d9e6b', marginBottom: 4 }}>
+                        ✓ Goal reached — {f(netWorth)} / {f(goal)}
+                      </p>
+                      <p style={{ fontSize: 12, color: '#2d9e6b' }}>Your net worth has reached this year's target.</p>
+                    </div>
+                  ) : (
+                    <div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: 8 }}>
+                        <span style={{ color: '#6b6660' }}>{f(netWorth)} of {f(goal)}</span>
+                        <span style={{ fontWeight: 700, color: '#2d2a26' }}>{pct.toFixed(0)}% of the way there</span>
+                      </div>
+                      <div style={{ height: 8, background: '#f0ece4', borderRadius: 8, overflow: 'hidden' }}>
+                        <div style={{
+                          height: '100%',
+                          width: `${Math.min(pct, 100)}%`,
+                          background: pct >= 75 ? '#7ec8a0' : pct >= 40 ? '#7eb5d6' : '#e8a598',
+                          borderRadius: 8, transition: 'width 0.4s',
+                        }} />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
           </div>
         </div>
       )}
@@ -164,13 +225,13 @@ export default function Plan({ state, set, f, currency, baseIncome, allocByCat, 
         </div>
       )}
 
-      {/* ── Subscriptions ── */}
-      {subTab === 'subscriptions' && (
+      {/* ── Expenses ── */}
+      {subTab === 'expenses' && (
         <div style={{ maxWidth: 560 }}>
           <div style={s.card}>
-            <Lbl>FIXED MONTHLY COSTS</Lbl>
+            <Lbl>MONTHLY EXPENSES</Lbl>
             <p style={{ fontSize: 12, color: '#b0aa9f', marginBottom: 16 }}>
-              Recurring subscriptions and fixed costs. These feed into your Needs category context.
+              Enter your monthly costs (rent, utilities, subscriptions, etc.)
             </p>
             {state.subscriptions.map(sub => (
               <div key={sub.id} style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8 }}>
@@ -180,7 +241,7 @@ export default function Plan({ state, set, f, currency, baseIncome, allocByCat, 
                 <DelBtn onClick={() => set('subscriptions', prev => prev.filter(x => x.id !== sub.id))} />
               </div>
             ))}
-            <AddBtn onClick={() => set('subscriptions', prev => [...prev, { id: Date.now(), label: 'New Subscription', amount: 0 }])} />
+            <AddBtn onClick={() => set('subscriptions', prev => [...prev, { id: Date.now(), label: 'New Expense', amount: 0 }])} />
             <Divider />
             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
               <span style={{ fontSize: 13, color: '#6b6660' }}>Total / month</span>
