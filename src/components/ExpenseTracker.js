@@ -1,9 +1,9 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell,
 } from 'recharts';
-import { s, Lbl, DelBtn, CURRENCIES, getCurrency, ALL_MONTHS } from '../shared';
+import { s, Lbl, DelBtn, CURRENCIES, getCurrency, getCurrencyFlag, ALL_MONTHS } from '../shared';
 
 // ── Auto-suggest helper ───────────────────────────────────────────────────────
 function getAutoSuggest(description, expenses) {
@@ -62,6 +62,7 @@ export default function ExpenseTracker({
   const [showSugg,      setShowSugg]      = useState(false);
   // track which fields were auto-filled (reset on editingId change)
   const [autoFilled,    setAutoFilled]    = useState({ category: false, paidBy: false });
+  const [searchQuery,   setSearchQuery]   = useState('');
 
   const expenses       = state.expenses        || [];
   const categories     = state.expenseCategories || [];
@@ -167,6 +168,43 @@ export default function ExpenseTracker({
     });
     return Object.entries(totals).sort((a, b) => b[1] - a[1]);
   }, [monthExpenses]); // eslint-disable-line
+
+  // ── Auto-populate expenseAutoActuals ─────────────────────────────────────
+  useEffect(() => {
+    const autoActuals = {};
+    expenses.forEach(exp => {
+      if (!exp.date || !exp.amount) return;
+      const mIdx = parseInt(exp.date.split('-')[1], 10) - 1;
+      const abbr = ALL_MONTHS[mIdx];
+      const cat = categories.find(c => c.name === exp.category);
+      if (!cat?.type) return;
+      const amt = exp.currency === homeCurrency
+        ? Number(exp.amount)
+        : (() => { const h = toHome(Number(exp.amount), exp.currency); return h ?? Number(exp.amount); })();
+      if (!autoActuals[abbr]) autoActuals[abbr] = {};
+      const catKey = cat.type === 'Need' ? 'Needs' : 'Wants';
+      autoActuals[abbr][catKey] = (autoActuals[abbr][catKey] || 0) + amt;
+    });
+    Object.keys(autoActuals).forEach(m => {
+      if (autoActuals[m].Needs) autoActuals[m].Needs = Math.round(autoActuals[m].Needs);
+      if (autoActuals[m].Wants) autoActuals[m].Wants = Math.round(autoActuals[m].Wants);
+    });
+    set('expenseAutoActuals', autoActuals);
+  }, [expenses, categories]); // eslint-disable-line
+
+  // ── Search results ────────────────────────────────────────────────────────
+  const isSearching = searchQuery.trim().length > 0;
+  const searchResults = useMemo(() => {
+    if (!isSearching) return [];
+    const lower = searchQuery.toLowerCase();
+    return expenses
+      .filter(e =>
+        e.description?.toLowerCase().includes(lower) ||
+        e.category?.toLowerCase().includes(lower)
+      )
+      .sort((a, b) => b.date.localeCompare(a.date))
+      .slice(0, 50);
+  }, [expenses, searchQuery, isSearching]); // eslint-disable-line
 
   // ── CRUD ─────────────────────────────────────────────────────────────────
   const addExpense = () => {
@@ -384,28 +422,104 @@ export default function ExpenseTracker({
 
       {/* ── Transaction Log ───────────────────────────────────────────────── */}
       <div style={s.card}>
-        {/* Month pills */}
-        <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginBottom: 14 }}>
-          {MONTHS.map(m => (
-            <button key={m} onClick={() => { setSelectedMonth(m); setVisibleCount(PAGE_SIZE); }} style={{
-              padding: '5px 11px', borderRadius: 20, fontSize: 12, fontFamily: 'inherit',
-              border: m === selectedMonth ? '2px solid #2d2a26' : '1px solid #e8e4dc',
-              background: m === selectedMonth ? '#2d2a26' : '#fff',
-              color: m === selectedMonth ? '#fff' : m === curMonthAbbr ? '#7eb5d6' : '#6b6660',
-              cursor: 'pointer', fontWeight: (m === selectedMonth || m === curMonthAbbr) ? 600 : 400,
-            }}>{m}</button>
-          ))}
+        {/* Search bar */}
+        <div style={{ marginBottom: 12, position: 'relative' }}>
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={e => setSearchQuery(e.target.value)}
+            placeholder="Search expenses by description or category…"
+            style={{ ...s.input, paddingLeft: 36 }}
+          />
+          <span style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: '#b0aa9f', fontSize: 14 }}>🔍</span>
+          {isSearching && (
+            <button
+              onClick={() => setSearchQuery('')}
+              style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: '#b0aa9f', fontSize: 16, lineHeight: 1 }}
+            >×</button>
+          )}
         </div>
 
-        {/* Add button */}
-        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
-          <button onClick={addExpense} style={{
-            background: '#2d2a26', color: '#f7f5f0', border: 'none', borderRadius: 8,
-            padding: '7px 14px', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600,
-          }}>+ Add Expense</button>
-        </div>
+        {/* Month pills (hidden while searching) */}
+        {!isSearching && (
+          <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginBottom: 14 }}>
+            {MONTHS.map(m => (
+              <button key={m} onClick={() => { setSelectedMonth(m); setVisibleCount(PAGE_SIZE); }} style={{
+                padding: '5px 11px', borderRadius: 20, fontSize: 12, fontFamily: 'inherit',
+                border: m === selectedMonth ? '2px solid #2d2a26' : '1px solid #e8e4dc',
+                background: m === selectedMonth ? '#2d2a26' : '#fff',
+                color: m === selectedMonth ? '#fff' : m === curMonthAbbr ? '#7eb5d6' : '#6b6660',
+                cursor: 'pointer', fontWeight: (m === selectedMonth || m === curMonthAbbr) ? 600 : 400,
+              }}>{m}</button>
+            ))}
+          </div>
+        )}
 
-        {monthExpenses.length === 0 ? (
+        {/* Add button (hidden while searching) */}
+        {!isSearching && (
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
+            <button onClick={addExpense} style={{
+              background: '#2d2a26', color: '#f7f5f0', border: 'none', borderRadius: 8,
+              padding: '7px 14px', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600,
+            }}>+ Add Expense</button>
+          </div>
+        )}
+
+        {/* Search results */}
+        {isSearching && (
+          <div>
+            <p style={{ fontSize: 12, color: '#b0aa9f', marginBottom: 10 }}>
+              {searchResults.length} result{searchResults.length !== 1 ? 's' : ''} for "{searchQuery}"
+            </p>
+            {searchResults.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '24px', color: '#b0aa9f', fontSize: 13, background: '#fdfcfa', borderRadius: 10, border: '1px dashed #e8e4dc' }}>
+                No expenses match your search.
+              </div>
+            ) : (
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                  <thead>
+                    <tr>{['Date', 'Description', 'Amount', 'Currency', 'Category', ''].map(h => (
+                      <th key={h} style={thSt}>{h}</th>
+                    ))}</tr>
+                  </thead>
+                  <tbody>
+                    {searchResults.map(exp => {
+                      const accCur = getCurrency(exp.currency);
+                      const flag = getCurrencyFlag(exp.currency);
+                      const catColor = categories.find(c => c.name === exp.category)?.color || '#b0aa9f';
+                      return (
+                        <tr key={exp.id} style={{ borderBottom: '1px solid #f9f7f3' }}>
+                          <td style={tdSt}>{exp.date}</td>
+                          <td style={{ ...tdSt, fontWeight: 500 }}>{exp.description || <span style={{ color: '#d5d0c8' }}>—</span>}</td>
+                          <td style={{ ...tdSt, fontWeight: 600, textAlign: 'right' }}>
+                            {exp.amount ? `${accCur.symbol}${Number(exp.amount).toLocaleString()}` : <span style={{ color: '#d5d0c8' }}>—</span>}
+                          </td>
+                          <td style={{ ...tdSt, color: '#9e9890' }}>
+                            {flag && <span style={{ marginRight: 4 }}>{flag}</span>}{exp.currency}
+                          </td>
+                          <td style={tdSt}>
+                            {exp.category
+                              ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+                                  <span style={{ width: 7, height: 7, borderRadius: 2, background: catColor, display: 'inline-block', flexShrink: 0 }} />
+                                  {exp.category}
+                                </span>
+                              : <span style={{ color: '#d5d0c8' }}>—</span>}
+                          </td>
+                          <td style={{ padding: '6px 8px' }}>
+                            <DelBtn onClick={() => deleteExp(exp.id)} />
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
+
+        {!isSearching && (monthExpenses.length === 0 ? (
           <div style={{
             textAlign: 'center', padding: '28px 20px', color: '#b0aa9f', fontSize: 13,
             background: '#fdfcfa', borderRadius: 10, border: '1px dashed #e8e4dc',
@@ -510,6 +624,25 @@ export default function ExpenseTracker({
                                 <option value={exp.category}>{exp.category}</option>
                               )}
                             </select>
+                            {/* Inline Need/Want prompt for unclassified categories */}
+                            {(() => {
+                              const cat = categories.find(c => c.name === exp.category);
+                              if (!cat || cat.type !== null) return null;
+                              return (
+                                <div style={{ marginTop: 4, display: 'flex', alignItems: 'center', gap: 4 }}>
+                                  <span style={{ fontSize: 10, color: '#b0aa9f' }}>Need or Want?</span>
+                                  {['Need', 'Want'].map(t => (
+                                    <button key={t} onMouseDown={e => {
+                                      e.preventDefault();
+                                      set('expenseCategories', prev => prev.map(c => c.id === cat.id ? { ...c, type: t } : c));
+                                    }} style={{
+                                      fontSize: 10, padding: '2px 6px', borderRadius: 4, cursor: 'pointer', fontFamily: 'inherit',
+                                      background: 'none', border: '1px solid #e8e4dc', color: '#6b6660',
+                                    }}>{t}</button>
+                                  ))}
+                                </div>
+                              );
+                            })()}
                           </td>
                           {/* Paid By */}
                           <td style={{ padding: '5px 8px' }}>
@@ -531,6 +664,7 @@ export default function ExpenseTracker({
 
                     // ── Read-only row ──
                     const accCur   = getCurrency(exp.currency);
+                    const flag     = getCurrencyFlag(exp.currency);
                     const catColor = categories.find(c => c.name === exp.category)?.color || '#b0aa9f';
                     return (
                       <tr
@@ -549,7 +683,9 @@ export default function ExpenseTracker({
                             ? `${accCur.symbol}${Number(exp.amount).toLocaleString()}`
                             : <span style={{ color: '#d5d0c8' }}>—</span>}
                         </td>
-                        <td style={{ ...tdSt, color: '#9e9890' }}>{exp.currency}</td>
+                        <td style={{ ...tdSt, color: '#9e9890' }}>
+                          {flag && <span style={{ marginRight: 3 }}>{flag}</span>}{exp.currency}
+                        </td>
                         <td style={tdSt}>
                           {exp.category
                             ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
@@ -624,7 +760,7 @@ export default function ExpenseTracker({
               )}
             </div>
           </>
-        )}
+        ))}
       </div>
     </div>
   );

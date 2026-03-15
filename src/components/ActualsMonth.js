@@ -1,8 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   s, Lbl, Inp, Divider,
-  CAT_COLORS, CATEGORIES, ACCOUNT_GROUPS,
-  getCurrency, getCurrentMonthAbbr,
+  CAT_COLORS, CATEGORIES, ACCOUNT_GROUPS, GROUP_HEADER_STYLES,
+  getCurrency, getCurrencyFlag, getCurrentMonthAbbr,
 } from '../shared';
 import ExpenseTracker from './ExpenseTracker';
 
@@ -27,10 +27,18 @@ function TradesPlaceholder() {
 // ── Main component ────────────────────────────────────────────────────────────
 export default function ActualsMonth({
   state, set, f, currency, MONTHS, baseIncome, allocByCat, monthIncome,
-  toHome, selectedYear, modules,
+  toHome, selectedYear, modules, trackerTargetSubTab, setTrackerTargetSubTab,
 }) {
   const [selectedMonth, setSelectedMonth] = useState(getCurrentMonthAbbr());
   const [trackerTab, setTrackerTab]       = useState('balances');
+
+  // Respond to external navigation requests (e.g. from Dashboard checklist)
+  useEffect(() => {
+    if (trackerTargetSubTab) {
+      setTrackerTab(trackerTargetSubTab);
+      setTrackerTargetSubTab(null);
+    }
+  }, [trackerTargetSubTab, setTrackerTargetSubTab]); // eslint-disable-line
 
   const mods = modules || { income: true, expenses: true, trades: true };
 
@@ -118,8 +126,8 @@ export default function ActualsMonth({
             background: 'none', border: 'none',
             borderBottom: activeTab === t.id ? '2px solid #2d2a26' : '2px solid transparent',
             color: activeTab === t.id ? '#1a1714' : '#a09890',
-            cursor: 'pointer', padding: '10px 16px',
-            fontSize: 12, fontWeight: activeTab === t.id ? 600 : 400,
+            cursor: 'pointer', padding: '12px 18px',
+            fontSize: 13, fontWeight: activeTab === t.id ? 600 : 400,
             fontFamily: 'inherit', letterSpacing: '0.02em',
           }}>{t.label}</button>
         ))}
@@ -133,6 +141,11 @@ export default function ActualsMonth({
             <Lbl>ACCOUNT SNAPSHOTS — {selectedMonth.toUpperCase()}</Lbl>
             <p style={{ fontSize: 12, color: '#b0aa9f', marginBottom: 16 }}>
               End-of-month balances. Auto-converts to {state.currencyCode || 'GBP'}.
+              {(() => {
+                const snap = state.accountSnapshots?.[selectedMonth];
+                const hasData = snap && Object.values(snap).some(v => v > 0);
+                return hasData ? <span style={{ marginLeft: 6, color: '#c5c0b8' }}>· Updated {selectedMonth} {selectedYear}</span> : null;
+              })()}
             </p>
 
             {accountGroups.length === 0 ? (
@@ -147,49 +160,55 @@ export default function ActualsMonth({
                   </tr>
                 </thead>
                 <tbody>
-                  {accountGroups.map(group => [
-                    <tr key={`hdr-${group.label}`} style={{ background: '#f9f7f3' }}>
-                      <td colSpan={4} style={{ padding: '6px 10px', fontSize: 10, fontWeight: 700, color: '#9e9890', letterSpacing: '0.1em' }}>
-                        {group.label.toUpperCase()}
-                      </td>
-                    </tr>,
-                    ...group.accounts.map(acc => {
-                      const localVal = getSnap(selectedMonth, acc.id);
-                      const accCur   = getCurrency(acc.currency);
-                      const numVal   = Number(localVal) || 0;
-                      const homeVal  = localVal !== '' ? toHome(numVal, acc.currency) : null;
-                      const prevVal  = prevMonth ? (Number(getSnap(prevMonth, acc.id)) || 0) : 0;
-                      const pct      = numVal > 0
-                        ? (prevVal > 0 ? ((numVal - prevVal) / prevVal) * 100 : 'no-prev')
-                        : null;
-                      return (
-                        <tr key={acc.id} style={{ borderBottom: '1px solid #f9f7f3' }}>
-                          <td style={{ padding: '6px 10px', fontWeight: 500, color: '#1a1714' }}>{acc.name}</td>
-                          <td style={{ padding: '4px 10px' }}>
-                            <div style={{ display: 'flex', alignItems: 'center' }}>
-                              <span style={{ width: 40, flexShrink: 0, fontSize: 12, color: '#b0aa9f' }}>{accCur.symbol}</span>
-                              <Inp type="number" value={localVal} placeholder="—"
-                                onChange={v => setSnap(selectedMonth, acc.id, v)}
-                                style={{ width: 110 }}
-                              />
-                            </div>
-                          </td>
-                          <td style={{ padding: '6px 10px', color: homeVal === null ? '#d5d0c8' : '#2d2a26', fontWeight: 500 }}>
-                            {homeVal === null ? (localVal !== '' ? 'Rate unavailable' : '—') : f(homeVal, true)}
-                          </td>
-                          <td style={{ padding: '6px 10px' }}>
-                            {pct === null ? null : pct === 'no-prev' ? (
-                              <span style={{ fontSize: 11, color: '#d5d0c8' }}>—</span>
-                            ) : (
-                              <span style={{ fontSize: 11, color: pct >= 0 ? '#2d9e6b' : '#c94040', fontWeight: 600 }}>
-                                {pct >= 0 ? '+' : ''}{pct.toFixed(1)}%
-                              </span>
-                            )}
-                          </td>
-                        </tr>
-                      );
-                    }),
-                  ])}
+                  {accountGroups.map(group => {
+                    const hdrStyle = GROUP_HEADER_STYLES[group.label] || { background: '#f9f7f3', color: '#9e9890' };
+                    return [
+                      <tr key={`hdr-${group.label}`} style={{ background: hdrStyle.background }}>
+                        <td colSpan={4} style={{ padding: '6px 12px', fontSize: 10, fontWeight: 700, color: hdrStyle.color, letterSpacing: '0.1em' }}>
+                          {group.label.toUpperCase()}
+                        </td>
+                      </tr>,
+                      ...group.accounts.map(acc => {
+                        const localVal = getSnap(selectedMonth, acc.id);
+                        const accCur   = getCurrency(acc.currency);
+                        const flag     = getCurrencyFlag(acc.currency);
+                        const numVal   = Number(localVal) || 0;
+                        const homeVal  = localVal !== '' ? toHome(numVal, acc.currency) : null;
+                        const prevVal  = prevMonth ? (Number(getSnap(prevMonth, acc.id)) || 0) : 0;
+                        const pct      = numVal > 0
+                          ? (prevVal > 0 ? ((numVal - prevVal) / prevVal) * 100 : 'no-prev')
+                          : null;
+                        return (
+                          <tr key={acc.id} style={{ borderBottom: '1px solid #f9f7f3' }}>
+                            <td style={{ padding: '9px 12px', fontWeight: 500, color: '#1a1714' }}>{acc.name}</td>
+                            <td style={{ padding: '4px 12px' }}>
+                              <div style={{ display: 'flex', alignItems: 'center' }}>
+                                <span style={{ flexShrink: 0, fontSize: 12, color: '#b0aa9f', marginRight: 4 }}>
+                                  {flag && <span style={{ marginRight: 2 }}>{flag}</span>}{accCur.symbol}
+                                </span>
+                                <Inp type="number" value={localVal} placeholder="—"
+                                  onChange={v => setSnap(selectedMonth, acc.id, v)}
+                                  style={{ width: 110 }}
+                                />
+                              </div>
+                            </td>
+                            <td style={{ padding: '9px 12px', color: homeVal === null ? '#d5d0c8' : '#2d2a26', fontWeight: 500 }}>
+                              {homeVal === null ? (localVal !== '' ? 'Rate unavailable' : '—') : f(homeVal, true)}
+                            </td>
+                            <td style={{ padding: '9px 12px' }}>
+                              {pct === null ? null : pct === 'no-prev' ? (
+                                <span style={{ fontSize: 11, color: '#d5d0c8' }}>—</span>
+                              ) : (
+                                <span style={{ fontSize: 11, color: pct >= 0 ? '#2d9e6b' : '#c94040', fontWeight: 600 }}>
+                                  {pct >= 0 ? '+' : ''}{pct.toFixed(1)}%
+                                </span>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      }),
+                    ];
+                  })}
                 </tbody>
               </table>
             )}
@@ -281,11 +300,27 @@ export default function ActualsMonth({
                         <p style={{ fontSize: 14, fontWeight: 500, color: '#9e9890' }}>{f(plan)}</p>
                       </div>
                       <div>
-                        <p style={{ fontSize: 10, color: '#b0aa9f', marginBottom: 2 }}>Actual</p>
-                        <Inp type="number" value={getActual(selectedMonth, cat)} placeholder="—"
-                          onChange={v => setActual(selectedMonth, cat, v)}
-                          style={{ fontSize: 13, fontWeight: 600, padding: '4px 8px' }}
-                        />
+                        {(() => {
+                          const autoVal = state.expenseAutoActuals?.[selectedMonth]?.[cat];
+                          const manualVal = getActual(selectedMonth, cat);
+                          const isAutoFilled = (manualVal === '' || manualVal === undefined) && autoVal !== undefined;
+                          return (
+                            <>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+                                <p style={{ fontSize: 10, color: '#b0aa9f' }}>Actual</p>
+                                {isAutoFilled && (
+                                  <span style={{ fontSize: 9, color: '#7eb5d6', letterSpacing: '0.05em', fontWeight: 600 }}>AUTO</span>
+                                )}
+                              </div>
+                              <Inp type="number"
+                                value={manualVal !== '' && manualVal !== undefined ? manualVal : (autoVal !== undefined ? autoVal : '')}
+                                placeholder="—"
+                                onChange={v => setActual(selectedMonth, cat, v)}
+                                style={{ fontSize: 13, fontWeight: 600, padding: '4px 8px' }}
+                              />
+                            </>
+                          );
+                        })()}
                       </div>
                     </div>
                     <div style={{ height: 4, background: '#f0ece4', borderRadius: 4, overflow: 'hidden' }}>

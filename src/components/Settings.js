@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { hashPassword, verifyPassword } from '../supabase';
 import {
   s, Lbl, Inp, FG, Toast, Divider, DelBtn, AddBtn, TypeBadge,
@@ -43,8 +43,15 @@ function Toggle({ checked, onChange, label, desc }) {
   );
 }
 
-export default function Settings({ state, set, onDeleteAccount, onLogout }) {
+export default function Settings({ state, set, onDeleteAccount, onLogout, settingsTargetSubTab, setSettingsTargetSubTab }) {
   const [subTab,     setSubTab]     = useState('profile');
+
+  useEffect(() => {
+    if (settingsTargetSubTab) {
+      setSubTab(settingsTargetSubTab);
+      setSettingsTargetSubTab(null);
+    }
+  }, [settingsTargetSubTab, setSettingsTargetSubTab]); // eslint-disable-line
   const [oldPw,      setOldPw]      = useState('');
   const [newPw,      setNewPw]      = useState('');
   const [cPw,        setCPw]        = useState('');
@@ -92,8 +99,8 @@ export default function Settings({ state, set, onDeleteAccount, onLogout }) {
             background: 'none', border: 'none',
             borderBottom: subTab === t.id ? '2px solid #2d2a26' : '2px solid transparent',
             color: subTab === t.id ? '#1a1714' : (t.id === 'danger' ? '#c94040' : '#a09890'),
-            cursor: 'pointer', padding: '10px 14px', whiteSpace: 'nowrap',
-            fontSize: 12, fontWeight: subTab === t.id ? 600 : 400,
+            cursor: 'pointer', padding: '12px 16px', whiteSpace: 'nowrap',
+            fontSize: 13, fontWeight: subTab === t.id ? 600 : 400,
             fontFamily: 'inherit', letterSpacing: '0.02em',
           }}>{t.label}</button>
         ))}
@@ -101,7 +108,7 @@ export default function Settings({ state, set, onDeleteAccount, onLogout }) {
 
       {/* ── Profile ── */}
       {subTab === 'profile' && (
-        <div style={{ maxWidth: 480 }}>
+        <div style={{ maxWidth: 680 }}>
           <div style={s.card}>
             <FG label="DISPLAY NAME">
               <Inp value={state.displayName || ''} onChange={v => set('displayName', v)} placeholder={capitalize(state.userId)} />
@@ -125,7 +132,7 @@ export default function Settings({ state, set, onDeleteAccount, onLogout }) {
 
       {/* ── Modules ── */}
       {subTab === 'modules' && (
-        <div style={{ maxWidth: 480 }}>
+        <div style={{ maxWidth: 680 }}>
           <div style={s.card}>
             <Lbl>MODULES</Lbl>
             <p style={{ fontSize: 12, color: '#b0aa9f', marginBottom: 20 }}>
@@ -155,7 +162,7 @@ export default function Settings({ state, set, onDeleteAccount, onLogout }) {
 
       {/* ── Accounts ── */}
       {subTab === 'accounts' && (
-        <div style={{ maxWidth: 560 }}>
+        <div style={{ maxWidth: 680 }}>
           <div style={s.card}>
             <p style={{ fontSize: 12, color: '#b0aa9f', marginBottom: 16 }}>
               Define your bank and investment accounts here. These appear across Actuals and Net Worth tabs.
@@ -187,7 +194,7 @@ export default function Settings({ state, set, onDeleteAccount, onLogout }) {
 
       {/* ── Expense Categories ── */}
       {subTab === 'categories' && (
-        <div style={{ maxWidth: 480 }}>
+        <div style={{ maxWidth: 680 }}>
           <div style={s.card}>
             <Lbl>EXPENSE CATEGORIES</Lbl>
             <p style={{ fontSize: 12, color: '#b0aa9f', marginBottom: 16 }}>
@@ -239,6 +246,16 @@ export default function Settings({ state, set, onDeleteAccount, onLogout }) {
                       onChange={v => set('expenseCategories', prev => prev.map(c => c.id === cat.id ? { ...c, name: v } : c))}
                       style={{ flex: 1 }}
                     />
+                    {/* Need/Want type */}
+                    <select
+                      value={cat.type || ''}
+                      onChange={e => set('expenseCategories', prev => prev.map(c => c.id === cat.id ? { ...c, type: e.target.value || null } : c))}
+                      style={{ ...s.input, width: 90, fontSize: 12 }}
+                    >
+                      <option value="">—</option>
+                      <option value="Need">Need</option>
+                      <option value="Want">Want</option>
+                    </select>
                     {/* Delete */}
                     {inUse ? (
                       <span title="Remove from expenses first" style={{ fontSize: 12, color: '#d5d0c8', cursor: 'not-allowed', padding: '0 4px' }}>×</span>
@@ -251,7 +268,7 @@ export default function Settings({ state, set, onDeleteAccount, onLogout }) {
             })}
             <AddBtn onClick={() => {
               const nextColor = EXPENSE_CATEGORY_COLORS[categories.length % EXPENSE_CATEGORY_COLORS.length];
-              set('expenseCategories', prev => [...(prev || []), { id: Date.now(), name: 'New Category', color: nextColor }]);
+              set('expenseCategories', prev => [...(prev || []), { id: Date.now(), name: 'New Category', color: nextColor, type: null }]);
             }} label="+ Add category" />
           </div>
         </div>
@@ -259,7 +276,7 @@ export default function Settings({ state, set, onDeleteAccount, onLogout }) {
 
       {/* ── Payment Methods ── */}
       {subTab === 'payment' && (
-        <div style={{ maxWidth: 480 }}>
+        <div style={{ maxWidth: 680 }}>
           <div style={s.card}>
             <Lbl>PAYMENT METHODS</Lbl>
             <p style={{ fontSize: 12, color: '#b0aa9f', marginBottom: 16 }}>
@@ -287,7 +304,7 @@ export default function Settings({ state, set, onDeleteAccount, onLogout }) {
 
       {/* ── Security ── */}
       {subTab === 'security' && (
-        <div style={{ maxWidth: 480 }}>
+        <div style={{ maxWidth: 680 }}>
           <div style={s.card}>
             <p style={{ fontSize: 13, color: '#6b6660', marginBottom: 20 }}>Logged in as <strong>{state.userId}</strong></p>
             <Lbl>CHANGE PASSWORD</Lbl>
@@ -311,7 +328,7 @@ export default function Settings({ state, set, onDeleteAccount, onLogout }) {
 
       {/* ── Danger ── */}
       {subTab === 'danger' && (
-        <div style={{ maxWidth: 480 }}>
+        <div style={{ maxWidth: 680 }}>
           <div style={{ ...s.card, background: '#fdf2f2', borderColor: '#fecaca' }}>
             <p style={{ fontSize: 14, fontWeight: 600, color: '#c94040', marginBottom: 8 }}>Delete Account</p>
             <p style={{ fontSize: 13, color: '#6b6660', marginBottom: 16 }}>

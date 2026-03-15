@@ -54,6 +54,13 @@ export const ACCOUNT_GROUPS = [
   { label:'Crypto / Other',  types:['Crypto','Other'] },
 ];
 
+// Coloured group header styles for account tables
+export const GROUP_HEADER_STYLES = {
+  'Banks':          { background:'#EFF6FF', color:'#3B82F6' },
+  'Investments':    { background:'#F5F3FF', color:'#7C3AED' },
+  'Crypto / Other': { background:'#FFF7ED', color:'#D97706' },
+};
+
 // ─────────────────────────────────────────────
 // Helpers
 // ─────────────────────────────────────────────
@@ -69,6 +76,15 @@ export function fmt(v = 0, sym = '£', locale = 'en-GB', compact = false) {
 
 export function capitalize(s) {
   return s ? s.charAt(0).toUpperCase() + s.slice(1).toLowerCase() : '';
+}
+
+export function getCurrencyFlag(code) {
+  const flags = {
+    GBP:'🇬🇧', USD:'🇺🇸', EUR:'🇪🇺', INR:'🇮🇳',
+    AED:'🇦🇪', SGD:'🇸🇬', HKD:'🇭🇰', THB:'🇹🇭',
+    CAD:'🇨🇦', AUD:'🇦🇺',
+  };
+  return flags[code] || '';
 }
 
 export function getGreeting() {
@@ -134,28 +150,34 @@ export const makeDefaultState = () => ({
   // Expenses
   expenses: [],
   expenseCategories: [
-    { id:1,  name:'Rent',          color:'#7eb5d6' },
-    { id:2,  name:'Groceries',     color:'#7ec8a0' },
-    { id:3,  name:'Food',          color:'#e8a598' },
-    { id:4,  name:'Transport',     color:'#d6a8c8' },
-    { id:5,  name:'Utilities',     color:'#fdba74' },
-    { id:6,  name:'Shopping',      color:'#f9a8d4' },
-    { id:7,  name:'Entertainment', color:'#b5a8d6' },
-    { id:8,  name:'Travel',        color:'#60a5c8' },
-    { id:9,  name:'Drinks',        color:'#e8c55a' },
-    { id:10, name:'Health',        color:'#84a98c' },
-    { id:11, name:'Other',         color:'#b0aa9f' },
+    { id:1,  name:'Rent',          color:'#7eb5d6', type:'Need' },
+    { id:2,  name:'Groceries',     color:'#7ec8a0', type:'Need' },
+    { id:3,  name:'Food',          color:'#e8a598', type:'Want' },
+    { id:4,  name:'Transport',     color:'#d6a8c8', type:'Need' },
+    { id:5,  name:'Utilities',     color:'#fdba74', type:'Need' },
+    { id:6,  name:'Shopping',      color:'#f9a8d4', type:'Want' },
+    { id:7,  name:'Entertainment', color:'#b5a8d6', type:'Want' },
+    { id:8,  name:'Travel',        color:'#60a5c8', type:'Want' },
+    { id:9,  name:'Drinks',        color:'#e8c55a', type:'Want' },
+    { id:10, name:'Health',        color:'#84a98c', type:'Need' },
+    { id:11, name:'Other',         color:'#b0aa9f', type:null  },
   ],
   paymentMethods: [],
+  // Auto-computed actuals from expenses (separate from manually entered actuals)
+  expenseAutoActuals: {},
+  // Onboarding / checklist
+  onboardingCompleted: false,
+  checklistDismissCount: 0,
+  checklistPermanentlyDismissed: false,
 });
 
 // ─────────────────────────────────────────────
 // Shared inline styles
 // ─────────────────────────────────────────────
 export const s = {
-  card:  { background:'#fff', border:'1px solid #e8e4dc', borderRadius:14, padding:'18px 20px' },
+  card:  { background:'#fff', border:'1px solid #e8e4dc', borderRadius:14, padding:'22px 24px' },
   label: { fontSize:10, color:'#9e9890', letterSpacing:'0.12em', fontWeight:600, margin:0 },
-  input: { background:'#f9f7f3', border:'1px solid #e8e4dc', borderRadius:7, color:'#2d2a26', padding:'6px 10px', fontSize:13, outline:'none', fontFamily:'inherit', width:'100%' },
+  input: { background:'#f9f7f3', border:'1px solid #e8e4dc', borderRadius:7, color:'#2d2a26', padding:'9px 12px', fontSize:14, outline:'none', fontFamily:'inherit', width:'100%' },
   btn:   { width:'100%', background:'#2d2a26', color:'#f7f5f0', border:'none', borderRadius:8, padding:'10px', fontSize:14, cursor:'pointer', fontFamily:'inherit' },
   btnSec:{ width:'100%', background:'transparent', color:'#9e9890', border:'1px solid #e8e4dc', borderRadius:8, padding:'9px', fontSize:13, cursor:'pointer', fontFamily:'inherit', marginTop:8 },
   btnDanger:{ width:'100%', background:'transparent', color:'#c94040', border:'1px solid #e8a598', borderRadius:8, padding:'9px', fontSize:13, cursor:'pointer', fontFamily:'inherit', marginTop:8 },
@@ -198,7 +220,7 @@ export const Toast = ({ msg, type='success' }) => msg ? (
 ) : null;
 
 export const TypeBadge = ({ type }) => {
-  const colors = { Bank:'#7eb5d6', Savings:'#7ec8a0', Investment:'#b5a8d6', Crypto:'#f9a8d4', Cash:'#fdba74', Other:'#d5d0c9' };
+  const colors = { Bank:'#3B82F6', Savings:'#7ec8a0', Investment:'#7C3AED', Crypto:'#D97706', Cash:'#9e9890', Other:'#d5d0c9' };
   return <Tag label={type} color={colors[type] || '#d5d0c9'} />;
 };
 

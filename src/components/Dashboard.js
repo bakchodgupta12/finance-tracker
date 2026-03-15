@@ -4,17 +4,16 @@ import {
 } from 'recharts';
 import {
   s, Lbl, ChartTip,
-  ACCOUNT_GROUPS,
-  getCurrency, getGreeting, getCurrentMonthAbbr
+  ACCOUNT_GROUPS, GROUP_HEADER_STYLES,
+  getCurrency, getCurrencyFlag, getGreeting, getCurrentMonthAbbr
 } from '../shared';
 
 export default function Dashboard({
-  state, f, currency, MONTHS, baseIncome, allocByCat, monthIncome,
+  state, set, f, currency, MONTHS, baseIncome, allocByCat, monthIncome,
   netWorth, accountsNetWorth, totalLiabilities, latestSnapshots,
-  toHome, setTab, selectedYear
+  toHome, navigate, selectedYear
 }) {
   const currentMonth = getCurrentMonthAbbr();
-  const inc = monthIncome(currentMonth);
 
   // Current month actuals
   const currentActuals = state.actuals[currentMonth] || {};
@@ -40,7 +39,26 @@ export default function Dashboard({
       }, 0);
       return { month, total: Math.round(total - totalLiabilities) };
     }).filter(Boolean);
-  }, [MONTHS, state.accountSnapshots, state.accounts, toHome, totalLiabilities]);
+  }, [MONTHS, state.accountSnapshots, state.accounts, toHome, totalLiabilities]); // eslint-disable-line
+
+  // Month-on-month net worth change
+  const momChange = useMemo(() => {
+    if (chartData.length < 2) return null;
+    const prev = chartData[chartData.length - 2].total;
+    const curr = chartData[chartData.length - 1].total;
+    const diff = curr - prev;
+    const pct = prev !== 0 ? (diff / Math.abs(prev)) * 100 : null;
+    return { diff, pct };
+  }, [chartData]);
+
+  // Latest snapshot month label
+  const latestSnapMonth = useMemo(() => {
+    for (let i = MONTHS.length - 1; i >= 0; i--) {
+      const snap = state.accountSnapshots?.[MONTHS[i]];
+      if (snap && Object.values(snap).some(v => v > 0)) return MONTHS[i];
+    }
+    return null;
+  }, [MONTHS, state.accountSnapshots]);
 
   // All accounts flattened with their group label, for single-table rendering
   const allAccountsWithGroup = useMemo(() => {
@@ -57,8 +75,69 @@ export default function Dashboard({
   const displayName = (state.displayName?.trim()) ||
     (state.userId ? state.userId.charAt(0).toUpperCase() + state.userId.slice(1).toLowerCase() : '');
 
-  const thStyle = { padding: '6px 10px', color: '#b0aa9f', fontSize: 10, letterSpacing: '0.08em', textAlign: 'left', borderBottom: '1px solid #f0ece4', fontWeight: 500 };
-  const tdStyle = { padding: '8px 10px' };
+  const thStyle = { padding: '9px 12px', color: '#b0aa9f', fontSize: 10, letterSpacing: '0.08em', textAlign: 'left', borderBottom: '1px solid #f0ece4', fontWeight: 500 };
+  const tdStyle = { padding: '9px 12px' };
+
+  // ── Getting Started Checklist ──────────────────
+  const checklistItems = [
+    {
+      id: 'onboarded',
+      label: 'Set up your account',
+      done: true, // always done once logged in
+      cta: null,
+    },
+    {
+      id: 'account_added',
+      label: 'Add your first account',
+      done: (state.accounts || []).length > 0,
+      cta: () => navigate('settings', 'accounts'),
+      ctaLabel: 'Go to Accounts →',
+    },
+    {
+      id: 'allocation_set',
+      label: 'Set your budget allocation',
+      done: (state.allocation || []).some(a => a.pct > 0),
+      cta: () => navigate('plan'),
+      ctaLabel: 'Go to Plan →',
+    },
+    {
+      id: 'actuals_logged',
+      label: 'Log your first month\'s actuals',
+      done: Object.keys(state.actuals || {}).length > 0,
+      cta: () => navigate('tracker', 'income'),
+      ctaLabel: 'Go to Tracker →',
+    },
+    {
+      id: 'expense_logged',
+      label: 'Log your first expense',
+      done: (state.expenses || []).length > 0,
+      cta: () => navigate('tracker', 'expenses'),
+      ctaLabel: 'Go to Expenses →',
+    },
+    {
+      id: 'goal_set',
+      label: 'Set a net worth goal',
+      done: (state.goalNetWorth || 0) > 0,
+      cta: () => navigate('plan', 'goals'),
+      ctaLabel: 'Set a Goal →',
+    },
+  ];
+
+  const allDone = checklistItems.every(i => i.done);
+  const completedCount = checklistItems.filter(i => i.done).length;
+  const dismissCount = state.checklistDismissCount || 0;
+  const permanentlyDismissed = state.checklistPermanentlyDismissed || false;
+  const showChecklist = !permanentlyDismissed && !allDone;
+
+  const handleDismissChecklist = () => {
+    const newCount = dismissCount + 1;
+    if (newCount >= 4) {
+      // 4th dismiss: permanently hide
+      set('checklistPermanentlyDismissed', true);
+    } else {
+      set('checklistDismissCount', newCount);
+    }
+  };
 
   return (
     <div>
@@ -70,6 +149,57 @@ export default function Dashboard({
         <p style={{ fontSize: 13, color: '#9e9890' }}>Here's your {selectedYear} financial overview.</p>
       </div>
 
+      {/* Getting Started Checklist */}
+      {showChecklist && (
+        <div style={{ ...s.card, marginBottom: 20, border: '1px solid #e8e4dc' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+            <div>
+              <Lbl>GETTING STARTED</Lbl>
+              <p style={{ fontSize: 12, color: '#b0aa9f', marginTop: 2 }}>{completedCount} of {checklistItems.length} completed</p>
+            </div>
+            <button onClick={handleDismissChecklist} style={{
+              background: 'none', border: 'none', cursor: 'pointer',
+              fontSize: 13, color: '#b0aa9f', padding: '4px 8px', borderRadius: 6,
+              fontFamily: 'inherit',
+            }}>
+              {dismissCount >= 3 ? 'Hide permanently' : 'Dismiss'}
+            </button>
+          </div>
+          <div style={{ height: 4, background: '#f0ece4', borderRadius: 4, overflow: 'hidden', marginBottom: 16 }}>
+            <div style={{
+              height: '100%',
+              width: `${(completedCount / checklistItems.length) * 100}%`,
+              background: '#7ec8a0', borderRadius: 4, transition: 'width 0.4s',
+            }} />
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {checklistItems.map(item => (
+              <div key={item.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <div style={{
+                    width: 20, height: 20, borderRadius: '50%', flexShrink: 0,
+                    background: item.done ? '#7ec8a0' : '#f0ece4',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  }}>
+                    {item.done && <span style={{ color: '#fff', fontSize: 11, fontWeight: 700 }}>✓</span>}
+                  </div>
+                  <span style={{ fontSize: 13, color: item.done ? '#b0aa9f' : '#2d2a26', textDecoration: item.done ? 'line-through' : 'none' }}>
+                    {item.label}
+                  </span>
+                </div>
+                {!item.done && item.cta && (
+                  <button onClick={item.cta} style={{
+                    background: 'none', border: 'none', cursor: 'pointer',
+                    fontSize: 12, color: '#7eb5d6', fontWeight: 600,
+                    fontFamily: 'inherit', padding: 0, whiteSpace: 'nowrap',
+                  }}>{item.ctaLabel}</button>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* KPI Cards */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 10, marginBottom: 20 }}>
         {/* Card 1: Net Worth */}
@@ -77,7 +207,14 @@ export default function Dashboard({
           <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: '#7eb5d6', opacity: 0.7 }} />
           <div style={{ marginTop: 4, marginBottom: 6 }}><span style={s.label}>NET WORTH</span></div>
           <p style={{ fontSize: 19, fontWeight: 600, color: '#1a1714', marginBottom: 2 }}>{f(netWorth, true)}</p>
-          <p style={{ fontSize: 11, color: '#b0aa9f' }}>&nbsp;</p>
+          {momChange ? (
+            <p style={{ fontSize: 11, color: momChange.diff >= 0 ? '#2d9e6b' : '#c94040', fontWeight: 600 }}>
+              {momChange.diff >= 0 ? '+' : ''}{f(momChange.diff, true)}
+              {momChange.pct !== null && ` (${momChange.pct >= 0 ? '+' : ''}${momChange.pct.toFixed(1)}%)`} vs prev
+            </p>
+          ) : (
+            <p style={{ fontSize: 11, color: '#b0aa9f' }}>&nbsp;</p>
+          )}
         </div>
 
         {/* Card 2: Total Savings */}
@@ -108,7 +245,7 @@ export default function Dashboard({
             <>
               <p style={{ fontSize: 19, fontWeight: 600, color: '#d5d0c8', marginBottom: 2 }}>—</p>
               <p
-                onClick={() => setTab('plan')}
+                onClick={() => navigate('plan', 'goals')}
                 style={{ fontSize: 11, color: '#7eb5d6', cursor: 'pointer', fontWeight: 600 }}
               >Set in Plan →</p>
             </>
@@ -151,8 +288,12 @@ export default function Dashboard({
       {/* Account Balances — single unified table */}
       {hasAnyAccounts && (
         <div style={{ ...s.card, marginBottom: 16 }}>
-          <Lbl>ACCOUNT BALANCES</Lbl>
-          <p style={{ fontSize: 12, color: '#b0aa9f', marginBottom: 16 }}>Latest snapshot values</p>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 4 }}>
+            <Lbl>ACCOUNT BALANCES</Lbl>
+          </div>
+          <p style={{ fontSize: 12, color: '#b0aa9f', marginBottom: 16 }}>
+            Latest snapshot{latestSnapMonth ? ` · ${latestSnapMonth} ${selectedYear}` : ''}
+          </p>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
             <thead>
               <tr>
@@ -162,33 +303,35 @@ export default function Dashboard({
               </tr>
             </thead>
             <tbody>
-              {allAccountsWithGroup.map(group => [
-                // Section divider row
-                <tr key={`hdr-${group.label}`} style={{ background: '#f9f7f3' }}>
-                  <td colSpan={3} style={{ padding: '6px 10px', fontSize: 10, fontWeight: 700, color: '#9e9890', letterSpacing: '0.1em' }}>
-                    {group.label.toUpperCase()}
-                  </td>
-                </tr>,
-                // Account rows
-                ...group.accs.map(acc => {
-                  const localVal = latestSnapshots?.[acc.id] || 0;
-                  const accCur = getCurrency(acc.currency);
-                  const homeVal = toHome(localVal, acc.currency);
-                  return (
-                    <tr key={acc.id} style={{ borderBottom: '1px solid #f9f7f3' }}>
-                      <td style={{ ...tdStyle, fontWeight: 500, color: '#1a1714' }}>{acc.name}</td>
-                      <td style={{ ...tdStyle, color: '#6b6660' }}>
-                        {localVal > 0
-                          ? `${accCur.symbol}${new Intl.NumberFormat(accCur.locale, { maximumFractionDigits: 0 }).format(localVal)}`
-                          : <span style={{ color: '#d5d0c8' }}>—</span>}
-                      </td>
-                      <td style={{ ...tdStyle, color: localVal > 0 ? '#2d2a26' : '#d5d0c8', fontWeight: localVal > 0 ? 600 : 400 }}>
-                        {localVal > 0 ? (homeVal !== null ? f(homeVal, true) : 'Rate unavailable') : '—'}
-                      </td>
-                    </tr>
-                  );
-                }),
-              ])}
+              {allAccountsWithGroup.map(group => {
+                const hdrStyle = GROUP_HEADER_STYLES[group.label] || { background: '#f9f7f3', color: '#9e9890' };
+                return [
+                  <tr key={`hdr-${group.label}`} style={{ background: hdrStyle.background }}>
+                    <td colSpan={3} style={{ padding: '6px 12px', fontSize: 10, fontWeight: 700, color: hdrStyle.color, letterSpacing: '0.1em' }}>
+                      {group.label.toUpperCase()}
+                    </td>
+                  </tr>,
+                  ...group.accs.map(acc => {
+                    const localVal = latestSnapshots?.[acc.id] || 0;
+                    const accCur = getCurrency(acc.currency);
+                    const flag = getCurrencyFlag(acc.currency);
+                    const homeVal = toHome(localVal, acc.currency);
+                    return (
+                      <tr key={acc.id} style={{ borderBottom: '1px solid #f9f7f3' }}>
+                        <td style={{ ...tdStyle, fontWeight: 500, color: '#1a1714' }}>{acc.name}</td>
+                        <td style={{ ...tdStyle, color: '#6b6660' }}>
+                          {localVal > 0
+                            ? <span>{flag && <span style={{ marginRight: 4 }}>{flag}</span>}{accCur.symbol}{new Intl.NumberFormat(accCur.locale, { maximumFractionDigits: 0 }).format(localVal)}</span>
+                            : <span style={{ color: '#d5d0c8' }}>—</span>}
+                        </td>
+                        <td style={{ ...tdStyle, color: localVal > 0 ? '#2d2a26' : '#d5d0c8', fontWeight: localVal > 0 ? 600 : 400 }}>
+                          {localVal > 0 ? (homeVal !== null ? f(homeVal, true) : 'Rate unavailable') : '—'}
+                        </td>
+                      </tr>
+                    );
+                  }),
+                ];
+              })}
             </tbody>
           </table>
         </div>
@@ -197,7 +340,7 @@ export default function Dashboard({
       {/* Prompt to log actuals */}
       {!hasActualsThisMonth && (
         <div
-          onClick={() => setTab('tracker')}
+          onClick={() => navigate('tracker', 'income')}
           style={{
             ...s.card, textAlign: 'center', padding: '16px',
             cursor: 'pointer', border: '1px dashed #d8d4cc', background: '#fdfcfa'
