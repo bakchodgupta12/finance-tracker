@@ -182,19 +182,18 @@ export default function ActualsMonth({
                           <tr key={acc.id} style={{ borderBottom: '1px solid #f9f7f3' }}>
                             <td style={{ padding: '9px 12px', fontWeight: 500, color: '#1a1714' }}>{acc.name}</td>
                             <td style={{ padding: '4px 8px 4px 12px' }}>
-                              <div style={{ display: 'flex', alignItems: 'center' }}>
-                                <span style={{
-                                  display: 'inline-block', width: 56, flexShrink: 0,
-                                  textAlign: 'right', paddingRight: 6,
-                                  fontSize: 12, color: '#b0aa9f',
-                                  overflow: 'hidden', whiteSpace: 'nowrap',
-                                }}>
-                                  {flag}{accCur.symbol}
-                                </span>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                                 <Inp type="number" value={localVal} placeholder="—"
                                   onChange={v => setSnap(selectedMonth, acc.id, v)}
-                                  style={{ width: 120 }}
+                                  style={{ width: 140 }}
                                 />
+                                <span style={{
+                                  display: 'inline-block', width: 56, flexShrink: 0,
+                                  textAlign: 'left', fontSize: 13, color: '#9e9890',
+                                  whiteSpace: 'nowrap',
+                                }}>
+                                  {flag} {accCur.code}
+                                </span>
                               </div>
                             </td>
                             <td style={{ padding: '9px 12px', color: homeVal === null ? '#d5d0c8' : '#2d2a26', fontWeight: 500 }}>
@@ -226,49 +225,41 @@ export default function ActualsMonth({
         <div>
           <MonthPills />
 
-          {/* Health score badge */}
-          {healthScore && (
-            <div style={{
-              display: 'inline-block', padding: '6px 14px', borderRadius: 8, marginBottom: 16,
-              background: healthScore.bg, border: `1px solid ${healthScore.border}`,
-              fontSize: 13, fontWeight: 600, color: healthScore.color,
-            }}>
-              {healthScore.label === 'On Track' ? '✓' : healthScore.label === 'Slightly Off' ? '⚠' : '✗'} {healthScore.label}
-            </div>
-          )}
-
           {/* Income section */}
           <div style={{ ...s.card, marginBottom: 14 }}>
-            <Lbl>INCOME — {selectedMonth.toUpperCase()}</Lbl>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginTop: 12 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+              <Lbl>INCOME — {selectedMonth.toUpperCase()}</Lbl>
+              {healthScore && (
+                <span style={{
+                  fontSize: 11, fontWeight: 700, letterSpacing: '0.06em',
+                  padding: '3px 10px', borderRadius: 20,
+                  background: healthScore.bg, border: `1px solid ${healthScore.border}`,
+                  color: healthScore.color, whiteSpace: 'nowrap',
+                }}>
+                  {healthScore.label === 'On Track' ? '✓' : healthScore.label === 'Slightly Off' ? '⚠' : '✗'} {healthScore.label}
+                </span>
+              )}
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
               <div>
                 <p style={{ fontSize: 11, color: '#b0aa9f', marginBottom: 4 }}>Planned</p>
-                <p style={{ fontSize: 16, fontWeight: 600 }}>{f(planned.income)}</p>
+                <p style={{ fontSize: 14, fontWeight: 600 }}>{f(planned.income)}</p>
               </div>
               <div>
                 <p style={{ fontSize: 11, color: '#b0aa9f', marginBottom: 4 }}>Actual</p>
                 <Inp type="number" value={getActual(selectedMonth, 'income')} placeholder={f(planned.income)}
-                  onChange={v => {
-                    setActual(selectedMonth, 'income', v);
-                    if (v && v !== baseIncome) {
-                      set('monthlyIncomeOverrides', prev => {
-                        const n = { ...prev };
-                        if (!v || v === baseIncome) delete n[selectedMonth]; else n[selectedMonth] = v;
-                        return n;
-                      });
-                    }
-                  }}
+                  onChange={v => setActual(selectedMonth, 'income', v)}
                   style={{ fontSize: 14, fontWeight: 600 }}
                 />
               </div>
               <div>
                 <p style={{ fontSize: 11, color: '#b0aa9f', marginBottom: 4 }}>Difference</p>
                 {actualIncome > 0 ? (
-                  <p style={{ fontSize: 16, fontWeight: 600, color: actualIncome >= planned.income ? '#2d9e6b' : '#c94040' }}>
+                  <p style={{ fontSize: 14, fontWeight: 600, color: actualIncome >= planned.income ? '#2d9e6b' : '#c94040' }}>
                     {actualIncome >= planned.income ? '+' : ''}{f(actualIncome - planned.income)}
                   </p>
                 ) : (
-                  <p style={{ fontSize: 16, color: '#d5d0c8' }}>—</p>
+                  <p style={{ fontSize: 14, color: '#d5d0c8' }}>—</p>
                 )}
               </div>
             </div>
