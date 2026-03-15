@@ -10,7 +10,7 @@ export const EXPENSE_CATEGORY_COLORS = [
   '#7eb5d6','#7ec8a0','#e8a598','#d6a8c8','#fdba74',
   '#f9a8d4','#b5a8d6','#e8c55a','#84a98c','#b0aa9f',
 ];
-export const CAT_COLORS = { Savings:'#7ec8a0', Investments:'#7eb5d6', Needs:'#e8a598', Wants:'#d6a8c8' };
+export const CAT_COLORS = { Savings:'#5B9BD5', Investments:'#6dbb8a', Needs:'#E8A838', Wants:'#D96B6B' };
 export const CATEGORIES = ['Savings','Investments','Needs','Wants'];
 
 export const CURRENCIES = [
