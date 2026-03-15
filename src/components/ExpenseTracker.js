@@ -531,12 +531,12 @@ export default function ExpenseTracker({
             <div style={{ overflowX: 'auto' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, tableLayout: 'fixed' }}>
                 <colgroup>
-                  <col style={{ width: 110 }} />
-                  <col />
-                  <col style={{ width: 130 }} />
                   <col style={{ width: 100 }} />
-                  <col style={{ width: 140 }} />
+                  <col style={{ width: 200 }} />
+                  <col style={{ width: 120 }} />
+                  <col style={{ width: 90 }} />
                   <col style={{ width: 130 }} />
+                  <col style={{ width: 120 }} />
                   <col style={{ width: 32 }} />
                 </colgroup>
                 <thead>
@@ -684,7 +684,7 @@ export default function ExpenseTracker({
                         onMouseLeave={e => { e.currentTarget.style.background = ''; }}
                       >
                         <td style={tdSt}>{exp.date}</td>
-                        <td style={{ ...tdSt, fontWeight: 500 }}>
+                        <td style={{ ...tdSt, fontWeight: 500, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis', maxWidth: 0 }}>
                           {exp.description || <span style={{ color: '#d5d0c8' }}>—</span>}
                         </td>
                         <td style={{ ...tdSt, fontWeight: 600, textAlign: 'right' }}>

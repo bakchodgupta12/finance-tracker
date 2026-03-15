@@ -70,8 +70,13 @@ export function getCurrency(code) {
 
 export function fmt(v = 0, sym = '£', locale = 'en-GB', compact = false) {
   const n = Number(v) || 0;
-  if (compact && Math.abs(n) >= 1000) return `${sym}${(n/1000).toFixed(1)}k`;
-  return `${sym}${new Intl.NumberFormat(locale, { maximumFractionDigits: 0 }).format(n)}`;
+  const abs = Math.abs(n);
+  const sign = n < 0 ? '-' : '';
+  if (compact) {
+    if (abs >= 1_000_000) return `${sign}${sym}${(abs / 1_000_000).toFixed(1)}m`;
+    if (abs >= 10_000)    return `${sign}${sym}${(abs / 1_000).toFixed(1)}k`;
+  }
+  return `${sign}${sym}${new Intl.NumberFormat(locale, { maximumFractionDigits: 0 }).format(abs)}`;
 }
 
 export function capitalize(s) {
