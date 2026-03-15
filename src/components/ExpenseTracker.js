@@ -102,8 +102,7 @@ export default function ExpenseTracker({
   const filteredExpenses = useMemo(() => {
     const { from, to } = getFilterRange();
     return expenses.filter(e => e.date >= from && e.date <= to);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [expenses, dateFilter, customFrom, customTo, selectedYear]);
+  }, [expenses, dateFilter, customFrom, customTo, selectedYear]); // eslint-disable-line
 
   const analyticsStats = useMemo(() => {
     const catTotals = {};
@@ -116,8 +115,7 @@ export default function ExpenseTracker({
     });
     const topCat = Object.entries(catTotals).sort((a, b) => b[1] - a[1])[0]?.[0] || '—';
     return { total, catTotals, count: filteredExpenses.length, topCat };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filteredExpenses]);
+  }, [filteredExpenses]); // eslint-disable-line
 
   const barChartData = useMemo(() => {
     const { from, to } = getFilterRange();
@@ -132,8 +130,7 @@ export default function ExpenseTracker({
     return MONTHS
       .map(m => ({ month: m, total: Math.round(monthTotals[m] || 0) }))
       .filter(d => d.total > 0);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [expenses, dateFilter, customFrom, customTo, selectedYear, MONTHS]);
+  }, [expenses, dateFilter, customFrom, customTo, selectedYear, MONTHS]); // eslint-disable-line
 
   const catChartData = useMemo(() => {
     const { catTotals, total } = analyticsStats;
@@ -159,8 +156,7 @@ export default function ExpenseTracker({
 
   const monthTotal = useMemo(
     () => monthExpenses.reduce((sum, e) => sum + toHomeAmt(e), 0),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [monthExpenses],
+    [monthExpenses], // eslint-disable-line
   );
 
   const monthCatTotals = useMemo(() => {
@@ -170,8 +166,7 @@ export default function ExpenseTracker({
       totals[cat] = (totals[cat] || 0) + toHomeAmt(e);
     });
     return Object.entries(totals).sort((a, b) => b[1] - a[1]);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [monthExpenses]);
+  }, [monthExpenses]); // eslint-disable-line
 
   // ── CRUD ─────────────────────────────────────────────────────────────────
   const addExpense = () => {
