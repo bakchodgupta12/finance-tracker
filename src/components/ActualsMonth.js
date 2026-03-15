@@ -191,61 +191,62 @@ export default function ActualsMonth({
         <Lbl>ACCOUNT SNAPSHOTS — {selectedMonth.toUpperCase()}</Lbl>
         <p style={{ fontSize: 12, color: '#b0aa9f', marginBottom: 16 }}>End-of-month balances. Auto-converts to {state.currencyCode || 'GBP'}.</p>
 
-        {accountGroups.map(group => (
-          <div key={group.label} style={{ marginBottom: 16 }}>
-            <p style={{ fontSize: 11, fontWeight: 600, color: '#9e9890', letterSpacing: '0.1em', marginBottom: 8 }}>{group.label.toUpperCase()}</p>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
-              <thead>
-                <tr>
-                  {['Account', 'Balance (local)', `In ${state.currencyCode || 'GBP'}`, 'Change'].map(h => (
-                    <th key={h} style={{ padding: '6px 10px', color: '#b0aa9f', fontSize: 10, letterSpacing: '0.08em', textAlign: 'left', borderBottom: '1px solid #f0ece4', fontWeight: 500 }}>{h.toUpperCase()}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {group.accounts.map(acc => {
-                  const localVal = getSnap(selectedMonth, acc.id);
-                  const accCur = getCurrency(acc.currency);
-                  const numVal = Number(localVal) || 0;
-                  const homeVal = localVal !== '' ? toHome(numVal, acc.currency) : null;
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+          <thead>
+            <tr>
+              {['Account', `Balance (Local)`, `In ${state.currencyCode || 'GBP'}`, 'Change'].map(h => (
+                <th key={h} style={{ padding: '6px 10px', color: '#b0aa9f', fontSize: 10, letterSpacing: '0.08em', textAlign: 'left', borderBottom: '1px solid #f0ece4', fontWeight: 500 }}>{h.toUpperCase()}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {accountGroups.map(group => [
+              <tr key={`hdr-${group.label}`} style={{ background: '#f9f7f3' }}>
+                <td colSpan={4} style={{ padding: '6px 10px', fontSize: 10, fontWeight: 700, color: '#9e9890', letterSpacing: '0.1em' }}>
+                  {group.label.toUpperCase()}
+                </td>
+              </tr>,
+              ...group.accounts.map(acc => {
+                const localVal = getSnap(selectedMonth, acc.id);
+                const accCur = getCurrency(acc.currency);
+                const numVal = Number(localVal) || 0;
+                const homeVal = localVal !== '' ? toHome(numVal, acc.currency) : null;
 
-                  const prevVal = prevMonth ? (Number(getSnap(prevMonth, acc.id)) || 0) : 0;
-                  // pct is a number when computable, 'no-prev' when current exists but no prior data, null when no current data
-                  const pct = numVal > 0
-                    ? (prevVal > 0 ? ((numVal - prevVal) / prevVal) * 100 : 'no-prev')
-                    : null;
+                const prevVal = prevMonth ? (Number(getSnap(prevMonth, acc.id)) || 0) : 0;
+                const pct = numVal > 0
+                  ? (prevVal > 0 ? ((numVal - prevVal) / prevVal) * 100 : 'no-prev')
+                  : null;
 
-                  return (
-                    <tr key={acc.id} style={{ borderBottom: '1px solid #f9f7f3' }}>
-                      <td style={{ padding: '6px 10px', fontWeight: 500, color: '#1a1714' }}>{acc.name}</td>
-                      <td style={{ padding: '4px 10px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                          <span style={{ fontSize: 12, color: '#b0aa9f' }}>{accCur.symbol}</span>
-                          <Inp type="number" value={localVal} placeholder="0"
-                            onChange={v => setSnap(selectedMonth, acc.id, v)}
-                            style={{ width: 110 }}
-                          />
-                        </div>
-                      </td>
-                      <td style={{ padding: '6px 10px', color: homeVal === null ? '#d5d0c8' : '#2d2a26', fontWeight: 500 }}>
-                        {homeVal === null ? (localVal !== '' ? 'Rate unavailable' : '—') : f(homeVal, true)}
-                      </td>
-                      <td style={{ padding: '6px 10px' }}>
-                        {pct === null ? null : pct === 'no-prev' ? (
-                          <span style={{ fontSize: 11, color: '#d5d0c8' }}>—</span>
-                        ) : (
-                          <span style={{ fontSize: 11, color: pct >= 0 ? '#2d9e6b' : '#c94040', fontWeight: 600 }}>
-                            {pct >= 0 ? '+' : ''}{pct.toFixed(1)}%
-                          </span>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        ))}
+                return (
+                  <tr key={acc.id} style={{ borderBottom: '1px solid #f9f7f3' }}>
+                    <td style={{ padding: '6px 10px', fontWeight: 500, color: '#1a1714' }}>{acc.name}</td>
+                    <td style={{ padding: '4px 10px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center' }}>
+                        <span style={{ width: 40, flexShrink: 0, fontSize: 12, color: '#b0aa9f' }}>{accCur.symbol}</span>
+                        <Inp type="number" value={localVal} placeholder="—"
+                          onChange={v => setSnap(selectedMonth, acc.id, v)}
+                          style={{ width: 110 }}
+                        />
+                      </div>
+                    </td>
+                    <td style={{ padding: '6px 10px', color: homeVal === null ? '#d5d0c8' : '#2d2a26', fontWeight: 500 }}>
+                      {homeVal === null ? (localVal !== '' ? 'Rate unavailable' : '—') : f(homeVal, true)}
+                    </td>
+                    <td style={{ padding: '6px 10px' }}>
+                      {pct === null ? null : pct === 'no-prev' ? (
+                        <span style={{ fontSize: 11, color: '#d5d0c8' }}>—</span>
+                      ) : (
+                        <span style={{ fontSize: 11, color: pct >= 0 ? '#2d9e6b' : '#c94040', fontWeight: 600 }}>
+                          {pct >= 0 ? '+' : ''}{pct.toFixed(1)}%
+                        </span>
+                      )}
+                    </td>
+                  </tr>
+                );
+              }),
+            ])}
+          </tbody>
+        </table>
       </div>
     </div>
   );

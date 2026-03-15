@@ -4,7 +4,7 @@ import {
 } from 'recharts';
 import {
   s, Lbl, ChartTip,
-  CAT_COLORS, CATEGORIES, ACCOUNT_GROUPS,
+  ACCOUNT_GROUPS,
   getCurrency, getGreeting, getCurrentMonthAbbr
 } from '../shared';
 
@@ -27,15 +27,6 @@ export default function Dashboard({
   // Goal card
   const goal = state.goalNetWorth || 0;
   const goalPct = goal > 0 ? Math.min((netWorth / goal) * 100, 100) : null;
-
-  // Plan vs Actual for current month
-  const planVsActual = CATEGORIES.map(cat => {
-    const planned = (allocByCat[cat] / 100) * inc;
-    const actual = Number(currentActuals[cat]) || 0;
-    const diff = actual - planned;
-    const isGood = (cat === 'Savings' || cat === 'Investments') ? diff >= 0 : diff <= 0;
-    return { cat, planned, actual, diff, isGood, hasActual: actual > 0 };
-  });
 
   // Net worth trend chart data
   const chartData = useMemo(() => {
@@ -166,7 +157,6 @@ export default function Dashboard({
             <thead>
               <tr>
                 <th style={thStyle}>ACCOUNT</th>
-                <th style={thStyle}>TYPE</th>
                 <th style={thStyle}>LOCAL BALANCE</th>
                 <th style={thStyle}>IN {(state.currencyCode || 'GBP').toUpperCase()}</th>
               </tr>
@@ -175,7 +165,7 @@ export default function Dashboard({
               {allAccountsWithGroup.map(group => [
                 // Section divider row
                 <tr key={`hdr-${group.label}`} style={{ background: '#f9f7f3' }}>
-                  <td colSpan={4} style={{ padding: '6px 10px', fontSize: 10, fontWeight: 700, color: '#9e9890', letterSpacing: '0.1em' }}>
+                  <td colSpan={3} style={{ padding: '6px 10px', fontSize: 10, fontWeight: 700, color: '#9e9890', letterSpacing: '0.1em' }}>
                     {group.label.toUpperCase()}
                   </td>
                 </tr>,
@@ -187,7 +177,6 @@ export default function Dashboard({
                   return (
                     <tr key={acc.id} style={{ borderBottom: '1px solid #f9f7f3' }}>
                       <td style={{ ...tdStyle, fontWeight: 500, color: '#1a1714' }}>{acc.name}</td>
-                      <td style={{ ...tdStyle, color: '#9e9890', fontSize: 11 }}>{acc.type}</td>
                       <td style={{ ...tdStyle, color: '#6b6660' }}>
                         {localVal > 0
                           ? `${accCur.symbol}${new Intl.NumberFormat(accCur.locale, { maximumFractionDigits: 0 }).format(localVal)}`
@@ -204,40 +193,6 @@ export default function Dashboard({
           </table>
         </div>
       )}
-
-      {/* Plan vs Actual — current month */}
-      <div style={{ ...s.card, marginBottom: 16 }}>
-        <Lbl>PLAN vs ACTUAL — {currentMonth.toUpperCase()}</Lbl>
-        <p style={{ fontSize: 12, color: '#b0aa9f', marginBottom: 16 }}>How this month's spending compares to your plan</p>
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
-          <thead>
-            <tr>
-              {['Category', 'Planned', 'Actual', 'Difference'].map(h => (
-                <th key={h} style={thStyle}>{h.toUpperCase()}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {planVsActual.map(row => (
-              <tr key={row.cat} style={{ borderBottom: '1px solid #f9f7f3' }}>
-                <td style={{ ...tdStyle, fontWeight: 500, color: '#4a4643' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <div style={{ width: 7, height: 7, borderRadius: '50%', background: CAT_COLORS[row.cat] }} />
-                    {row.cat}
-                  </div>
-                </td>
-                <td style={{ ...tdStyle, color: '#9e9890' }}>{f(row.planned, true)}</td>
-                <td style={{ ...tdStyle, fontWeight: 500 }}>
-                  {row.hasActual ? f(row.actual, true) : <span style={{ color: '#d5d0c8' }}>—</span>}
-                </td>
-                <td style={{ ...tdStyle, fontWeight: 600, color: !row.hasActual ? '#d5d0c8' : row.isGood ? '#2d9e6b' : '#c94040' }}>
-                  {!row.hasActual ? '—' : `${row.diff >= 0 ? '+' : ''}${f(row.diff, true)}`}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
 
       {/* Prompt to log actuals */}
       {!hasActualsThisMonth && (
