@@ -66,7 +66,7 @@ export default function ActualsMonth({
   return (
     <div>
       <div style={{ marginBottom: 8 }}>
-        <p style={{ fontFamily: 'Lora, serif', fontSize: 20, color: '#1a1714', marginBottom: 4 }}>Actuals — {selectedYear}</p>
+        <p style={{ fontFamily: 'Lora, serif', fontSize: 20, color: '#1a1714', marginBottom: 4 }}>Tracker — {selectedYear}</p>
       </div>
 
       {/* Month pills */}
@@ -210,7 +210,10 @@ export default function ActualsMonth({
                   const homeVal = localVal !== '' ? toHome(numVal, acc.currency) : null;
 
                   const prevVal = prevMonth ? (Number(getSnap(prevMonth, acc.id)) || 0) : 0;
-                  const pct = prevVal > 0 && numVal > 0 ? ((numVal - prevVal) / Math.abs(prevVal)) * 100 : null;
+                  // pct is a number when computable, 'no-prev' when current exists but no prior data, null when no current data
+                  const pct = numVal > 0
+                    ? (prevVal > 0 ? ((numVal - prevVal) / prevVal) * 100 : 'no-prev')
+                    : null;
 
                   return (
                     <tr key={acc.id} style={{ borderBottom: '1px solid #f9f7f3' }}>
@@ -228,9 +231,11 @@ export default function ActualsMonth({
                         {homeVal === null ? (localVal !== '' ? 'Rate unavailable' : '—') : f(homeVal, true)}
                       </td>
                       <td style={{ padding: '6px 10px' }}>
-                        {pct !== null && (
+                        {pct === null ? null : pct === 'no-prev' ? (
+                          <span style={{ fontSize: 11, color: '#d5d0c8' }}>—</span>
+                        ) : (
                           <span style={{ fontSize: 11, color: pct >= 0 ? '#2d9e6b' : '#c94040', fontWeight: 600 }}>
-                            {pct >= 0 ? '▲' : '▼'} {Math.abs(pct).toFixed(1)}%
+                            {pct >= 0 ? '+' : ''}{pct.toFixed(1)}%
                           </span>
                         )}
                       </td>
