@@ -202,7 +202,14 @@ export default function Plan({ state, set, f, currency, baseIncome, allocByCat, 
               <button onClick={() => set('allocation', prev => [...prev, { id: Date.now(), label: 'New Item', category: 'Wants', pct: 0 }])}
                 style={{ fontSize: 11, background: 'transparent', border: '1px dashed #d8d4cc', borderRadius: 7, padding: '4px 12px', cursor: 'pointer', color: '#a09890' }}>+ Add row</button>
             </div>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+            <table style={{ width: '100%', tableLayout: 'fixed', borderCollapse: 'collapse', fontSize: 13 }}>
+              <colgroup>
+                <col style={{ width: '30%' }} />
+                <col style={{ width: '25%' }} />
+                <col style={{ width: '18%' }} />
+                <col style={{ width: '20%' }} />
+                <col style={{ width: '7%' }}  />
+              </colgroup>
               <thead>
                 <tr>{['Label', 'Category', '% of Income', 'Monthly Amount', ''].map(h => (
                   <th key={h} style={{ padding: '8px 10px', color: '#b0aa9f', fontSize: 10, letterSpacing: '0.08em', textAlign: 'left', borderBottom: '1px solid #f0ece4', fontWeight: 500 }}>{h}</th>
@@ -211,14 +218,16 @@ export default function Plan({ state, set, f, currency, baseIncome, allocByCat, 
               <tbody>
                 {state.allocation.map(row => (
                   <tr key={row.id} style={{ borderBottom: '1px solid #f9f7f3' }}>
-                    <td style={{ padding: '5px 10px' }}><Inp value={row.label} onChange={v => set('allocation', prev => prev.map(x => x.id === row.id ? { ...x, label: v } : x))} style={{ width: 160 }} /></td>
                     <td style={{ padding: '5px 10px' }}>
-                      <Select value={row.category} onChange={e => set('allocation', prev => prev.map(x => x.id === row.id ? { ...x, category: e.target.value } : x))} style={{ width: 'auto' }}>
+                      <Inp value={row.label} onChange={v => set('allocation', prev => prev.map(x => x.id === row.id ? { ...x, label: v } : x))} style={{ width: '100%', overflow: 'hidden', textOverflow: 'ellipsis' }} />
+                    </td>
+                    <td style={{ padding: '5px 10px' }}>
+                      <Select value={row.category} onChange={e => set('allocation', prev => prev.map(x => x.id === row.id ? { ...x, category: e.target.value } : x))}>
                         {CATEGORIES.map(c => <option key={c}>{c}</option>)}
                       </Select>
                     </td>
                     <td style={{ padding: '5px 10px' }}>
-                      <div style={{ position: 'relative', width: 82 }}>
+                      <div style={{ position: 'relative' }}>
                         <Inp type="number" value={row.pct === 0 ? '' : row.pct} onChange={v => set('allocation', prev => prev.map(x => x.id === row.id ? { ...x, pct: v === '' ? 0 : (Number(v) || 0) } : x))} style={{ width: '100%', paddingRight: 22 }} />
                         <span style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', color: '#b0aa9f', fontSize: 13, pointerEvents: 'none' }}>%</span>
                       </div>
