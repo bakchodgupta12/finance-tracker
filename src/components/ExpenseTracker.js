@@ -325,6 +325,30 @@ export default function ExpenseTracker({
     <div>
       {/* ── Analytics Section ─────────────────────────────────────────────── */}
       <div style={{ ...s.card, marginBottom: 14 }}>
+        {/* Date filter pills — always visible so summary bar always reflects active filter */}
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 14 }}>
+          {DATE_FILTERS.map(df => (
+            <button
+              key={df.key}
+              onClick={() => setDateFilter(df.key)}
+              style={{
+                padding: '5px 12px', borderRadius: 20, fontSize: 12, fontFamily: 'inherit',
+                border: dateFilter === df.key ? '2px solid #2d2a26' : '1px solid #e8e4dc',
+                background: dateFilter === df.key ? '#2d2a26' : '#fff',
+                color: dateFilter === df.key ? '#fff' : '#6b6660',
+                cursor: 'pointer', fontWeight: dateFilter === df.key ? 600 : 400,
+              }}
+            >{df.label}</button>
+          ))}
+        </div>
+        {dateFilter === 'custom' && (
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 14 }}>
+            <input type="date" value={customFrom} onChange={e => setCustomFrom(e.target.value)} style={{ ...s.input, width: 'auto' }} />
+            <span style={{ color: '#b0aa9f', fontSize: 13 }}>to</span>
+            <input type="date" value={customTo} onChange={e => setCustomTo(e.target.value)} style={{ ...s.input, width: 'auto' }} />
+          </div>
+        )}
+
         {/* Summary bar */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
           <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap' }}>
@@ -348,36 +372,12 @@ export default function ExpenseTracker({
               padding: '6px 12px', fontSize: 12, cursor: 'pointer', color: '#6b6660', fontFamily: 'inherit',
             }}
           >
-            {analyticsOpen ? 'Hide Analytics ▲' : 'View Analytics ▼'}
+            {analyticsOpen ? 'Hide Charts ▲' : 'View Charts ▼'}
           </button>
         </div>
 
         {analyticsOpen && (
           <div style={{ marginTop: 20 }}>
-            {/* Date filter pills */}
-            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 14 }}>
-              {DATE_FILTERS.map(df => (
-                <button
-                  key={df.key}
-                  onClick={() => setDateFilter(df.key)}
-                  style={{
-                    padding: '5px 12px', borderRadius: 20, fontSize: 12, fontFamily: 'inherit',
-                    border: dateFilter === df.key ? '2px solid #2d2a26' : '1px solid #e8e4dc',
-                    background: dateFilter === df.key ? '#2d2a26' : '#fff',
-                    color: dateFilter === df.key ? '#fff' : '#6b6660',
-                    cursor: 'pointer', fontWeight: dateFilter === df.key ? 600 : 400,
-                  }}
-                >{df.label}</button>
-              ))}
-            </div>
-            {dateFilter === 'custom' && (
-              <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 14 }}>
-                <input type="date" value={customFrom} onChange={e => setCustomFrom(e.target.value)} style={{ ...s.input, width: 'auto' }} />
-                <span style={{ color: '#b0aa9f', fontSize: 13 }}>to</span>
-                <input type="date" value={customTo} onChange={e => setCustomTo(e.target.value)} style={{ ...s.input, width: 'auto' }} />
-              </div>
-            )}
-
             {/* Monthly bar chart */}
             {barChartData.length > 0 ? (
               <div style={{ marginBottom: 20 }}>
@@ -414,7 +414,9 @@ export default function ExpenseTracker({
 
             {/* Category breakdown */}
             {catChartData.length > 0 && (
-              <div style={{ display: 'grid', gridTemplateColumns: '148px 1fr', gap: 20, alignItems: 'start', marginBottom: 20 }}>
+              <div style={{ marginBottom: 20 }}>
+              <Lbl>SPEND BY CATEGORY</Lbl>
+              <div style={{ display: 'grid', gridTemplateColumns: '148px 1fr', gap: 20, alignItems: 'start', marginTop: 10 }}>
                 <PieChart width={140} height={140}>
                   <Pie data={catChartData} cx={65} cy={65} innerRadius={36} outerRadius={60} paddingAngle={2} dataKey="value">
                     {catChartData.map((entry, i) => <Cell key={i} fill={entry.color} />)}
@@ -443,6 +445,7 @@ export default function ExpenseTracker({
                     ))}
                   </tbody>
                 </table>
+              </div>
               </div>
             )}
 
