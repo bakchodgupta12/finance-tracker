@@ -175,7 +175,7 @@ export default function NetWorth({
           <div key={l.id} style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8 }}>
             <Inp value={l.label} onChange={v => set('liabilities', prev => prev.map(x => x.id === l.id ? { ...x, label: v } : x))} style={{ flex: 2 }} />
             <span style={{ color: '#b0aa9f', fontSize: 13 }}>{currency.symbol}</span>
-            <Inp type="number" value={l.amount} onChange={v => set('liabilities', prev => prev.map(x => x.id === l.id ? { ...x, amount: v } : x))} style={{ flex: 1, textAlign: 'right' }} />
+            <Inp type="number" value={l.amount === 0 ? '' : l.amount} onChange={v => set('liabilities', prev => prev.map(x => x.id === l.id ? { ...x, amount: v === '' ? 0 : (Number(v) || 0) } : x))} style={{ flex: 1, textAlign: 'right' }} />
             <DelBtn onClick={() => set('liabilities', prev => prev.filter(x => x.id !== l.id))} />
           </div>
         ))}
