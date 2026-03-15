@@ -32,6 +32,10 @@ export default function App() {
   const [showNewYearConfirm, setShowNewYearConfirm] = useState(false);
   const [yearLoading, setYearLoading] = useState(false);
 
+  // Sub-tab navigation targets (set by navigate(), consumed by child components)
+  const [trackerTargetSubTab, setTrackerTargetSubTab] = useState(null);
+  const [settingsTargetSubTab, setSettingsTargetSubTab] = useState(null);
+
   const set = useCallback((key, val) =>
     setState(prev => ({ ...prev, [key]: typeof val === 'function' ? val(prev[key]) : val }))
   , []);
@@ -84,7 +88,18 @@ export default function App() {
 
     if (existingData) {
       // Returning user — load their data for the given year
-      setState({ ...makeDefaultState(), ...existingData, userId });
+      // Migrate expenseCategories: add type field if missing
+      const DEFAULT_CAT_TYPES = {
+        Rent:'Need', Groceries:'Need', Food:'Want', Transport:'Need', Utilities:'Need',
+        Shopping:'Want', Entertainment:'Want', Travel:'Want', Drinks:'Want', Health:'Need',
+      };
+      const migratedData = existingData.expenseCategories ? {
+        ...existingData,
+        expenseCategories: existingData.expenseCategories.map(cat =>
+          cat.type !== undefined ? cat : { ...cat, type: DEFAULT_CAT_TYPES[cat.name] || null }
+        ),
+      } : existingData;
+      setState({ ...makeDefaultState(), ...migratedData, userId });
       setSelectedYear(year || currentYear);
     } else {
       // New user — show onboarding before entering the app
@@ -187,6 +202,15 @@ export default function App() {
     setShowNewYearConfirm(false);
   }, [state, availableYears, MONTHS, toHome]);
 
+  // Navigate to a tab, optionally targeting a specific sub-tab
+  const navigate = useCallback((targetTab, subTab) => {
+    setTab(targetTab);
+    if (subTab) {
+      if (targetTab === 'tracker')  setTrackerTargetSubTab(subTab);
+      if (targetTab === 'settings') setSettingsTargetSubTab(subTab);
+    }
+  }, []);
+
   const handleLogout = useCallback(() => {
     setLoaded(false);
     setState(makeDefaultState());
@@ -236,6 +260,9 @@ export default function App() {
     toHome, fxRates, fxLoading, selectedYear,
     netWorth, accountsNetWorth, totalLiabilities, latestSnapshots,
     modules: state.modules || { income: true, expenses: true, trades: true },
+    navigate,
+    trackerTargetSubTab, setTrackerTargetSubTab,
+    settingsTargetSubTab, setSettingsTargetSubTab,
   };
 
   if (!loaded && !onboardingData) return <LoginScreen onLogin={handleLogin} />;
@@ -322,7 +349,7 @@ export default function App() {
       <div style={{ maxWidth: 960, margin: '0 auto', padding: '28px 20px' }}>
 
         {tab === 'dashboard' && (
-          <Dashboard {...commonProps} setTab={setTab} />
+          <Dashboard {...commonProps} />
         )}
 
         {tab === 'plan' && (

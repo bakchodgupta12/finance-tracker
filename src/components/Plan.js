@@ -10,8 +10,6 @@ import {
 const SUB_TABS = [
   { id: 'allocation', label: 'Allocation' },
   { id: 'goals',      label: 'Goals' },
-  { id: 'income',     label: 'Income' },
-  { id: 'expenses',   label: 'Expenses' },
 ];
 
 export default function Plan({ state, set, f, currency, baseIncome, allocByCat, totalAllocPct, netWorth, selectedYear }) {
@@ -26,38 +24,12 @@ export default function Plan({ state, set, f, currency, baseIncome, allocByCat, 
             background: 'none', border: 'none',
             borderBottom: subTab === t.id ? '2px solid #2d2a26' : '2px solid transparent',
             color: subTab === t.id ? '#1a1714' : '#a09890',
-            cursor: 'pointer', padding: '10px 16px',
-            fontSize: 12, fontWeight: subTab === t.id ? 600 : 400,
+            cursor: 'pointer', padding: '12px 18px',
+            fontSize: 13, fontWeight: subTab === t.id ? 600 : 400,
             fontFamily: 'inherit', letterSpacing: '0.02em',
           }}>{t.label}</button>
         ))}
       </div>
-
-      {/* ── Income ── */}
-      {subTab === 'income' && (
-        <div style={{ maxWidth: 560 }}>
-          <div style={s.card}>
-            <Lbl>MONTHLY INCOME SOURCES</Lbl>
-            <p style={{ fontSize: 12, color: '#b0aa9f', marginBottom: 16 }}>
-              Base income each month. Individual months can be overridden in the Tracker tab.
-            </p>
-            {state.incomeSources.map(src => (
-              <div key={src.id} style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8 }}>
-                <Inp value={src.label} onChange={v => set('incomeSources', prev => prev.map(x => x.id === src.id ? { ...x, label: v } : x))} style={{ flex: 2 }} />
-                <span style={{ color: '#b0aa9f', fontSize: 13 }}>{currency.symbol}</span>
-                <Inp type="number" value={src.amount} onChange={v => set('incomeSources', prev => prev.map(x => x.id === src.id ? { ...x, amount: v } : x))} style={{ flex: 1, textAlign: 'right' }} />
-                <DelBtn onClick={() => set('incomeSources', prev => prev.filter(x => x.id !== src.id))} />
-              </div>
-            ))}
-            <AddBtn onClick={() => set('incomeSources', prev => [...prev, { id: Date.now(), label: 'New Source', amount: 0 }])} />
-            <Divider />
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{ fontSize: 13, color: '#6b6660' }}>Total base monthly income</span>
-              <span style={{ fontSize: 17, fontWeight: 600 }}>{f(baseIncome)}</span>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* ── Goals ── */}
       {subTab === 'goals' && (
@@ -225,31 +197,6 @@ export default function Plan({ state, set, f, currency, baseIncome, allocByCat, 
         </div>
       )}
 
-      {/* ── Expenses ── */}
-      {subTab === 'expenses' && (
-        <div style={{ maxWidth: 560 }}>
-          <div style={s.card}>
-            <Lbl>MONTHLY EXPENSES</Lbl>
-            <p style={{ fontSize: 12, color: '#b0aa9f', marginBottom: 16 }}>
-              Enter your monthly costs (rent, utilities, subscriptions, etc.)
-            </p>
-            {state.subscriptions.map(sub => (
-              <div key={sub.id} style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8 }}>
-                <Inp value={sub.label} onChange={v => set('subscriptions', prev => prev.map(x => x.id === sub.id ? { ...x, label: v } : x))} style={{ flex: 2 }} />
-                <span style={{ color: '#b0aa9f', fontSize: 13 }}>{currency.symbol}</span>
-                <Inp type="number" value={sub.amount} onChange={v => set('subscriptions', prev => prev.map(x => x.id === sub.id ? { ...x, amount: v } : x))} style={{ flex: 1, textAlign: 'right' }} />
-                <DelBtn onClick={() => set('subscriptions', prev => prev.filter(x => x.id !== sub.id))} />
-              </div>
-            ))}
-            <AddBtn onClick={() => set('subscriptions', prev => [...prev, { id: Date.now(), label: 'New Expense', amount: 0 }])} />
-            <Divider />
-            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <span style={{ fontSize: 13, color: '#6b6660' }}>Total / month</span>
-              <span style={{ fontSize: 15, fontWeight: 600 }}>{f(state.subscriptions.reduce((sum, x) => sum + x.amount, 0))}</span>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

@@ -4,11 +4,11 @@ import {
 } from 'recharts';
 import {
   s, Lbl, Inp, DelBtn, AddBtn, Divider, TypeBadge, ChartTip,
-  getCurrency
+  getCurrency, getCurrencyFlag, ACCOUNT_GROUPS, GROUP_HEADER_STYLES
 } from '../shared';
 
 export default function NetWorth({
-  state, set, f, currency, MONTHS,
+  state, set, f, currency, MONTHS, selectedYear,
   netWorth, accountsNetWorth, totalLiabilities, latestSnapshots,
   toHome, fxRates, fxLoading
 }) {
@@ -70,47 +70,74 @@ export default function NetWorth({
       )}
 
       {/* Account Balances */}
-      <div style={{ ...s.card, marginBottom: 16 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-          <Lbl>ACCOUNT BALANCES</Lbl>
-          <span style={{ fontSize: 11, color: '#b0aa9f' }}>Latest snapshot</span>
-        </div>
-        <p style={{ fontSize: 12, color: '#b0aa9f', marginBottom: 16 }}>
-          Showing most recent month with data. Manage accounts in Settings → Accounts.
-        </p>
+      {(() => {
+        const latestMonth = (() => {
+          for (let i = MONTHS.length - 1; i >= 0; i--) {
+            const snap = state.accountSnapshots?.[MONTHS[i]];
+            if (snap && Object.values(snap).some(v => v > 0)) return MONTHS[i];
+          }
+          return null;
+        })();
+        const accountGroups = ACCOUNT_GROUPS.map(group => ({
+          ...group, accounts: (state.accounts || []).filter(a => group.types.includes(a.type)),
+        })).filter(g => g.accounts.length > 0);
 
-        {(state.accounts || []).length === 0 ? (
-          <p style={{ fontSize: 13, color: '#b0aa9f' }}>No accounts set up yet. Add them in Settings → Accounts.</p>
-        ) : (
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
-            <thead>
-              <tr>{['Account', 'Type', 'Currency', 'Balance', `In ${state.currencyCode || 'GBP'}`].map(h => (
-                <th key={h} style={{ padding: '8px 10px', color: '#b0aa9f', fontSize: 10, letterSpacing: '0.08em', textAlign: 'left', borderBottom: '1px solid #f0ece4', fontWeight: 500 }}>{h.toUpperCase()}</th>
-              ))}</tr>
-            </thead>
-            <tbody>
-              {(state.accounts || []).map(acc => {
-                const localVal = latestSnapshots?.[acc.id] || 0;
-                const accCur = getCurrency(acc.currency);
-                const homeVal = toHome(localVal, acc.currency);
-                return (
-                  <tr key={acc.id} style={{ borderBottom: '1px solid #f9f7f3' }}>
-                    <td style={{ padding: '8px 10px', fontWeight: 600, color: '#1a1714' }}>{acc.name}</td>
-                    <td style={{ padding: '8px 10px' }}><TypeBadge type={acc.type} /></td>
-                    <td style={{ padding: '8px 10px', color: '#9e9890', fontSize: 12 }}>{acc.currency}</td>
-                    <td style={{ padding: '8px 10px', fontWeight: 500 }}>
-                      {localVal > 0 ? `${accCur.symbol}${new Intl.NumberFormat(accCur.locale, { maximumFractionDigits: 0 }).format(localVal)}` : <span style={{ color: '#d5d0c8' }}>—</span>}
-                    </td>
-                    <td style={{ padding: '8px 10px', color: localVal > 0 ? '#2d2a26' : '#d5d0c8', fontWeight: localVal > 0 ? 600 : 400 }}>
-                      {localVal > 0 ? (homeVal !== null ? f(homeVal, true) : 'Rate unavailable') : '—'}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        )}
-      </div>
+        return (
+          <div style={{ ...s.card, marginBottom: 16 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+              <Lbl>ACCOUNT BALANCES</Lbl>
+            </div>
+            <p style={{ fontSize: 12, color: '#b0aa9f', marginBottom: 16 }}>
+              Showing most recent month with data{latestMonth ? ` · ${latestMonth} ${selectedYear}` : ''}. Manage accounts in Settings → Accounts.
+            </p>
+
+            {(state.accounts || []).length === 0 ? (
+              <p style={{ fontSize: 13, color: '#b0aa9f' }}>No accounts set up yet. Add them in Settings → Accounts.</p>
+            ) : (
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                <thead>
+                  <tr>{['Account', 'Type', 'Currency', 'Balance', `In ${state.currencyCode || 'GBP'}`].map(h => (
+                    <th key={h} style={{ padding: '9px 12px', color: '#b0aa9f', fontSize: 10, letterSpacing: '0.08em', textAlign: 'left', borderBottom: '1px solid #f0ece4', fontWeight: 500 }}>{h.toUpperCase()}</th>
+                  ))}</tr>
+                </thead>
+                <tbody>
+                  {accountGroups.map(group => {
+                    const hdrStyle = GROUP_HEADER_STYLES[group.label] || { background: '#f9f7f3', color: '#9e9890' };
+                    return [
+                      <tr key={`hdr-${group.label}`} style={{ background: hdrStyle.background }}>
+                        <td colSpan={5} style={{ padding: '6px 12px', fontSize: 10, fontWeight: 700, color: hdrStyle.color, letterSpacing: '0.1em' }}>
+                          {group.label.toUpperCase()}
+                        </td>
+                      </tr>,
+                      ...group.accounts.map(acc => {
+                        const localVal = latestSnapshots?.[acc.id] || 0;
+                        const accCur = getCurrency(acc.currency);
+                        const flag = getCurrencyFlag(acc.currency);
+                        const homeVal = toHome(localVal, acc.currency);
+                        return (
+                          <tr key={acc.id} style={{ borderBottom: '1px solid #f9f7f3' }}>
+                            <td style={{ padding: '9px 12px', fontWeight: 600, color: '#1a1714' }}>{acc.name}</td>
+                            <td style={{ padding: '9px 12px' }}><TypeBadge type={acc.type} /></td>
+                            <td style={{ padding: '9px 12px', color: '#9e9890', fontSize: 12 }}>
+                              {flag && <span style={{ marginRight: 4 }}>{flag}</span>}{acc.currency}
+                            </td>
+                            <td style={{ padding: '9px 12px', fontWeight: 500 }}>
+                              {localVal > 0 ? `${accCur.symbol}${new Intl.NumberFormat(accCur.locale, { maximumFractionDigits: 0 }).format(localVal)}` : <span style={{ color: '#d5d0c8' }}>—</span>}
+                            </td>
+                            <td style={{ padding: '9px 12px', color: localVal > 0 ? '#2d2a26' : '#d5d0c8', fontWeight: localVal > 0 ? 600 : 400 }}>
+                              {localVal > 0 ? (homeVal !== null ? f(homeVal, true) : 'Rate unavailable') : '—'}
+                            </td>
+                          </tr>
+                        );
+                      }),
+                    ];
+                  })}
+                </tbody>
+              </table>
+            )}
+          </div>
+        );
+      })()}
 
       {/* Net worth trend chart */}
       {chartData.length >= 2 ? (
