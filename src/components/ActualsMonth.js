@@ -26,7 +26,7 @@ function TradesPlaceholder() {
 
 // ── Main component ────────────────────────────────────────────────────────────
 export default function ActualsMonth({
-  state, set, f, currency, MONTHS, baseIncome, allocByCat, monthIncome,
+  state, set, f, currency, MONTHS, baseIncome, allocByCat,
   toHome, selectedYear, modules, trackerTargetSubTab, setTrackerTargetSubTab,
 }) {
   const [selectedMonth, setSelectedMonth] = useState(getCurrentMonthAbbr());
@@ -62,13 +62,12 @@ export default function ActualsMonth({
     ...prev, [month]: { ...(prev[month] || {}), [accId]: val },
   }));
 
-  const inc     = monthIncome(selectedMonth);
   const planned = {
-    income:      inc,
-    Savings:     (allocByCat.Savings     / 100) * inc,
-    Investments: (allocByCat.Investments / 100) * inc,
-    Needs:       (allocByCat.Needs       / 100) * inc,
-    Wants:       (allocByCat.Wants       / 100) * inc,
+    income:      baseIncome,
+    Savings:     (allocByCat.Savings     / 100) * baseIncome,
+    Investments: (allocByCat.Investments / 100) * baseIncome,
+    Needs:       (allocByCat.Needs       / 100) * baseIncome,
+    Wants:       (allocByCat.Wants       / 100) * baseIncome,
   };
 
   const actualIncome  = Number(getActual(selectedMonth, 'income')) || 0;
@@ -242,7 +241,8 @@ export default function ActualsMonth({
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
               <div>
-                <p style={{ fontSize: 11, color: '#b0aa9f', marginBottom: 4 }}>Planned</p>
+                <p style={{ fontSize: 11, color: '#b0aa9f', marginBottom: 2 }}>Planned</p>
+                <p style={{ fontSize: 9, color: '#c5c0b8', marginBottom: 4 }}>From Plan → Income</p>
                 <p style={{ fontSize: 14, fontWeight: 600 }}>{f(planned.income)}</p>
               </div>
               <div>

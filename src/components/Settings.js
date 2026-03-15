@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { hashPassword, verifyPassword } from '../supabase';
 import {
-  s, Lbl, Inp, FG, Toast, Divider, DelBtn, AddBtn, TypeBadge,
+  s, Lbl, Inp, FG, Toast, Divider, DelBtn, AddBtn, TypeBadge, Select,
   CURRENCIES, ACCOUNT_TYPES, ALL_MONTHS, capitalize,
   EXPENSE_CATEGORY_COLORS,
 } from '../shared';
@@ -115,16 +115,16 @@ export default function Settings({ state, set, onDeleteAccount, onLogout, settin
               <p style={{ fontSize: 11, color: '#b0aa9f', marginTop: 4 }}>Shown in the greeting. Blank = username.</p>
             </FG>
             <FG label="HOME CURRENCY">
-              <select value={state.currencyCode || 'GBP'} onChange={e => set('currencyCode', e.target.value)} style={s.input}>
+              <Select value={state.currencyCode || 'GBP'} onChange={e => set('currencyCode', e.target.value)}>
                 {CURRENCIES.map(c => <option key={c.code} value={c.code}>{c.symbol} {c.code}</option>)}
-              </select>
+              </Select>
             </FG>
             <FG label="FINANCIAL YEAR STARTS">
-              <select value={state.yearStartMonth ?? 0} onChange={e => set('yearStartMonth', Number(e.target.value))} style={s.input}>
+              <Select value={state.yearStartMonth ?? 0} onChange={e => set('yearStartMonth', Number(e.target.value))}>
                 {ALL_MONTHS.map((m, i) => (
                   <option key={m} value={i}>{m}{i === 0 ? ' (Calendar year)' : i === 3 ? ' (UK tax year)' : ''}</option>
                 ))}
-              </select>
+              </Select>
             </FG>
           </div>
         </div>
@@ -175,14 +175,14 @@ export default function Settings({ state, set, onDeleteAccount, onLogout, settin
                   <DelBtn onClick={() => set('accounts', prev => prev.filter(a => a.id !== acc.id))} />
                 </div>
                 <div style={{ display: 'flex', gap: 8 }}>
-                  <select value={acc.type} onChange={e => set('accounts', prev => prev.map(a => a.id === acc.id ? { ...a, type: e.target.value } : a))}
-                    style={{ ...s.input, flex: 1 }}>
+                  <Select value={acc.type} onChange={e => set('accounts', prev => prev.map(a => a.id === acc.id ? { ...a, type: e.target.value } : a))}
+                    style={{ flex: 1 }}>
                     {ACCOUNT_TYPES.map(t => <option key={t}>{t}</option>)}
-                  </select>
-                  <select value={acc.currency} onChange={e => set('accounts', prev => prev.map(a => a.id === acc.id ? { ...a, currency: e.target.value } : a))}
-                    style={{ ...s.input, flex: 1 }}>
+                  </Select>
+                  <Select value={acc.currency} onChange={e => set('accounts', prev => prev.map(a => a.id === acc.id ? { ...a, currency: e.target.value } : a))}
+                    style={{ flex: 1 }}>
                     {CURRENCIES.map(c => <option key={c.code} value={c.code}>{c.code}</option>)}
-                  </select>
+                  </Select>
                 </div>
               </div>
             ))}
@@ -247,15 +247,15 @@ export default function Settings({ state, set, onDeleteAccount, onLogout, settin
                       style={{ flex: 1 }}
                     />
                     {/* Need/Want type */}
-                    <select
+                    <Select
                       value={cat.type || ''}
                       onChange={e => set('expenseCategories', prev => prev.map(c => c.id === cat.id ? { ...c, type: e.target.value || null } : c))}
-                      style={{ ...s.input, width: 90, fontSize: 12 }}
+                      style={{ width: 90, fontSize: 12 }}
                     >
                       <option value="">—</option>
                       <option value="Need">Need</option>
                       <option value="Want">Want</option>
-                    </select>
+                    </Select>
                     {/* Delete */}
                     {inUse ? (
                       <span title="Remove from expenses first" style={{ fontSize: 12, color: '#d5d0c8', cursor: 'not-allowed', padding: '0 4px' }}>×</span>

@@ -4,7 +4,7 @@ import {
   hashPassword, normaliseAnswer, verifySecurityAnswer,
   getSecurityQuestion, saveData
 } from '../supabase';
-import { s, Inp, FG, Toast, capitalize, SECURITY_QUESTIONS } from '../shared';
+import { s, Inp, FG, Toast, Select, capitalize, SECURITY_QUESTIONS } from '../shared';
 
 export default function LoginScreen({ onLogin }) {
   const [step, setStep]   = useState('username');
@@ -108,9 +108,9 @@ export default function LoginScreen({ onLogin }) {
           <FG label="CREATE PASSWORD"><Inp type="password" value={pw} onChange={setPw} placeholder="At least 4 characters" /></FG>
           <FG label="CONFIRM PASSWORD"><Inp type="password" value={pw2} onChange={setPw2} placeholder="Repeat password" /></FG>
           <FG label="SECURITY QUESTION">
-            <select value={secQ} onChange={e=>setSecQ(e.target.value)} style={s.input}>
+            <Select value={secQ} onChange={e=>setSecQ(e.target.value)}>
               {SECURITY_QUESTIONS.map(q=><option key={q} value={q}>{q}</option>)}
-            </select>
+            </Select>
           </FG>
           <FG label="YOUR ANSWER"><Inp value={secA} onChange={setSecA} placeholder="Answer (not case-sensitive)" onKeyDown={enter(create)} /></FG>
           <Toast msg={err} type="error" />

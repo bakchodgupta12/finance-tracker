@@ -3,7 +3,7 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell,
 } from 'recharts';
-import { s, Lbl, DelBtn, CURRENCIES, getCurrency, getCurrencyFlag, ALL_MONTHS } from '../shared';
+import { s, Lbl, DelBtn, Select, CURRENCIES, getCurrency, getCurrencyFlag, ALL_MONTHS } from '../shared';
 
 // ── Auto-suggest helper ───────────────────────────────────────────────────────
 function getAutoSuggest(description, expenses) {
@@ -33,6 +33,7 @@ function getAutoSuggest(description, expenses) {
 }
 
 const PAGE_SIZE = 20;
+const PM_COLORS = ['#7eb5d6','#7ec8a0','#d6a8c8','#fdba74','#a8d6c8','#d6c8a8','#f9a8d4','#b5a8d6'];
 
 const DATE_FILTERS = [
   { key: 'this-month', label: 'This Month' },
@@ -143,6 +144,24 @@ export default function ExpenseTracker({
         color: categories.find(c => c.name === name)?.color || '#b0aa9f',
       }));
   }, [analyticsStats, categories]);
+
+  const pmChartData = useMemo(() => {
+    let total = 0;
+    const pmTotals = {};
+    filteredExpenses.forEach(e => {
+      const amt = toHomeAmt(e);
+      total += amt;
+      const key = e.paidBy || 'Unassigned';
+      pmTotals[key] = (pmTotals[key] || 0) + amt;
+    });
+    return Object.entries(pmTotals)
+      .sort((a, b) => b[1] - a[1])
+      .map(([name, value], i) => ({
+        name, value: Math.round(value),
+        pct: total > 0 ? ((value / total) * 100).toFixed(1) : '0',
+        color: PM_COLORS[i % PM_COLORS.length],
+      }));
+  }, [filteredExpenses]); // eslint-disable-line
 
   // ── Month transaction data ────────────────────────────────────────────────
   const monthExpenses = useMemo(() => {
@@ -364,11 +383,19 @@ export default function ExpenseTracker({
               <div style={{ marginBottom: 20 }}>
                 <Lbl>MONTHLY SPEND</Lbl>
                 <div style={{ marginTop: 10 }}>
+                  {(() => {
+                    const barMax = barChartData.length > 0 ? Math.max(...barChartData.map(d => d.total)) : 0;
+                    const yFmt = v => {
+                      if (barMax < 1000) return `${currency.symbol}${v.toFixed(0)}`;
+                      if (barMax < 10000) return `${currency.symbol}${(v / 1000).toFixed(1)}k`;
+                      return `${currency.symbol}${(v / 1000).toFixed(0)}k`;
+                    };
+                    return (
                   <ResponsiveContainer width="100%" height={140}>
                     <BarChart data={barChartData} barSize={24}>
                       <CartesianGrid strokeDasharray="3 3" stroke="#f0ece4" />
                       <XAxis dataKey="month" stroke="#e8e4dc" tick={{ fill: '#b0aa9f', fontSize: 11 }} />
-                      <YAxis stroke="#e8e4dc" tick={{ fill: '#b0aa9f', fontSize: 11 }} tickFormatter={v => `${currency.symbol}${(v / 1000).toFixed(0)}k`} />
+                      <YAxis stroke="#e8e4dc" tick={{ fill: '#b0aa9f', fontSize: 11 }} tickFormatter={yFmt} />
                       <Tooltip
                         formatter={val => [f(val), 'Spend']}
                         labelStyle={{ color: '#2d2a26', fontSize: 12 }}
@@ -377,6 +404,8 @@ export default function ExpenseTracker({
                       <Bar dataKey="total" fill="#e8a598" radius={[4, 4, 0, 0]} />
                     </BarChart>
                   </ResponsiveContainer>
+                    );
+                  })()}
                 </div>
               </div>
             ) : (
@@ -385,7 +414,7 @@ export default function ExpenseTracker({
 
             {/* Category breakdown */}
             {catChartData.length > 0 && (
-              <div style={{ display: 'grid', gridTemplateColumns: '148px 1fr', gap: 20, alignItems: 'start' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '148px 1fr', gap: 20, alignItems: 'start', marginBottom: 20 }}>
                 <PieChart width={140} height={140}>
                   <Pie data={catChartData} cx={65} cy={65} innerRadius={36} outerRadius={60} paddingAngle={2} dataKey="value">
                     {catChartData.map((entry, i) => <Cell key={i} fill={entry.color} />)}
@@ -416,6 +445,47 @@ export default function ExpenseTracker({
                 </table>
               </div>
             )}
+
+            {/* Payment method breakdown */}
+            <div style={{ marginTop: 4 }}>
+              <Lbl>SPEND BY PAYMENT METHOD</Lbl>
+              {pmChartData.length === 0 || (pmChartData.length === 1 && pmChartData[0].name === 'Unassigned') ? (
+                <p style={{ fontSize: 12, color: '#b0aa9f', marginTop: 8 }}>
+                  Add payment methods in Settings to see this breakdown.
+                </p>
+              ) : (
+                <div style={{ display: 'grid', gridTemplateColumns: '148px 1fr', gap: 20, alignItems: 'start', marginTop: 10 }}>
+                  <PieChart width={140} height={140}>
+                    <Pie data={pmChartData} cx={65} cy={65} innerRadius={36} outerRadius={60} paddingAngle={2} dataKey="value">
+                      {pmChartData.map((entry, i) => <Cell key={i} fill={entry.color} />)}
+                    </Pie>
+                  </PieChart>
+                  <table style={{ fontSize: 12, borderCollapse: 'collapse', width: '100%' }}>
+                    <thead>
+                      <tr>
+                        {['Payment Method', 'Total', '%'].map(h => (
+                          <th key={h} style={thSt}>{h.toUpperCase()}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {pmChartData.map((row, i) => (
+                        <tr key={i} style={{ borderBottom: '1px solid #f9f7f3' }}>
+                          <td style={tdSt}>
+                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                              <span style={{ width: 8, height: 8, borderRadius: 2, background: row.color, display: 'inline-block', flexShrink: 0 }} />
+                              {row.name}
+                            </span>
+                          </td>
+                          <td style={tdSt}>{f(row.value)}</td>
+                          <td style={{ ...tdSt, color: '#9e9890' }}>{row.pct}%</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
           </div>
         )}
       </div>
@@ -612,27 +682,27 @@ export default function ExpenseTracker({
                           </td>
                           {/* Currency */}
                           <td style={{ padding: '5px 8px' }}>
-                            <select
+                            <Select
                               value={exp.currency}
                               onChange={e => updateExp(exp.id, 'currency', e.target.value)}
-                              style={{ ...inpSt, width: '100%' }}
+                              style={{ fontSize: 13, padding: '4px 8px' }}
                             >
                               {CURRENCIES.map(c => <option key={c.code} value={c.code}>{c.code}</option>)}
-                            </select>
+                            </Select>
                           </td>
                           {/* Category */}
                           <td style={{ padding: '5px 8px' }}>
-                            <select
+                            <Select
                               value={exp.category}
                               onChange={e => { updateExp(exp.id, 'category', e.target.value); setAutoFilled(p => ({ ...p, category: false })); }}
-                              style={{ ...inpSt, width: '100%', background: autoFilled.category ? autoFillBg : inpSt.background }}
+                              style={{ fontSize: 13, padding: '4px 8px', background: autoFilled.category ? autoFillBg : undefined }}
                             >
                               {categories.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
                               {/* keep stale value if category was deleted */}
                               {exp.category && !categories.find(c => c.name === exp.category) && (
                                 <option value={exp.category}>{exp.category}</option>
                               )}
-                            </select>
+                            </Select>
                             {/* Inline Need/Want prompt for unclassified categories */}
                             {(() => {
                               const cat = categories.find(c => c.name === exp.category);
@@ -655,14 +725,14 @@ export default function ExpenseTracker({
                           </td>
                           {/* Paid By */}
                           <td style={{ padding: '5px 8px' }}>
-                            <select
+                            <Select
                               value={exp.paidBy}
                               onChange={e => { updateExp(exp.id, 'paidBy', e.target.value); setAutoFilled(p => ({ ...p, paidBy: false })); }}
-                              style={{ ...inpSt, width: '100%', background: autoFilled.paidBy ? autoFillBg : inpSt.background }}
+                              style={{ fontSize: 13, padding: '4px 8px', background: autoFilled.paidBy ? autoFillBg : undefined }}
                             >
                               <option value="">—</option>
                               {paymentMethods.map(pm => <option key={pm.id} value={pm.name}>{pm.name}</option>)}
-                            </select>
+                            </Select>
                           </td>
                           <td style={{ padding: '5px 8px' }}>
                             <DelBtn onClick={() => deleteExp(exp.id)} />
