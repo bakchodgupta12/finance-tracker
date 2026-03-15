@@ -107,7 +107,7 @@ export default function Plan({ state, set, f, currency, baseIncome, allocByCat, 
                 <Inp
                   type="number"
                   value={state.incomeSources[0].amount || ''}
-                  onChange={v => set('incomeSources', prev => prev.map((src, i) => i === 0 ? { ...src, amount: v } : src))}
+                  onChange={v => set('incomeSources', prev => prev.map((src, i) => i === 0 ? { ...src, amount: v === '' ? 0 : (Number(v) || 0) } : src))}
                   placeholder="0"
                   style={{ maxWidth: 200 }}
                 />
@@ -219,11 +219,11 @@ export default function Plan({ state, set, f, currency, baseIncome, allocByCat, 
                     </td>
                     <td style={{ padding: '5px 10px' }}>
                       <div style={{ position: 'relative', width: 82 }}>
-                        <Inp type="number" value={row.pct} onChange={v => set('allocation', prev => prev.map(x => x.id === row.id ? { ...x, pct: v } : x))} style={{ width: '100%', paddingRight: 22 }} />
+                        <Inp type="number" value={row.pct === 0 ? '' : row.pct} onChange={v => set('allocation', prev => prev.map(x => x.id === row.id ? { ...x, pct: v === '' ? 0 : (Number(v) || 0) } : x))} style={{ width: '100%', paddingRight: 22 }} />
                         <span style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', color: '#b0aa9f', fontSize: 13, pointerEvents: 'none' }}>%</span>
                       </div>
                     </td>
-                    <td style={{ padding: '5px 10px', fontWeight: 500, color: '#4a4643' }}>{f((row.pct / 100) * baseIncome, true)}</td>
+                    <td style={{ padding: '5px 10px', fontWeight: 500, color: '#4a4643' }}>{f(((Number(row.pct) || 0) / 100) * baseIncome, true)}</td>
                     <td style={{ padding: '5px 10px' }}><DelBtn onClick={() => set('allocation', prev => prev.filter(x => x.id !== row.id))} /></td>
                   </tr>
                 ))}

@@ -14,6 +14,31 @@ import NetWorth from './components/NetWorth';
 import Settings from './components/Settings';
 
 // ─────────────────────────────────────────────
+// Sanitise numeric fields loaded from storage
+// Prevents '' or NaN in state from crashing arithmetic
+// ─────────────────────────────────────────────
+function sanitizeNumericFields(data) {
+  if (!data || typeof data !== 'object') return data;
+  const out = { ...data };
+  if (Array.isArray(out.allocation)) {
+    out.allocation = out.allocation.map(a => ({ ...a, pct: Number(a.pct) || 0 }));
+  }
+  if (Array.isArray(out.incomeSources)) {
+    out.incomeSources = out.incomeSources.map(s => ({ ...s, amount: Number(s.amount) || 0 }));
+  }
+  if (Array.isArray(out.liabilities)) {
+    out.liabilities = out.liabilities.map(l => ({ ...l, amount: Number(l.amount) || 0 }));
+  }
+  if (Array.isArray(out.subscriptions)) {
+    out.subscriptions = out.subscriptions.map(s => ({ ...s, amount: Number(s.amount) || 0 }));
+  }
+  out.startingBalance = Number(out.startingBalance) || 0;
+  out.goalSavings     = Number(out.goalSavings)     || 0;
+  out.goalNetWorth    = Number(out.goalNetWorth)     || 0;
+  return out;
+}
+
+// ─────────────────────────────────────────────
 // Main App
 // ─────────────────────────────────────────────
 export default function App() {
@@ -99,7 +124,8 @@ export default function App() {
           cat.type !== undefined ? cat : { ...cat, type: DEFAULT_CAT_TYPES[cat.name] || null }
         ),
       } : existingData;
-      setState({ ...makeDefaultState(), ...migratedData, userId });
+      const sanitizedData = sanitizeNumericFields(migratedData);
+      setState({ ...makeDefaultState(), ...sanitizedData, userId });
       setSelectedYear(year || currentYear);
     } else {
       // New user — show onboarding before entering the app
@@ -145,7 +171,7 @@ export default function App() {
     setYearLoading(true);
     const { data } = await loadData(state.userId, year);
     if (data) {
-      setState(prev => ({ ...makeDefaultState(), ...data, userId: prev.userId }));
+      setState(prev => ({ ...makeDefaultState(), ...sanitizeNumericFields(data), userId: prev.userId }));
     } else {
       setState(prev => ({ ...makeDefaultState(), userId: prev.userId }));
     }
@@ -223,15 +249,15 @@ export default function App() {
   }, [state.userId, handleLogout]);
 
   // Derived calculations
-  const baseIncome     = state.incomeSources.reduce((s, i) => s + i.amount, 0);
+  const baseIncome     = state.incomeSources.reduce((s, i) => s + (Number(i.amount) || 0), 0);
   const monthIncome    = useCallback(m => state.monthlyIncomeOverrides[m] ?? baseIncome, [state.monthlyIncomeOverrides, baseIncome]);
   const allocByCat     = useMemo(() => {
     const map = {};
     for (const cat of ['Savings', 'Investments', 'Needs', 'Wants'])
-      map[cat] = state.allocation.filter(a => a.category === cat).reduce((s, a) => s + a.pct, 0);
+      map[cat] = state.allocation.filter(a => a.category === cat).reduce((s, a) => s + (Number(a.pct) || 0), 0);
     return map;
   }, [state.allocation]);
-  const totalAllocPct  = Object.values(allocByCat).reduce((s, v) => s + v, 0);
+  const totalAllocPct  = Object.values(allocByCat).reduce((s, v) => s + (Number(v) || 0), 0);
 
   // Net worth from account snapshots (latest month with data)
   const latestSnapshots = useMemo(() => {
@@ -251,7 +277,7 @@ export default function App() {
     }, 0);
   }, [latestSnapshots, state.accounts, toHome]);
 
-  const totalLiabilities = state.liabilities.reduce((s, l) => s + l.amount, 0);
+  const totalLiabilities = state.liabilities.reduce((s, l) => s + (Number(l.amount) || 0), 0);
   const netWorth = accountsNetWorth - totalLiabilities;
 
   // Common props for child components
