@@ -65,14 +65,14 @@ export default function Plan({ state, set, f, currency, baseIncome, allocByCat, 
           <div style={s.card}>
             <Lbl>TARGET NET WORTH BY END OF {selectedYear}</Lbl>
             <p style={{ fontSize: 12, color: '#b0aa9f', marginBottom: 12 }}>
-              Set an annual net worth target. Your current net worth is tracked against this goal on the Dashboard.
+              Set a net worth target. Tracked against your current net worth on the Dashboard.
             </p>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 20 }}>
               <span style={{ color: '#b0aa9f', fontSize: 13 }}>{currency.symbol}</span>
               <Inp
                 type="number"
-                value={state.goalNetWorth || 0}
-                onChange={v => set('goalNetWorth', v)}
+                value={state.goalNetWorth || ''}
+                onChange={v => set('goalNetWorth', v === '' || isNaN(parseFloat(v)) ? 0 : parseFloat(v))}
                 placeholder="e.g. 100000"
                 style={{ flex: 1 }}
               />
