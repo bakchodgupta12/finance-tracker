@@ -6,6 +6,7 @@ import {
   TABS, getCurrency, fmt, getMonthsFromStart, makeDefaultState, s
 } from './shared';
 import LoginScreen from './components/LoginScreen';
+import Onboarding from './components/Onboarding';
 import Dashboard from './components/Dashboard';
 import Plan from './components/Plan';
 import Tracker from './components/ActualsMonth';
@@ -23,6 +24,7 @@ export default function App() {
   const [fxRates, setFxRates]         = useState({});
   const [fxLoading, setFxLoading]     = useState(false);
   const fxCacheRef                    = useRef({});
+  const [onboardingData, setOnboardingData] = useState(null);
 
   // Year management
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
@@ -85,15 +87,11 @@ export default function App() {
       setState({ ...makeDefaultState(), ...existingData, userId });
       setSelectedYear(year || currentYear);
     } else {
-      // New user — create fresh state
-      setState({
-        ...makeDefaultState(),
-        userId,
-        passwordHash: pwHash || '',
-        securityQuestion: secQ || '',
-        securityAnswerHash: secAHash || '',
-      });
+      // New user — show onboarding before entering the app
+      setOnboardingData({ userId, pwHash: pwHash || '', secQ: secQ || '', secAHash: secAHash || '' });
       setSelectedYear(currentYear);
+      setAvailableYears([currentYear]);
+      return; // don't set loaded yet
     }
 
     // Load available years
@@ -106,6 +104,25 @@ export default function App() {
 
     setLoaded(true);
   }, []);
+
+  // Onboarding complete — save initial state and enter app
+  const handleOnboardingComplete = useCallback(async ({ currency, modules, account }) => {
+    const currentYear = new Date().getFullYear();
+    const newState = {
+      ...makeDefaultState(),
+      userId: onboardingData.userId,
+      passwordHash: onboardingData.pwHash,
+      securityQuestion: onboardingData.secQ,
+      securityAnswerHash: onboardingData.secAHash,
+      currencyCode: currency,
+      modules,
+      accounts: account ? [account] : [],
+    };
+    setState(newState);
+    setOnboardingData(null);
+    setLoaded(true);
+    await saveData(onboardingData.userId, currentYear, newState);
+  }, [onboardingData]);
 
   // Switch year
   const switchYear = useCallback(async (year) => {
@@ -218,9 +235,11 @@ export default function App() {
     state, set, f, currency, MONTHS, baseIncome, allocByCat, monthIncome,
     toHome, fxRates, fxLoading, selectedYear,
     netWorth, accountsNetWorth, totalLiabilities, latestSnapshots,
+    modules: state.modules || { income: true, expenses: true, trades: true },
   };
 
-  if (!loaded) return <LoginScreen onLogin={handleLogin} />;
+  if (!loaded && !onboardingData) return <LoginScreen onLogin={handleLogin} />;
+  if (!loaded && onboardingData) return <Onboarding onComplete={handleOnboardingComplete} />;
 
   return (
     <div style={{ minHeight: '100vh', background: '#f7f5f0', fontFamily: "'DM Sans', sans-serif", color: '#2d2a26' }}>
