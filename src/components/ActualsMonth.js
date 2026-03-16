@@ -243,9 +243,18 @@ export default function ActualsMonth({
               return raw !== '' && raw !== undefined;
             });
 
+            const cardStyle = {
+              background: '#fff',
+              border: '1px solid #e8e4dc',
+              borderRadius: 12,
+              padding: '20px 24px',
+              marginBottom: 12,
+            };
+
             return (
-              <div style={{ ...s.card, marginBottom: 14 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+              <>
+                {/* Header: label + health score */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
                   <Lbl>INCOME — {selectedMonth.toUpperCase()}</Lbl>
                   {healthScore && (
                     <span style={{
@@ -259,92 +268,107 @@ export default function ActualsMonth({
                   )}
                 </div>
 
-                {state.incomeSources.map((src, idx) => {
+                {/* Per-source cards */}
+                {state.incomeSources.map(src => {
                   const srcCur = CURRENCIES.find(c => c.code === (src.currency || homeCode)) || CURRENCIES[0];
-                  const isForeign = (src.currency || homeCode) !== homeCode;
                   const flag = getCurrencyFlag(src.currency || homeCode);
                   const plannedLocal = Number(src.amount) || 0;
-                  const plannedHome = toHome(plannedLocal, src.currency || homeCode);
                   const actualRaw = getIncomeActual(selectedMonth, src.id);
                   const actualLocal = actualRaw !== '' ? (Number(actualRaw) || 0) : null;
                   const diffLocal = actualLocal !== null ? actualLocal - plannedLocal : null;
-                  const diffHome = diffLocal !== null ? toHome(diffLocal, src.currency || homeCode) : null;
 
                   const fSrc = (v) => `${srcCur.symbol}${new Intl.NumberFormat(srcCur.locale, { maximumFractionDigits: 0 }).format(Math.abs(v))}`;
+                  const diffDisplay = diffLocal === null || diffLocal === 0
+                    ? '—'
+                    : `${diffLocal > 0 ? '+' : '-'}${fSrc(diffLocal)}`;
+                  const diffColor = diffLocal === null || diffLocal === 0
+                    ? '#b0aa9f'
+                    : diffLocal > 0 ? '#2d9e6b' : '#D96B6B';
 
                   return (
-                    <div key={src.id} style={{
-                      marginBottom: idx < state.incomeSources.length - 1 ? 12 : 0,
-                      paddingBottom: idx < state.incomeSources.length - 1 ? 12 : 0,
-                      borderBottom: idx < state.incomeSources.length - 1 ? '1px solid #f0ece4' : 'none',
-                    }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
-                        <span style={{ fontSize: 12, fontWeight: 600, color: '#2d2a26' }}>{src.label}</span>
-                        <span style={{ fontSize: 11, color: '#b0aa9f' }}>—</span>
-                        <span style={{ fontSize: 11, color: '#9e9890' }}>{flag && `${flag} `}{srcCur.code}</span>
+                    <div key={src.id} style={cardStyle}>
+                      {/* Top row: name + currency badge */}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20 }}>
+                        <span style={{ fontSize: 15, fontWeight: 600, color: '#1a1714' }}>{src.label}</span>
+                        <span style={{
+                          fontSize: 12, color: '#9e9890',
+                          background: '#f9f7f3', border: '1px solid #e8e4dc',
+                          borderRadius: 6, padding: '2px 8px',
+                        }}>
+                          {flag && `${flag} `}{srcCur.code}
+                        </span>
                       </div>
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
+
+                      {/* Three columns */}
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr 1fr', gap: 24, alignItems: 'start' }}>
+                        {/* Planned */}
                         <div>
-                          <p style={{ fontSize: 10, color: '#b0aa9f', marginBottom: 4 }}>Planned</p>
-                          <p style={{ fontSize: 13, fontWeight: 600, color: '#4a4643' }}>{fSrc(plannedLocal)}</p>
-                          {isForeign && plannedHome !== null && (
-                            <p style={{ fontSize: 10, color: '#b0aa9f', marginTop: 2 }}>{f(plannedHome)}</p>
-                          )}
+                          <p style={{ fontSize: 11, color: '#9e9890', letterSpacing: '0.1em', marginBottom: 8 }}>PLANNED</p>
+                          <p style={{ fontSize: 18, fontWeight: 600, color: '#1a1714' }}>{fSrc(plannedLocal)}</p>
+                          <p style={{ fontSize: 11, color: '#b0aa9f', marginTop: 4 }}>From Plan → Income</p>
                         </div>
+
+                        {/* Actual */}
                         <div>
-                          <p style={{ fontSize: 10, color: '#b0aa9f', marginBottom: 4 }}>Actual</p>
+                          <p style={{ fontSize: 11, color: '#9e9890', letterSpacing: '0.1em', marginBottom: 8 }}>ACTUAL</p>
                           <Inp
                             type="number"
                             value={actualRaw}
                             placeholder={String(plannedLocal)}
                             onChange={v => setIncomeActual(selectedMonth, src.id, v)}
-                            style={{ fontSize: 13, fontWeight: 600, padding: '4px 8px' }}
+                            style={{ width: '100%', fontSize: 16, padding: '10px 14px' }}
                           />
                         </div>
+
+                        {/* Difference */}
                         <div>
-                          <p style={{ fontSize: 10, color: '#b0aa9f', marginBottom: 4 }}>Difference</p>
-                          {diffLocal !== null ? (
-                            <>
-                              <p style={{ fontSize: 13, fontWeight: 600, color: diffLocal >= 0 ? '#2d9e6b' : '#c94040' }}>
-                                {diffLocal >= 0 ? '+' : ''}{fSrc(Math.abs(diffLocal))}{diffLocal < 0 ? '' : ''}
-                              </p>
-                              {isForeign && diffHome !== null && (
-                                <p style={{ fontSize: 10, color: diffLocal >= 0 ? '#2d9e6b' : '#c94040', marginTop: 2 }}>
-                                  {diffHome >= 0 ? '+' : ''}{f(diffHome)}
-                                </p>
-                              )}
-                            </>
-                          ) : (
-                            <p style={{ fontSize: 13, color: '#d5d0c8' }}>—</p>
-                          )}
+                          <p style={{ fontSize: 11, color: '#9e9890', letterSpacing: '0.1em', marginBottom: 8 }}>DIFFERENCE</p>
+                          <p style={{ fontSize: 18, fontWeight: 600, color: diffColor, paddingTop: 10 }}>
+                            {diffDisplay}
+                          </p>
                         </div>
                       </div>
                     </div>
                   );
                 })}
 
-                {/* Summary row */}
-                <div style={{ marginTop: 14, paddingTop: 12, borderTop: '2px solid #f0ece4', display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
-                  <div>
-                    <p style={{ fontSize: 10, color: '#b0aa9f', marginBottom: 4 }}>Total planned</p>
-                    <p style={{ fontSize: 13, fontWeight: 700, color: '#2d2a26' }}>{f(planned.income)}</p>
-                  </div>
-                  <div>
-                    <p style={{ fontSize: 10, color: '#b0aa9f', marginBottom: 4 }}>Total actual</p>
-                    <p style={{ fontSize: 13, fontWeight: 700, color: '#2d2a26' }}>{hasAnyActual ? f(totalActualHome) : '—'}</p>
-                  </div>
-                  <div>
-                    <p style={{ fontSize: 10, color: '#b0aa9f', marginBottom: 4 }}>Difference</p>
-                    {hasAnyActual ? (
-                      <p style={{ fontSize: 13, fontWeight: 700, color: totalActualHome >= planned.income ? '#2d9e6b' : '#c94040' }}>
-                        {totalActualHome >= planned.income ? '+' : ''}{f(totalActualHome - planned.income)}
-                      </p>
-                    ) : (
-                      <p style={{ fontSize: 13, color: '#d5d0c8' }}>—</p>
-                    )}
-                  </div>
-                </div>
-              </div>
+                {/* Summary card — only when multiple sources */}
+                {state.incomeSources.length > 1 && (() => {
+                  const totalDiff = totalActualHome - planned.income;
+                  const totalDiffDisplay = !hasAnyActual || totalDiff === 0
+                    ? '—'
+                    : `${totalDiff > 0 ? '+' : ''}${f(totalDiff)}`;
+                  const totalDiffColor = !hasAnyActual || totalDiff === 0
+                    ? '#b0aa9f'
+                    : totalDiff > 0 ? '#2d9e6b' : '#D96B6B';
+                  return (
+                    <div style={cardStyle}>
+                      <div style={{ marginBottom: 20 }}>
+                        <span style={{ fontSize: 15, fontWeight: 600, color: '#1a1714' }}>Total Income</span>
+                      </div>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr 1fr', gap: 24, alignItems: 'start' }}>
+                        <div>
+                          <p style={{ fontSize: 11, color: '#9e9890', letterSpacing: '0.1em', marginBottom: 8 }}>PLANNED</p>
+                          <p style={{ fontSize: 18, fontWeight: 600, color: '#1a1714' }}>{f(planned.income)}</p>
+                          <p style={{ fontSize: 11, color: '#b0aa9f', marginTop: 4 }}>{homeCode}</p>
+                        </div>
+                        <div>
+                          <p style={{ fontSize: 11, color: '#9e9890', letterSpacing: '0.1em', marginBottom: 8 }}>ACTUAL</p>
+                          <p style={{ fontSize: 18, fontWeight: 600, color: '#1a1714', paddingTop: 10 }}>
+                            {hasAnyActual ? f(totalActualHome) : '—'}
+                          </p>
+                        </div>
+                        <div>
+                          <p style={{ fontSize: 11, color: '#9e9890', letterSpacing: '0.1em', marginBottom: 8 }}>DIFFERENCE</p>
+                          <p style={{ fontSize: 18, fontWeight: 600, color: totalDiffColor, paddingTop: 10 }}>
+                            {totalDiffDisplay}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })()}
+              </>
             );
           })()}
 
