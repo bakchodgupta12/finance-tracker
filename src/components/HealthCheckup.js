@@ -695,10 +695,10 @@ function generatePDF(aiContent, reportData, currency, displayName) {
 
 // ── Main Component ────────────────────────────────────────────────────────────
 export default function HealthCheckup({
+  open, onClose,
   state, set, f, currency, MONTHS, allocByCat, baseIncome,
   toHome, totalLiabilities, selectedYear,
 }) {
-  const [showModal,    setShowModal]    = useState(false);
   const [period,       setPeriod]       = useState('last-3');
   const [loading,      setLoading]      = useState(false);
   const [loadingMsg2,  setLoadingMsg2]  = useState(false);
@@ -708,15 +708,6 @@ export default function HealthCheckup({
   const currentMonth  = new Date().toISOString().slice(0, 7);
   const usage         = state.checkupUsage || { month: '', count: 0 };
   const usageCount    = usage.month === currentMonth ? usage.count : 0;
-  const usesRemaining = Math.max(0, 3 - usageCount);
-  const nextMonthName = ALL_MONTHS[(new Date().getMonth() + 1) % 12];
-
-  // Data sufficiency
-  const hasExpenses  = (state.expenses || []).length > 0;
-  const hasSnapshots = Object.values(state.accountSnapshots || {}).some(snap =>
-    snap && Object.values(snap).some(v => v > 0),
-  );
-  const hasEnoughData = hasExpenses && hasSnapshots;
 
   // Period helpers
   const currentMonthAbbr   = ALL_MONTHS[new Date().getMonth()];
@@ -744,7 +735,7 @@ export default function HealthCheckup({
     setLoading(true);
     setLoadingMsg2(false);
     setError(null);
-    setShowModal(false);
+    onClose();
 
     const timer = setTimeout(() => setLoadingMsg2(true), 2000);
 
@@ -841,64 +832,26 @@ Return only valid JSON. No markdown, no explanation outside the JSON.`;
 
   return (
     <>
-      {/* Button + usage info */}
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', marginTop: 16, marginBottom: 4 }}>
-        {error && (
-          <div style={{
-            width: '100%', marginBottom: 8,
-            padding: '10px 14px', borderRadius: 8,
-            background: '#fdf2f2', border: '1px solid #fecaca',
-            fontSize: 13, color: '#c94040',
-            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-          }}>
-            ⚠ {error}
-            <button onClick={() => setError(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#c94040', fontSize: 18, lineHeight: 1 }}>×</button>
-          </div>
-        )}
-        <div
-          title={!hasEnoughData ? 'Log at least one month of expenses and account balances to generate your checkup.' : undefined}
-          style={{ display: 'inline-block' }}
-        >
-          <button
-            onClick={() => { if (hasEnoughData && usesRemaining > 0) setShowModal(true); }}
-            disabled={!hasEnoughData || usesRemaining === 0}
-            style={{
-              border: `1px solid ${(!hasEnoughData || usesRemaining === 0) ? '#d8d4cc' : '#2d2a26'}`,
-              color: (!hasEnoughData || usesRemaining === 0) ? '#b0aa9f' : '#2d2a26',
-              background: 'transparent',
-              borderRadius: 8,
-              padding: '10px 20px',
-              fontSize: 14,
-              cursor: (!hasEnoughData || usesRemaining === 0) ? 'not-allowed' : 'pointer',
-              fontFamily: 'inherit',
-              opacity: (!hasEnoughData || usesRemaining === 0) ? 0.6 : 1,
-              transition: 'all 0.15s',
-            }}
-            onMouseEnter={e => {
-              if (hasEnoughData && usesRemaining > 0) {
-                e.currentTarget.style.background = '#2d2a26';
-                e.currentTarget.style.color = '#fff';
-              }
-            }}
-            onMouseLeave={e => {
-              e.currentTarget.style.background = 'transparent';
-              e.currentTarget.style.color = (!hasEnoughData || usesRemaining === 0) ? '#b0aa9f' : '#2d2a26';
-            }}
-          >
-            📊 Financial Health Checkup
-          </button>
+      {/* Error notification */}
+      {error && (
+        <div style={{
+          position: 'fixed', bottom: 24, right: 24, zIndex: 300,
+          padding: '12px 16px', borderRadius: 10,
+          background: '#fdf2f2', border: '1px solid #fecaca',
+          fontSize: 13, color: '#c94040',
+          display: 'flex', alignItems: 'center', gap: 10,
+          boxShadow: '0 4px 20px rgba(0,0,0,0.1)',
+          maxWidth: 360,
+        }}>
+          <span>⚠ {error}</span>
+          <button onClick={() => setError(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#c94040', fontSize: 18, lineHeight: 1, flexShrink: 0 }}>×</button>
         </div>
-        <p style={{ fontSize: 11, color: '#b0aa9f', marginTop: 5, textAlign: 'right' }}>
-          {usesRemaining === 0
-            ? `No uses remaining until ${nextMonthName}`
-            : `${usesRemaining} use${usesRemaining !== 1 ? 's' : ''} remaining this month`}
-        </p>
-      </div>
+      )}
 
       {/* Period Selector Modal */}
-      {showModal && (
+      {open && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <div onClick={() => setShowModal(false)} style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.2)' }} />
+          <div onClick={onClose} style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.2)' }} />
           <div style={{
             position: 'relative', zIndex: 1,
             background: '#fff', borderRadius: 16, padding: '32px',
@@ -944,7 +897,7 @@ Return only valid JSON. No markdown, no explanation outside the JSON.`;
 
             <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
               <button
-                onClick={() => setShowModal(false)}
+                onClick={onClose}
                 style={{
                   background: 'none', border: '1px solid #e8e4dc', borderRadius: 8,
                   padding: '10px 20px', fontSize: 13, cursor: 'pointer',

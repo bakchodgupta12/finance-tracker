@@ -1,11 +1,11 @@
-import { useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
 } from 'recharts';
 import {
   s, Lbl, ChartTip,
   ACCOUNT_GROUPS, GROUP_HEADER_STYLES,
-  getCurrency, getCurrencyFlag, getGreeting, getCurrentMonthAbbr
+  getCurrency, getCurrencyFlag, getGreeting, getCurrentMonthAbbr, ALL_MONTHS
 } from '../shared';
 import HealthCheckup from './HealthCheckup';
 
@@ -76,6 +76,17 @@ export default function Dashboard({
   const displayName = (state.displayName?.trim()) ||
     (state.userId ? state.userId.charAt(0).toUpperCase() + state.userId.slice(1).toLowerCase() : '');
 
+  const [showCheckup, setShowCheckup] = useState(false);
+
+  // Health checkup button state
+  const checkupNow = new Date().toISOString().slice(0, 7);
+  const checkupUsage = state.checkupUsage || { month: '', count: 0 };
+  const checkupUsageCount = checkupUsage.month === checkupNow ? checkupUsage.count : 0;
+  const checkupUsesRemaining = Math.max(0, 3 - checkupUsageCount);
+  const checkupNextMonth = ALL_MONTHS[(new Date().getMonth() + 1) % 12];
+  const checkupHasData = (state.expenses || []).length > 0 &&
+    Object.values(state.accountSnapshots || {}).some(snap => snap && Object.values(snap).some(v => v > 0));
+
   const thStyle = { padding: '9px 12px', color: '#b0aa9f', fontSize: 10, letterSpacing: '0.08em', textAlign: 'left', borderBottom: '1px solid #f0ece4', fontWeight: 500 };
   const tdStyle = { padding: '9px 12px' };
 
@@ -142,12 +153,52 @@ export default function Dashboard({
 
   return (
     <div>
-      {/* Greeting */}
-      <div style={{ marginBottom: 24 }}>
-        <p style={{ fontFamily: 'Lora, serif', fontSize: 26, fontWeight: 400, color: '#1a1714', marginBottom: 2 }}>
-          {getGreeting()}, {displayName} 👋
-        </p>
-        <p style={{ fontSize: 13, color: '#9e9890' }}>Here's your {selectedYear} financial overview.</p>
+      {/* Greeting + Health Checkup Button */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 }}>
+        <div>
+          <p style={{ fontFamily: 'Lora, serif', fontSize: 26, fontWeight: 400, color: '#1a1714', marginBottom: 2 }}>
+            {getGreeting()}, {displayName} 👋
+          </p>
+          <p style={{ fontSize: 13, color: '#9e9890' }}>Here's your {selectedYear} financial overview.</p>
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', paddingTop: 4 }}>
+          <div title={!checkupHasData ? 'Log at least one month of expenses and account balances to generate your checkup.' : undefined}>
+            <button
+              onClick={() => { if (checkupHasData && checkupUsesRemaining > 0) setShowCheckup(true); }}
+              disabled={!checkupHasData || checkupUsesRemaining === 0}
+              style={{
+                border: `1px solid ${(!checkupHasData || checkupUsesRemaining === 0) ? '#d8d4cc' : '#2d2a26'}`,
+                color: (!checkupHasData || checkupUsesRemaining === 0) ? '#b0aa9f' : '#2d2a26',
+                background: 'transparent',
+                borderRadius: 8,
+                padding: '10px 20px',
+                fontSize: 14,
+                cursor: (!checkupHasData || checkupUsesRemaining === 0) ? 'not-allowed' : 'pointer',
+                fontFamily: 'inherit',
+                opacity: (!checkupHasData || checkupUsesRemaining === 0) ? 0.6 : 1,
+                transition: 'all 0.15s',
+                whiteSpace: 'nowrap',
+              }}
+              onMouseEnter={e => {
+                if (checkupHasData && checkupUsesRemaining > 0) {
+                  e.currentTarget.style.background = '#2d2a26';
+                  e.currentTarget.style.color = '#fff';
+                }
+              }}
+              onMouseLeave={e => {
+                e.currentTarget.style.background = 'transparent';
+                e.currentTarget.style.color = (!checkupHasData || checkupUsesRemaining === 0) ? '#b0aa9f' : '#2d2a26';
+              }}
+            >
+              📊 Financial Health Checkup
+            </button>
+          </div>
+          <p style={{ fontSize: 11, color: '#b0aa9f', marginTop: 5, textAlign: 'right' }}>
+            {checkupUsesRemaining === 0
+              ? `No uses remaining until ${checkupNextMonth}`
+              : `${checkupUsesRemaining} use${checkupUsesRemaining !== 1 ? 's' : ''} remaining this month`}
+          </p>
+        </div>
       </div>
 
       {/* Getting Started Checklist */}
@@ -264,20 +315,6 @@ export default function Dashboard({
         </div>
       </div>
 
-      {/* Financial Health Checkup */}
-      <HealthCheckup
-        state={state}
-        set={set}
-        f={f}
-        currency={currency}
-        MONTHS={MONTHS}
-        allocByCat={allocByCat}
-        baseIncome={baseIncome}
-        toHome={toHome}
-        totalLiabilities={totalLiabilities}
-        selectedYear={selectedYear}
-      />
-
       {/* Net Worth Trend Chart */}
       {chartData.length >= 2 ? (
         <div style={{ ...s.card, marginBottom: 16 }}>
@@ -360,6 +397,21 @@ export default function Dashboard({
           </table>
         </div>
       )}
+
+      <HealthCheckup
+        open={showCheckup}
+        onClose={() => setShowCheckup(false)}
+        state={state}
+        set={set}
+        f={f}
+        currency={currency}
+        MONTHS={MONTHS}
+        allocByCat={allocByCat}
+        baseIncome={baseIncome}
+        toHome={toHome}
+        totalLiabilities={totalLiabilities}
+        selectedYear={selectedYear}
+      />
 
       {/* Prompt to log actuals */}
       {!hasActualsThisMonth && (
