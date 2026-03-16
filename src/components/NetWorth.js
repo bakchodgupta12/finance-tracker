@@ -177,22 +177,24 @@ export default function NetWorth({
           const isForeign = lCur !== homeCode;
           const homeVal = isForeign ? toHome(Number(l.amount) || 0, lCur) : null;
           return (
-            <div key={l.id} style={{ display: 'flex', gap: 6, alignItems: 'center', marginBottom: 8 }}>
-              <Inp value={l.label} onChange={v => set('liabilities', prev => prev.map(x => x.id === l.id ? { ...x, label: v } : x))} style={{ flex: 2 }} />
-              <Inp type="number" value={l.amount === 0 ? '' : l.amount} onChange={v => set('liabilities', prev => prev.map(x => x.id === l.id ? { ...x, amount: v === '' ? 0 : (Number(v) || 0) } : x))} style={{ flex: 1 }} />
-              <Select
-                value={lCur}
-                onChange={e => set('liabilities', prev => prev.map(x => x.id === l.id ? { ...x, currency: e.target.value } : x))}
-                style={{ flex: 1 }}
-              >
-                {CURRENCIES.map(c => <option key={c.code} value={c.code}>{c.code}</option>)}
-              </Select>
+            <div key={l.id} style={{ marginBottom: 10 }}>
+              <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                <Inp value={l.label} onChange={v => set('liabilities', prev => prev.map(x => x.id === l.id ? { ...x, label: v } : x))} style={{ flex: 2 }} />
+                <Inp type="number" value={l.amount === 0 ? '' : l.amount} onChange={v => set('liabilities', prev => prev.map(x => x.id === l.id ? { ...x, amount: v === '' ? 0 : (Number(v) || 0) } : x))} style={{ flex: 1 }} />
+                <Select
+                  value={lCur}
+                  onChange={e => set('liabilities', prev => prev.map(x => x.id === l.id ? { ...x, currency: e.target.value } : x))}
+                  style={{ flex: 1 }}
+                >
+                  {CURRENCIES.map(c => <option key={c.code} value={c.code}>{c.code}</option>)}
+                </Select>
+                <DelBtn onClick={() => set('liabilities', prev => prev.filter(x => x.id !== l.id))} />
+              </div>
               {isForeign && (
-                <span style={{ fontSize: 11, color: homeVal !== null ? '#b0aa9f' : '#e8a598', whiteSpace: 'nowrap', flexShrink: 0 }}>
-                  {homeVal !== null ? `= ${f(homeVal)}` : 'no rate'}
-                </span>
+                <div style={{ fontSize: 11, color: homeVal !== null ? '#b0aa9f' : '#e8a598', paddingLeft: 4, marginTop: 4, lineHeight: 1.4 }}>
+                  {homeVal !== null ? `= ${f(homeVal)} at current rates` : 'no rate available'}
+                </div>
               )}
-              <DelBtn onClick={() => set('liabilities', prev => prev.filter(x => x.id !== l.id))} />
             </div>
           );
         })}

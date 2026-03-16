@@ -122,7 +122,7 @@ export default function Plan({ state, set, f, currency, baseIncome, allocByCat, 
               const converted = srcToHome(src);
               const isForeign = (src.currency || homeCode) !== homeCode;
               return (
-                <div key={src.id} style={{ marginBottom: 8 }}>
+                <div key={src.id} style={{ marginBottom: 10 }}>
                   <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
                     <Inp
                       value={src.label}
@@ -148,9 +148,9 @@ export default function Plan({ state, set, f, currency, baseIncome, allocByCat, 
                     )}
                   </div>
                   {isForeign && (
-                    <p style={{ fontSize: 11, color: converted !== null ? '#b0aa9f' : '#e8a598', paddingLeft: 8, marginTop: -4 }}>
-                      {converted !== null ? `↳ = ${f(converted)} at current rates` : '↳ no rate available'}
-                    </p>
+                    <div style={{ fontSize: 11, color: converted !== null ? '#b0aa9f' : '#e8a598', paddingLeft: 4, marginTop: 4, lineHeight: 1.4 }}>
+                      {converted !== null ? `= ${f(converted)} at current rates` : 'no rate available'}
+                    </div>
                   )}
                 </div>
               );
