@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import {
-  s, Lbl, Inp,
+  s, Lbl, EditableCell,
   CAT_COLORS, CATEGORIES, ACCOUNT_GROUPS,
   getCurrency, fmt
 } from '../shared';
@@ -129,10 +129,10 @@ export default function ActualsTable({
 
                     return (
                       <td key={key} style={{ padding: '4px 8px', verticalAlign: 'top' }}>
-                        <Inp type="number" value={val} placeholder="—"
+                        <EditableCell
+                          value={val}
                           onChange={v => {
                             if (key === 'income' && v !== baseIncome) {
-                              // Also set income override
                               set('monthlyIncomeOverrides', prev => {
                                 const n = { ...prev };
                                 if (!v || v === baseIncome) delete n[month]; else n[month] = v;
@@ -141,11 +141,8 @@ export default function ActualsTable({
                             }
                             setActual(month, key, v);
                           }}
-                          style={{
-                            width: 80, fontSize: 12, padding: '4px 6px',
-                            background: hasVal ? (isGood ? '#f0fdf4' : '#fdf2f2') : '#f9f7f3',
-                            borderColor: hasVal ? (isGood ? '#bbf7d0' : '#fecaca') : '#e8e4dc',
-                          }}
+                          prefix={currency.symbol}
+                          width={80}
                         />
                         <p style={{ fontSize: 9, color: '#c0bab2', marginTop: 2, paddingLeft: 2 }}>{f(plan)}</p>
                       </td>
@@ -213,10 +210,11 @@ export default function ActualsTable({
                         return (
                           <td key={acc.id} style={{ padding: '4px 8px' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                              <span style={{ fontSize: 11, color: '#b0aa9f' }}>{accCur.symbol}</span>
-                              <Inp type="number" value={val} placeholder="—"
+                              <EditableCell
+                                value={val}
                                 onChange={v => setSnap(month, acc.id, v)}
-                                style={{ width: 90, fontSize: 12, padding: '4px 6px' }}
+                                prefix={accCur.symbol}
+                                width={90}
                               />
                               {currVal > 0 && prev && prevVal > 0 && (
                                 <PctArrow curr={currVal} prev={prevVal} />

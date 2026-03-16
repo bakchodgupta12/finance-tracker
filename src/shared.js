@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 
 // ─────────────────────────────────────────────
 // Constants
@@ -251,6 +251,83 @@ export const TypeBadge = ({ type }) => {
   const colors = { Bank:'#3B82F6', Savings:'#7ec8a0', Investment:'#7C3AED', Crypto:'#D97706', Cash:'#9e9890', Other:'#d5d0c9' };
   return <Tag label={type} color={colors[type] || '#d5d0c9'} />;
 };
+
+export function EditableCell({
+  value,
+  onChange,
+  placeholder = '—',
+  prefix = '',
+  suffix = '',
+  width = 120,
+  align = 'left',
+}) {
+  const [editing, setEditing] = useState(false);
+  const inputRef = useRef(null);
+
+  useEffect(() => {
+    if (editing && inputRef.current) {
+      inputRef.current.focus();
+      inputRef.current.select();
+    }
+  }, [editing]);
+
+  const hasValue = value !== null && value !== undefined && value !== '' && value !== 0;
+
+  const formatNumber = (v) =>
+    new Intl.NumberFormat('en-GB', { maximumFractionDigits: 0 }).format(Number(v));
+
+  if (!editing) {
+    return (
+      <div
+        onClick={() => setEditing(true)}
+        style={{
+          cursor: 'text',
+          minWidth: width,
+          padding: '6px 4px',
+          color: hasValue ? '#1a1714' : '#b0aa9f',
+          fontWeight: hasValue ? 500 : 400,
+          fontSize: 14,
+          textAlign: align,
+          borderRadius: 6,
+          transition: 'background 0.1s',
+          userSelect: 'none',
+          display: 'inline-block',
+        }}
+        onMouseEnter={e => { e.currentTarget.style.background = '#f9f7f3'; }}
+        onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
+      >
+        {hasValue ? `${prefix}${formatNumber(value)}${suffix}` : placeholder}
+      </div>
+    );
+  }
+
+  return (
+    <input
+      ref={inputRef}
+      type="number"
+      value={value || ''}
+      onChange={e => onChange(e.target.value === '' ? '' : (parseFloat(e.target.value) || 0))}
+      onBlur={() => setEditing(false)}
+      onKeyDown={e => {
+        if (e.key === 'Enter' || e.key === 'Tab') setEditing(false);
+        if (e.key === 'Escape') setEditing(false);
+      }}
+      style={{
+        width: width,
+        background: '#f9f7f3',
+        border: '1px solid #7eb5d6',
+        borderRadius: 7,
+        color: '#1a1714',
+        padding: '6px 10px',
+        fontSize: 14,
+        outline: 'none',
+        fontFamily: 'inherit',
+        textAlign: align,
+        MozAppearance: 'textfield',
+      }}
+    />
+  );
+}
 
 export const ChartTip = ({ active, payload, label }) => {
   if (!active || !payload?.length) return null;
