@@ -117,8 +117,10 @@ export const makeDefaultState = () => ({
   // Feature modules
   modules: { income: true, expenses: true, trades: true },
   // Plan: Income
-  incomeSources: [{ id:1, label:'Salary', amount:3000 }],
+  incomeSources: [{ id:1, label:'Salary', amount:3000, currency:'GBP' }],
   monthlyIncomeOverrides: {},
+  // Plan: Secondary allocations per additional income source
+  secondaryAllocations: {},
   // Plan: Allocation
   allocation: [
     { id:1, label:'Emergency Fund',        category:'Savings',     pct:10 },
@@ -145,9 +147,9 @@ export const makeDefaultState = () => ({
   accountSnapshots: {},
   // Liabilities
   liabilities: [
-    { id:1, label:'Mortgage Balance', amount:0 },
-    { id:2, label:'Credit Card',      amount:0 },
-    { id:3, label:'Student Loan',     amount:0 },
+    { id:1, label:'Mortgage Balance', amount:0, currency:'GBP' },
+    { id:2, label:'Credit Card',      amount:0, currency:'GBP' },
+    { id:3, label:'Student Loan',     amount:0, currency:'GBP' },
   ],
   // Expenses
   expenses: [],
@@ -167,6 +169,8 @@ export const makeDefaultState = () => ({
   paymentMethods: [],
   // Auto-computed actuals from expenses (separate from manually entered actuals)
   expenseAutoActuals: {},
+  // FX API usage tracking
+  fxApiCallsThisMonth: { month: '', count: 0 },
   // Onboarding / checklist
   onboardingCompleted: false,
   checklistDismissCount: 0,

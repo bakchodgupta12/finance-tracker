@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import {
   s, Lbl, Inp, Divider,
   CAT_COLORS, CATEGORIES, ACCOUNT_GROUPS, GROUP_HEADER_STYLES,
-  getCurrency, getCurrencyFlag, getCurrentMonthAbbr,
+  getCurrency, getCurrencyFlag, getCurrentMonthAbbr, CURRENCIES,
 } from '../shared';
 import ExpenseTracker from './ExpenseTracker';
 
@@ -239,6 +239,30 @@ export default function ActualsMonth({
                 </span>
               )}
             </div>
+
+            {/* Income sources breakdown */}
+            {state.incomeSources.length > 0 && (
+              <div style={{ marginBottom: 12, padding: '8px 10px', background: '#fdfcfa', borderRadius: 8, border: '1px solid #f0ece4' }}>
+                {state.incomeSources.map(src => {
+                  const homeCode = state.currencyCode || 'GBP';
+                  const isForeign = (src.currency || homeCode) !== homeCode;
+                  const converted = toHome(Number(src.amount) || 0, src.currency || homeCode);
+                  const srcCur = CURRENCIES.find(c => c.code === (src.currency || homeCode)) || CURRENCIES[0];
+                  const localFmt = `${srcCur.symbol}${new Intl.NumberFormat(srcCur.locale, { maximumFractionDigits: 0 }).format(Math.abs(Number(src.amount) || 0))}`;
+                  return (
+                    <div key={src.id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 4 }}>
+                      <span style={{ color: '#6b6660' }}>{src.label}</span>
+                      <span style={{ color: '#4a4643', fontWeight: 500 }}>
+                        {isForeign
+                          ? <>{localFmt} <span style={{ color: '#b0aa9f' }}>({converted !== null ? f(converted) : 'no rate'})</span></>
+                          : f(Number(src.amount) || 0)}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
               <div>
                 <p style={{ fontSize: 11, color: '#b0aa9f', marginBottom: 2 }}>Planned</p>
@@ -264,6 +288,52 @@ export default function ActualsMonth({
               </div>
             </div>
           </div>
+
+          {/* Secondary income allocation breakdowns */}
+          {state.incomeSources.length > 1 && (() => {
+            const secondaryAllocations = state.secondaryAllocations || {};
+            const secondarySources = state.incomeSources.slice(1).filter(src => {
+              const rules = secondaryAllocations[src.id];
+              return rules && rules.length > 0;
+            });
+            if (secondarySources.length === 0) return null;
+            return (
+              <div style={{ ...s.card, marginBottom: 14 }}>
+                <Lbl>SECONDARY INCOME ALLOCATION</Lbl>
+                {secondarySources.map(src => {
+                  const homeCode = state.currencyCode || 'GBP';
+                  const isForeign = (src.currency || homeCode) !== homeCode;
+                  const converted = toHome(Number(src.amount) || 0, src.currency || homeCode);
+                  const srcCur = CURRENCIES.find(c => c.code === (src.currency || homeCode)) || CURRENCIES[0];
+                  const localFmt = `${srcCur.symbol}${new Intl.NumberFormat(srcCur.locale, { maximumFractionDigits: 0 }).format(Math.abs(Number(src.amount) || 0))}`;
+                  const rules = secondaryAllocations[src.id] || [];
+                  return (
+                    <div key={src.id} style={{ marginTop: 12 }}>
+                      <p style={{ fontSize: 12, fontWeight: 600, color: '#2d2a26', marginBottom: 6 }}>
+                        {src.label}
+                        <span style={{ fontSize: 11, color: '#b0aa9f', fontWeight: 400, marginLeft: 6 }}>
+                          {isForeign ? `${localFmt} (${converted !== null ? f(converted) : 'no rate'}) / month` : `${f(Number(src.amount) || 0)} / month`}
+                        </span>
+                      </p>
+                      {rules.map(rule => {
+                        const monthlyAmt = converted !== null ? ((Number(rule.pct) || 0) / 100) * converted : null;
+                        return (
+                          <div key={rule.id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 4, paddingLeft: 8 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                              <div style={{ width: 6, height: 6, borderRadius: 1, background: CAT_COLORS[rule.category] || '#b0aa9f', flexShrink: 0 }} />
+                              <span style={{ color: '#6b6660' }}>{rule.label}</span>
+                              <span style={{ color: '#b0aa9f', fontSize: 10 }}>{(Number(rule.pct) || 0).toFixed(0)}%</span>
+                            </div>
+                            <span style={{ color: '#4a4643', fontWeight: 500 }}>{monthlyAmt !== null ? f(monthlyAmt) : '—'}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  );
+                })}
+              </div>
+            );
+          })()}
 
           {/* Category breakdown */}
           <div style={{ ...s.card, marginBottom: 14 }}>

@@ -127,12 +127,21 @@ export async function deleteUser(userId) {
 }
 
 // Fetch live FX rates — base currency to all others
+// Primary: ExchangeRate-API; fallback: frankfurter.app
+// Returns { rates: {}, source: 'exchangerate-api'|'frankfurter'|'empty' }
 export async function fetchFxRates(baseCurrency = 'GBP') {
+  try {
+    const res = await fetch(`https://v6.exchangerate-api.com/v6/latest/${baseCurrency}`);
+    const json = await res.json();
+    if (json.result === 'success' && json.conversion_rates) {
+      return { rates: json.conversion_rates, source: 'exchangerate-api' };
+    }
+  } catch {}
+  // Fallback to frankfurter
   try {
     const res = await fetch(`https://api.frankfurter.app/latest?from=${baseCurrency}`);
     const json = await res.json();
-    return json.rates || {};
-  } catch {
-    return {};
-  }
+    return { rates: json.rates || {}, source: 'frankfurter' };
+  } catch {}
+  return { rates: {}, source: 'empty' };
 }

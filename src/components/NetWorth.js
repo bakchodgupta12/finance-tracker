@@ -3,8 +3,8 @@ import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
 } from 'recharts';
 import {
-  s, Lbl, Inp, DelBtn, AddBtn, Divider, TypeBadge, ChartTip,
-  getCurrency, getCurrencyFlag, ACCOUNT_GROUPS, GROUP_HEADER_STYLES
+  s, Lbl, Inp, DelBtn, AddBtn, Divider, TypeBadge, ChartTip, Select,
+  getCurrency, getCurrencyFlag, ACCOUNT_GROUPS, GROUP_HEADER_STYLES, CURRENCIES
 } from '../shared';
 
 export default function NetWorth({
@@ -171,18 +171,40 @@ export default function NetWorth({
       <div style={s.card}>
         <Lbl>LIABILITIES</Lbl>
         <p style={{ fontSize: 12, color: '#b0aa9f', marginBottom: 16 }}>Money you owe. Subtracted from assets to calculate net worth.</p>
-        {state.liabilities.map(l => (
-          <div key={l.id} style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8 }}>
-            <Inp value={l.label} onChange={v => set('liabilities', prev => prev.map(x => x.id === l.id ? { ...x, label: v } : x))} style={{ flex: 2 }} />
-            <span style={{ color: '#b0aa9f', fontSize: 13 }}>{currency.symbol}</span>
-            <Inp type="number" value={l.amount === 0 ? '' : l.amount} onChange={v => set('liabilities', prev => prev.map(x => x.id === l.id ? { ...x, amount: v === '' ? 0 : (Number(v) || 0) } : x))} style={{ flex: 1, textAlign: 'right' }} />
-            <DelBtn onClick={() => set('liabilities', prev => prev.filter(x => x.id !== l.id))} />
-          </div>
-        ))}
-        <AddBtn onClick={() => set('liabilities', prev => [...prev, { id: Date.now(), label: 'New Liability', amount: 0 }])} />
+        {state.liabilities.map(l => {
+          const homeCode = state.currencyCode || 'GBP';
+          const lCur = l.currency || homeCode;
+          const isForeign = lCur !== homeCode;
+          const homeVal = isForeign ? toHome(Number(l.amount) || 0, lCur) : null;
+          return (
+            <div key={l.id} style={{ display: 'flex', gap: 6, alignItems: 'center', marginBottom: 8 }}>
+              <Inp value={l.label} onChange={v => set('liabilities', prev => prev.map(x => x.id === l.id ? { ...x, label: v } : x))} style={{ flex: 2 }} />
+              <Inp type="number" value={l.amount === 0 ? '' : l.amount} onChange={v => set('liabilities', prev => prev.map(x => x.id === l.id ? { ...x, amount: v === '' ? 0 : (Number(v) || 0) } : x))} style={{ flex: 1 }} />
+              <Select
+                value={lCur}
+                onChange={e => set('liabilities', prev => prev.map(x => x.id === l.id ? { ...x, currency: e.target.value } : x))}
+                style={{ flex: 1 }}
+              >
+                {CURRENCIES.map(c => <option key={c.code} value={c.code}>{c.code}</option>)}
+              </Select>
+              {isForeign && (
+                <span style={{ fontSize: 11, color: homeVal !== null ? '#b0aa9f' : '#e8a598', whiteSpace: 'nowrap', flexShrink: 0 }}>
+                  {homeVal !== null ? `= ${f(homeVal)}` : 'no rate'}
+                </span>
+              )}
+              <DelBtn onClick={() => set('liabilities', prev => prev.filter(x => x.id !== l.id))} />
+            </div>
+          );
+        })}
+        <AddBtn onClick={() => set('liabilities', prev => [...prev, { id: Date.now(), label: 'New Liability', amount: 0, currency: state.currencyCode || 'GBP' }])} />
         <Divider />
         <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 600, fontSize: 13 }}>
-          <span>Total liabilities</span>
+          <span>
+            Total liabilities
+            {state.liabilities.some(l => (l.currency || state.currencyCode || 'GBP') !== (state.currencyCode || 'GBP')) && (
+              <span style={{ fontSize: 11, color: '#b0aa9f', fontWeight: 400, marginLeft: 6 }}>(converted to {state.currencyCode || 'GBP'})</span>
+            )}
+          </span>
           <span style={{ color: '#c94040' }}>{f(totalLiabilities)}</span>
         </div>
       </div>
