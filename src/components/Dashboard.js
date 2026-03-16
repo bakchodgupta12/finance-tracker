@@ -7,6 +7,7 @@ import {
   ACCOUNT_GROUPS, GROUP_HEADER_STYLES,
   getCurrency, getCurrencyFlag, getGreeting, getCurrentMonthAbbr
 } from '../shared';
+import HealthCheckup from './HealthCheckup';
 
 export default function Dashboard({
   state, set, f, currency, MONTHS, baseIncome, allocByCat, monthIncome,
@@ -262,6 +263,20 @@ export default function Dashboard({
           )}
         </div>
       </div>
+
+      {/* Financial Health Checkup */}
+      <HealthCheckup
+        state={state}
+        set={set}
+        f={f}
+        currency={currency}
+        MONTHS={MONTHS}
+        allocByCat={allocByCat}
+        baseIncome={baseIncome}
+        toHome={toHome}
+        totalLiabilities={totalLiabilities}
+        selectedYear={selectedYear}
+      />
 
       {/* Net Worth Trend Chart */}
       {chartData.length >= 2 ? (
