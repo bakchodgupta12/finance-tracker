@@ -194,7 +194,7 @@ export default function Plan({ state, set, f, currency, baseIncome, allocByCat, 
             {/* Custom benchmark */}
             <div style={s.card}>
               <Lbl>YOUR BENCHMARK</Lbl>
-              <p style={{ fontSize: 11, color: '#b0aa9f', marginBottom: 12 }}>Set your target percentages. Default is 50/30/20.</p>
+              <p style={{ fontSize: 11, color: '#b0aa9f', marginBottom: 12 }}>Set your target percentages.</p>
               {[
                 { key: 'benchmarkNeeds', cat: 'Needs', yours: allocByCat['Needs'] || 0, lowerIsBetter: true, barColor: '#E8A838' },
                 { key: 'benchmarkWants', cat: 'Wants', yours: allocByCat['Wants'] || 0, lowerIsBetter: true, barColor: '#D96B6B' },

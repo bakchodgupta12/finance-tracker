@@ -283,18 +283,18 @@ export function EditableCell({
         style={{
           cursor: 'text',
           minWidth: width,
-          padding: '6px 4px',
+          padding: '4px 2px',
+          borderBottom: '1px solid #d5d0c8',
           color: hasValue ? '#1a1714' : '#b0aa9f',
           fontWeight: hasValue ? 500 : 400,
           fontSize: 14,
           textAlign: align,
-          borderRadius: 6,
-          transition: 'background 0.1s',
-          userSelect: 'none',
           display: 'inline-block',
+          transition: 'border-color 0.15s',
+          userSelect: 'none',
         }}
-        onMouseEnter={e => { e.currentTarget.style.background = '#f9f7f3'; }}
-        onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
+        onMouseEnter={e => { e.currentTarget.style.borderBottomColor = '#9e9890'; }}
+        onMouseLeave={e => { e.currentTarget.style.borderBottomColor = '#d5d0c8'; }}
       >
         {hasValue ? `${prefix}${formatNumber(value)}${suffix}` : placeholder}
       </div>
