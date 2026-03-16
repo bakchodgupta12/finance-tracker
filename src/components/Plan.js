@@ -122,36 +122,35 @@ export default function Plan({ state, set, f, currency, baseIncome, allocByCat, 
               const converted = srcToHome(src);
               const isForeign = (src.currency || homeCode) !== homeCode;
               return (
-                <div key={src.id} style={{ display: 'flex', gap: 6, alignItems: 'center', marginBottom: 8 }}>
-                  <Inp
-                    value={src.label}
-                    onChange={v => set('incomeSources', prev => prev.map(x => x.id === src.id ? { ...x, label: v } : x))}
-                    style={{ flex: 2 }}
-                  />
-                  <Inp
-                    type="number"
-                    value={src.amount === 0 ? '' : src.amount}
-                    onChange={v => set('incomeSources', prev => prev.map(x => x.id === src.id ? { ...x, amount: v === '' ? 0 : (Number(v) || 0) } : x))}
-                    style={{ flex: 2 }}
-                    placeholder="0"
-                  />
-                  <Select
-                    value={src.currency || homeCode}
-                    onChange={e => set('incomeSources', prev => prev.map(x => x.id === src.id ? { ...x, currency: e.target.value } : x))}
-                    style={{ flex: 1 }}
-                  >
-                    {CURRENCIES.map(c => <option key={c.code} value={c.code}>{c.code}</option>)}
-                  </Select>
-                  {isForeign && converted !== null && (
-                    <span style={{ fontSize: 11, color: '#b0aa9f', whiteSpace: 'nowrap', flexShrink: 0 }}>
-                      = {f(converted)}
-                    </span>
-                  )}
-                  {isForeign && converted === null && (
-                    <span style={{ fontSize: 11, color: '#e8a598', whiteSpace: 'nowrap', flexShrink: 0 }}>no rate</span>
-                  )}
-                  {state.incomeSources.length > 1 && (
-                    <DelBtn onClick={() => set('incomeSources', prev => prev.filter(x => x.id !== src.id))} />
+                <div key={src.id} style={{ marginBottom: 8 }}>
+                  <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                    <Inp
+                      value={src.label}
+                      onChange={v => set('incomeSources', prev => prev.map(x => x.id === src.id ? { ...x, label: v } : x))}
+                      style={{ flex: 2 }}
+                    />
+                    <Inp
+                      type="number"
+                      value={src.amount === 0 ? '' : src.amount}
+                      onChange={v => set('incomeSources', prev => prev.map(x => x.id === src.id ? { ...x, amount: v === '' ? 0 : (Number(v) || 0) } : x))}
+                      style={{ flex: 2 }}
+                      placeholder="0"
+                    />
+                    <Select
+                      value={src.currency || homeCode}
+                      onChange={e => set('incomeSources', prev => prev.map(x => x.id === src.id ? { ...x, currency: e.target.value } : x))}
+                      style={{ flex: 1 }}
+                    >
+                      {CURRENCIES.map(c => <option key={c.code} value={c.code}>{c.code}</option>)}
+                    </Select>
+                    {state.incomeSources.length > 1 && (
+                      <DelBtn onClick={() => set('incomeSources', prev => prev.filter(x => x.id !== src.id))} />
+                    )}
+                  </div>
+                  {isForeign && (
+                    <p style={{ fontSize: 11, color: converted !== null ? '#b0aa9f' : '#e8a598', paddingLeft: 8, marginTop: -4 }}>
+                      {converted !== null ? `↳ = ${f(converted)} at current rates` : '↳ no rate available'}
+                    </p>
                   )}
                 </div>
               );

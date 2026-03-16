@@ -46,6 +46,9 @@ function sanitizeNumericFields(data) {
   if (!out.fxApiCallsThisMonth || typeof out.fxApiCallsThisMonth !== 'object') {
     out.fxApiCallsThisMonth = { month: '', count: 0 };
   }
+  if (!out.incomeActuals || typeof out.incomeActuals !== 'object') {
+    out.incomeActuals = {};
+  }
   return out;
 }
 
