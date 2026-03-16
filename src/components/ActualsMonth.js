@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import {
-  s, Lbl, Inp, Divider,
+  s, Lbl, Inp, Divider, EditableCell,
   CAT_COLORS, CATEGORIES, ACCOUNT_GROUPS, GROUP_HEADER_STYLES,
   getCurrency, getCurrencyFlag, getCurrentMonthAbbr, CURRENCIES,
 } from '../shared';
@@ -185,9 +185,11 @@ export default function ActualsMonth({
                             <td style={{ padding: '9px 12px', fontWeight: 500, color: '#1a1714' }}>{acc.name}</td>
                             <td style={{ padding: '4px 8px 4px 12px' }}>
                               <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                                <Inp type="number" value={localVal} placeholder="—"
+                                <EditableCell
+                                  value={localVal}
                                   onChange={v => setSnap(selectedMonth, acc.id, v)}
-                                  style={{ width: 140 }}
+                                  prefix={accCur.symbol}
+                                  width={140}
                                 />
                                 <span style={{
                                   display: 'inline-block', width: 56, flexShrink: 0,
@@ -311,12 +313,11 @@ export default function ActualsMonth({
                         {/* Actual */}
                         <div>
                           <p style={{ fontSize: 11, color: '#9e9890', letterSpacing: '0.1em', marginBottom: 8 }}>ACTUAL</p>
-                          <Inp
-                            type="number"
+                          <EditableCell
                             value={actualRaw}
-                            placeholder={String(plannedLocal)}
                             onChange={v => setIncomeActual(selectedMonth, src.id, v)}
-                            style={{ width: '100%', fontSize: 16, padding: '10px 14px' }}
+                            prefix={srcCur.symbol}
+                            width="100%"
                           />
                         </div>
 
@@ -461,11 +462,11 @@ export default function ActualsMonth({
                                   <span style={{ fontSize: 9, color: '#7eb5d6', letterSpacing: '0.05em', fontWeight: 600 }}>AUTO</span>
                                 )}
                               </div>
-                              <Inp type="number"
+                              <EditableCell
                                 value={manualVal !== '' && manualVal !== undefined ? manualVal : (autoVal !== undefined ? autoVal : '')}
-                                placeholder="—"
                                 onChange={v => setActual(selectedMonth, cat, v)}
-                                style={{ fontSize: 13, fontWeight: 600, padding: '4px 8px' }}
+                                prefix={currency.symbol}
+                                width={120}
                               />
                             </>
                           );

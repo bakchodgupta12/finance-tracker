@@ -3,7 +3,7 @@ import {
   PieChart, Pie, Cell
 } from 'recharts';
 import {
-  s, Lbl, Inp, DelBtn, AddBtn, Divider, Select,
+  s, Lbl, Inp, DelBtn, AddBtn, Divider, Select, EditableCell,
   CAT_COLORS, CATEGORIES, CURRENCIES
 } from '../shared';
 
@@ -289,10 +289,12 @@ export default function Plan({ state, set, f, currency, baseIncome, allocByCat, 
                       </Select>
                     </td>
                     <td style={{ padding: '5px 10px' }}>
-                      <div style={{ position: 'relative' }}>
-                        <Inp type="number" value={row.pct === 0 ? '' : row.pct} onChange={v => set('allocation', prev => prev.map(x => x.id === row.id ? { ...x, pct: v === '' ? 0 : (Number(v) || 0) } : x))} style={{ width: '100%', paddingRight: 22 }} />
-                        <span style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', color: '#b0aa9f', fontSize: 13, pointerEvents: 'none' }}>%</span>
-                      </div>
+                      <EditableCell
+                        value={row.pct === 0 ? '' : row.pct}
+                        onChange={v => set('allocation', prev => prev.map(x => x.id === row.id ? { ...x, pct: v === '' ? 0 : (Number(v) || 0) } : x))}
+                        suffix="%"
+                        width={80}
+                      />
                     </td>
                     <td style={{ padding: '5px 10px', fontWeight: 500, color: '#4a4643' }}>{f(((Number(row.pct) || 0) / 100) * baseIncome)}</td>
                     <td style={{ padding: '5px 10px' }}><DelBtn onClick={() => set('allocation', prev => prev.filter(x => x.id !== row.id))} /></td>
@@ -362,12 +364,12 @@ export default function Plan({ state, set, f, currency, baseIncome, allocByCat, 
                               </Select>
                             </td>
                             <td style={{ padding: '4px 8px' }}>
-                              <div style={{ position: 'relative' }}>
-                                <Inp type="number" value={rule.pct === 0 ? '' : rule.pct}
-                                  onChange={v => setRules(prev => prev.map(r => r.id === rule.id ? { ...r, pct: v === '' ? 0 : (Number(v) || 0) } : r))}
-                                  style={{ width: '100%', paddingRight: 20 }} />
-                                <span style={{ position: 'absolute', right: 7, top: '50%', transform: 'translateY(-50%)', color: '#b0aa9f', fontSize: 12, pointerEvents: 'none' }}>%</span>
-                              </div>
+                              <EditableCell
+                                value={rule.pct === 0 ? '' : rule.pct}
+                                onChange={v => setRules(prev => prev.map(r => r.id === rule.id ? { ...r, pct: v === '' ? 0 : (Number(v) || 0) } : r))}
+                                suffix="%"
+                                width={70}
+                              />
                             </td>
                             <td style={{ padding: '4px 8px', fontSize: 12, color: '#4a4643', fontWeight: 500 }}>
                               {converted !== null ? f(((Number(rule.pct) || 0) / 100) * converted) : '—'}
