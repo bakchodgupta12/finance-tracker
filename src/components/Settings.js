@@ -126,6 +126,25 @@ export default function Settings({ state, set, onDeleteAccount, onLogout, settin
                 ))}
               </Select>
             </FG>
+            {/* FX API usage counter */}
+            {(() => {
+              const fxData = state.fxApiCallsThisMonth || { month: '', count: 0 };
+              const count = fxData.count || 0;
+              const color = count >= 1400 ? '#c94040' : count >= 1000 ? '#d97706' : '#2d9e6b';
+              return (
+                <div style={{ marginTop: 4, padding: '10px 12px', background: '#f9f7f3', borderRadius: 8, border: '1px solid #f0ece4' }}>
+                  <p style={{ fontSize: 12, color: '#9e9890', marginBottom: 2 }}>
+                    FX API calls this month:{' '}
+                    <span style={{ fontWeight: 700, color }}>{count} / 1,500</span>
+                  </p>
+                  {count >= 1400 && (
+                    <p style={{ fontSize: 11, color: '#c94040', marginTop: 4 }}>
+                      Approaching free tier limit. Rates may fall back to backup source.
+                    </p>
+                  )}
+                </div>
+              );
+            })()}
           </div>
         </div>
       )}

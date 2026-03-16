@@ -20,14 +20,19 @@ import Settings from './components/Settings';
 function sanitizeNumericFields(data) {
   if (!data || typeof data !== 'object') return data;
   const out = { ...data };
+  const homeCode = out.currencyCode || 'GBP';
   if (Array.isArray(out.allocation)) {
     out.allocation = out.allocation.map(a => ({ ...a, pct: Number(a.pct) || 0 }));
   }
   if (Array.isArray(out.incomeSources)) {
-    out.incomeSources = out.incomeSources.map(s => ({ ...s, amount: Number(s.amount) || 0 }));
+    out.incomeSources = out.incomeSources.map(s => ({
+      ...s, amount: Number(s.amount) || 0, currency: s.currency || homeCode,
+    }));
   }
   if (Array.isArray(out.liabilities)) {
-    out.liabilities = out.liabilities.map(l => ({ ...l, amount: Number(l.amount) || 0 }));
+    out.liabilities = out.liabilities.map(l => ({
+      ...l, amount: Number(l.amount) || 0, currency: l.currency || homeCode,
+    }));
   }
   if (Array.isArray(out.subscriptions)) {
     out.subscriptions = out.subscriptions.map(s => ({ ...s, amount: Number(s.amount) || 0 }));
@@ -35,6 +40,12 @@ function sanitizeNumericFields(data) {
   out.startingBalance = Number(out.startingBalance) || 0;
   out.goalSavings     = Number(out.goalSavings)     || 0;
   out.goalNetWorth    = Number(out.goalNetWorth)     || 0;
+  if (!out.secondaryAllocations || typeof out.secondaryAllocations !== 'object' || Array.isArray(out.secondaryAllocations)) {
+    out.secondaryAllocations = {};
+  }
+  if (!out.fxApiCallsThisMonth || typeof out.fxApiCallsThisMonth !== 'object') {
+    out.fxApiCallsThisMonth = { month: '', count: 0 };
+  }
   return out;
 }
 
@@ -74,10 +85,18 @@ export default function App() {
     const code = state.currencyCode || 'GBP';
     if (fxCacheRef.current[code]) { setFxRates(fxCacheRef.current[code]); return; }
     setFxLoading(true);
-    fetchFxRates(code).then(rates => {
+    fetchFxRates(code).then(({ rates, source }) => {
       fxCacheRef.current[code] = rates;
       setFxRates(rates);
       setFxLoading(false);
+      if (source === 'exchangerate-api') {
+        const month = new Date().toISOString().slice(0, 7);
+        setState(prev => {
+          const p = prev.fxApiCallsThisMonth || { month: '', count: 0 };
+          const next = p.month !== month ? { month, count: 1 } : { ...p, count: p.count + 1 };
+          return { ...prev, fxApiCallsThisMonth: next };
+        });
+      }
     });
   }, [state.currencyCode, loaded]);
 
@@ -203,6 +222,7 @@ export default function App() {
       subscriptions: JSON.parse(JSON.stringify(state.subscriptions)),
       accounts: JSON.parse(JSON.stringify(state.accounts)),
       liabilities: JSON.parse(JSON.stringify(state.liabilities)),
+      secondaryAllocations: JSON.parse(JSON.stringify(state.secondaryAllocations || {})),
       goalSavings: state.goalSavings,
       goalNetWorth: state.goalNetWorth,
     };
@@ -249,7 +269,10 @@ export default function App() {
   }, [state.userId, handleLogout]);
 
   // Derived calculations
-  const baseIncome     = state.incomeSources.reduce((s, i) => s + (Number(i.amount) || 0), 0);
+  const baseIncome     = state.incomeSources.reduce((sum, i) => {
+    const c = toHome(Number(i.amount) || 0, i.currency || state.currencyCode || 'GBP');
+    return sum + (c ?? 0);
+  }, 0);
   const monthIncome    = useCallback(m => state.monthlyIncomeOverrides[m] ?? baseIncome, [state.monthlyIncomeOverrides, baseIncome]);
   const allocByCat     = useMemo(() => {
     const map = {};
@@ -277,7 +300,10 @@ export default function App() {
     }, 0);
   }, [latestSnapshots, state.accounts, toHome]);
 
-  const totalLiabilities = state.liabilities.reduce((s, l) => s + (Number(l.amount) || 0), 0);
+  const totalLiabilities = state.liabilities.reduce((sum, l) => {
+    const c = toHome(Number(l.amount) || 0, l.currency || state.currencyCode || 'GBP');
+    return sum + (c ?? 0);
+  }, 0);
   const netWorth = accountsNetWorth - totalLiabilities;
 
   // Common props for child components

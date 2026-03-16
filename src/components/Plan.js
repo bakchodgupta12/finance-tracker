@@ -4,7 +4,7 @@ import {
 } from 'recharts';
 import {
   s, Lbl, Inp, DelBtn, AddBtn, Divider, Select,
-  CAT_COLORS, CATEGORIES
+  CAT_COLORS, CATEGORIES, CURRENCIES
 } from '../shared';
 
 const SUB_TABS = [
@@ -12,12 +12,25 @@ const SUB_TABS = [
   { id: 'goals',      label: 'Goals' },
 ];
 
-export default function Plan({ state, set, f, currency, baseIncome, allocByCat, totalAllocPct, netWorth, selectedYear, navigate }) {
+export default function Plan({ state, set, f, currency, baseIncome, allocByCat, totalAllocPct, netWorth, selectedYear, navigate, toHome, fxRates }) {
   const [subTab, setSubTab] = useState('allocation');
   const [dragId, setDragId] = useState(null);
   const [dragOverId, setDragOverId] = useState(null);
   const [hoveredRowId, setHoveredRowId] = useState(null);
   const dragNode = useRef(null);
+
+  const homeCode = state.currencyCode || 'GBP';
+
+  // Format a value in a given currency (local display)
+  const fLocal = (amount, code) => {
+    const cur = CURRENCIES.find(c => c.code === code) || CURRENCIES[0];
+    return `${cur.symbol}${new Intl.NumberFormat(cur.locale, { maximumFractionDigits: 0 }).format(Math.abs(amount))}`;
+  };
+
+  // Convert a source amount to home currency, return null if rate unavailable
+  const srcToHome = (src) => toHome(Number(src.amount) || 0, src.currency || homeCode);
+
+  const isMultiCurrency = state.incomeSources.some(s => (s.currency || homeCode) !== homeCode);
 
   return (
     <div>
@@ -99,45 +112,62 @@ export default function Plan({ state, set, f, currency, baseIncome, allocByCat, 
       {/* ── Allocation ── */}
       {subTab === 'allocation' && (
         <div>
-          {/* Base income input */}
+          {/* Income Sources */}
           <div style={{ ...s.card, marginBottom: 16 }}>
             <Lbl>BASE MONTHLY INCOME</Lbl>
-            <p style={{ fontSize: 12, color: '#b0aa9f', marginBottom: 10 }}>
+            <p style={{ fontSize: 12, color: '#b0aa9f', marginBottom: 12 }}>
               Used to calculate your monthly allocation amounts.
             </p>
-            {state.incomeSources.length === 1 ? (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span style={{ color: '#b0aa9f', fontSize: 13, flexShrink: 0 }}>{currency.symbol}</span>
-                <Inp
-                  type="number"
-                  value={state.incomeSources[0].amount || ''}
-                  onChange={v => set('incomeSources', prev => prev.map((src, i) => i === 0 ? { ...src, amount: v === '' ? 0 : (Number(v) || 0) } : src))}
-                  placeholder="0"
-                  style={{ maxWidth: 200 }}
-                />
-              </div>
-            ) : (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span style={{ color: '#b0aa9f', fontSize: 13, flexShrink: 0 }}>{currency.symbol}</span>
-                <input
-                  type="number"
-                  value={baseIncome}
-                  readOnly
-                  style={{ ...s.input, maxWidth: 200, background: '#f0ece4', color: '#9e9890', cursor: 'not-allowed' }}
-                />
-              </div>
-            )}
-            {state.incomeSources.length > 1 && (
-              <p style={{ fontSize: 11, color: '#b0aa9f', marginTop: 6 }}>
-                Total from {state.incomeSources.length} income sources. Edit in Tracker → Income.
-              </p>
-            )}
-            <button
-              onClick={() => navigate && navigate('tracker', 'income')}
-              style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 11, color: '#7eb5d6', padding: 0, marginTop: 8, fontFamily: 'inherit' }}
-            >
-              Manage income sources in Tracker → Income
-            </button>
+            {state.incomeSources.map(src => {
+              const converted = srcToHome(src);
+              const isForeign = (src.currency || homeCode) !== homeCode;
+              return (
+                <div key={src.id} style={{ display: 'flex', gap: 6, alignItems: 'center', marginBottom: 8 }}>
+                  <Inp
+                    value={src.label}
+                    onChange={v => set('incomeSources', prev => prev.map(x => x.id === src.id ? { ...x, label: v } : x))}
+                    style={{ flex: 2 }}
+                  />
+                  <Inp
+                    type="number"
+                    value={src.amount === 0 ? '' : src.amount}
+                    onChange={v => set('incomeSources', prev => prev.map(x => x.id === src.id ? { ...x, amount: v === '' ? 0 : (Number(v) || 0) } : x))}
+                    style={{ flex: 2 }}
+                    placeholder="0"
+                  />
+                  <Select
+                    value={src.currency || homeCode}
+                    onChange={e => set('incomeSources', prev => prev.map(x => x.id === src.id ? { ...x, currency: e.target.value } : x))}
+                    style={{ flex: 1 }}
+                  >
+                    {CURRENCIES.map(c => <option key={c.code} value={c.code}>{c.code}</option>)}
+                  </Select>
+                  {isForeign && converted !== null && (
+                    <span style={{ fontSize: 11, color: '#b0aa9f', whiteSpace: 'nowrap', flexShrink: 0 }}>
+                      = {f(converted)}
+                    </span>
+                  )}
+                  {isForeign && converted === null && (
+                    <span style={{ fontSize: 11, color: '#e8a598', whiteSpace: 'nowrap', flexShrink: 0 }}>no rate</span>
+                  )}
+                  {state.incomeSources.length > 1 && (
+                    <DelBtn onClick={() => set('incomeSources', prev => prev.filter(x => x.id !== src.id))} />
+                  )}
+                </div>
+              );
+            })}
+            <AddBtn
+              onClick={() => set('incomeSources', prev => [...prev, { id: Date.now(), label: 'New Source', amount: 0, currency: homeCode }])}
+              label="+ Add income source"
+            />
+            <Divider />
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, alignItems: 'center' }}>
+              <span style={{ color: '#9e9890' }}>Total / month</span>
+              <span style={{ fontWeight: 700, color: '#1a1714' }}>
+                {f(baseIncome)}
+                {isMultiCurrency && <span style={{ fontSize: 11, color: '#b0aa9f', marginLeft: 4 }}>(converted to {homeCode})</span>}
+              </span>
+            </div>
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 16 }}>
@@ -278,6 +308,97 @@ export default function Plan({ state, set, f, currency, baseIncome, allocByCat, 
               <span style={{ fontWeight: 700, color: totalAllocPct > 100 ? '#c94040' : '#1a1714' }}>{totalAllocPct.toFixed(1)}%</span>
             </div>
           </div>
+
+          {/* Secondary income allocations (only when >1 source) */}
+          {state.incomeSources.length > 1 && (
+            <div style={{ ...s.card, marginTop: 16 }}>
+              <Lbl>SECONDARY INCOME ALLOCATION</Lbl>
+              <p style={{ fontSize: 12, color: '#b0aa9f', marginBottom: 16 }}>
+                Define where your additional income goes. Each rule applies as a % of that specific income source.
+              </p>
+              {state.incomeSources.slice(1).map(src => {
+                const converted = srcToHome(src);
+                const rules = (state.secondaryAllocations || {})[src.id] || [];
+                const totalPct = rules.reduce((s, r) => s + (Number(r.pct) || 0), 0);
+                const isForeign = (src.currency || homeCode) !== homeCode;
+
+                const setRules = (updater) => set('secondaryAllocations', prev => ({
+                  ...(prev || {}),
+                  [src.id]: typeof updater === 'function' ? updater((prev || {})[src.id] || []) : updater,
+                }));
+
+                return (
+                  <div key={src.id} style={{ marginBottom: 20 }}>
+                    <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 10 }}>
+                      <span style={{ fontSize: 13, fontWeight: 600, color: '#2d2a26' }}>{src.label}</span>
+                      <span style={{ fontSize: 12, color: '#b0aa9f' }}>—</span>
+                      <span style={{ fontSize: 12, color: '#6b6660' }}>
+                        {isForeign
+                          ? `${fLocal(src.amount, src.currency || homeCode)} (${converted !== null ? f(converted) : 'no rate'}) / month`
+                          : `${f(Number(src.amount) || 0)} / month`}
+                      </span>
+                    </div>
+                    <table style={{ width: '100%', tableLayout: 'fixed', borderCollapse: 'collapse', fontSize: 13 }}>
+                      <colgroup>
+                        <col style={{ width: '35%' }} />
+                        <col style={{ width: '28%' }} />
+                        <col style={{ width: '20%' }} />
+                        <col style={{ width: '10%' }} />
+                        <col style={{ width: '7%' }} />
+                      </colgroup>
+                      <thead>
+                        <tr>{['Label', 'Category', '% of Source', 'Monthly', ''].map((h, i) => (
+                          <th key={i} style={{ padding: '6px 8px', color: '#b0aa9f', fontSize: 10, letterSpacing: '0.08em', textAlign: 'left', borderBottom: '1px solid #f0ece4', fontWeight: 500 }}>{h}</th>
+                        ))}</tr>
+                      </thead>
+                      <tbody>
+                        {rules.map(rule => (
+                          <tr key={rule.id} style={{ borderBottom: '1px solid #f9f7f3', borderLeft: `3px solid ${CAT_COLORS[rule.category] || '#e8e4dc'}` }}>
+                            <td style={{ padding: '4px 8px' }}>
+                              <Inp value={rule.label} onChange={v => setRules(prev => prev.map(r => r.id === rule.id ? { ...r, label: v } : r))} style={{ width: '100%' }} />
+                            </td>
+                            <td style={{ padding: '4px 8px' }}>
+                              <Select value={rule.category} onChange={e => setRules(prev => prev.map(r => r.id === rule.id ? { ...r, category: e.target.value } : r))}>
+                                {CATEGORIES.map(c => <option key={c}>{c}</option>)}
+                              </Select>
+                            </td>
+                            <td style={{ padding: '4px 8px' }}>
+                              <div style={{ position: 'relative' }}>
+                                <Inp type="number" value={rule.pct === 0 ? '' : rule.pct}
+                                  onChange={v => setRules(prev => prev.map(r => r.id === rule.id ? { ...r, pct: v === '' ? 0 : (Number(v) || 0) } : r))}
+                                  style={{ width: '100%', paddingRight: 20 }} />
+                                <span style={{ position: 'absolute', right: 7, top: '50%', transform: 'translateY(-50%)', color: '#b0aa9f', fontSize: 12, pointerEvents: 'none' }}>%</span>
+                              </div>
+                            </td>
+                            <td style={{ padding: '4px 8px', fontSize: 12, color: '#4a4643', fontWeight: 500 }}>
+                              {converted !== null ? f(((Number(rule.pct) || 0) / 100) * converted) : '—'}
+                            </td>
+                            <td style={{ padding: '4px 8px' }}>
+                              <DelBtn onClick={() => setRules(prev => prev.filter(r => r.id !== rule.id))} />
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                    <button
+                      onClick={() => setRules(prev => [...prev, { id: Date.now(), label: 'New Rule', category: 'Wants', pct: 0 }])}
+                      style={{ fontSize: 11, background: 'transparent', border: '1px dashed #d8d4cc', borderRadius: 7, padding: '4px 12px', cursor: 'pointer', color: '#a09890', marginTop: 6 }}>
+                      + Add rule
+                    </button>
+                    {rules.length > 0 && (
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginTop: 8 }}>
+                        <span style={{ color: '#9e9890' }}>Total</span>
+                        <span style={{ fontWeight: 700, color: totalPct > 100 ? '#c94040' : '#1a1714' }}>
+                          {totalPct.toFixed(1)}%
+                          {totalPct > 100 && <span style={{ fontSize: 11, color: '#c94040', marginLeft: 6 }}>⚠ over 100%</span>}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       )}
 
