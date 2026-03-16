@@ -173,6 +173,8 @@ export const makeDefaultState = () => ({
   incomeActuals: {},
   // FX API usage tracking
   fxApiCallsThisMonth: { month: '', count: 0 },
+  // Financial health checkup usage
+  checkupUsage: { month: '', count: 0 },
   // Onboarding / checklist
   onboardingCompleted: false,
   checklistDismissCount: 0,

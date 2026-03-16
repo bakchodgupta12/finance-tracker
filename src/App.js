@@ -49,6 +49,9 @@ function sanitizeNumericFields(data) {
   if (!out.incomeActuals || typeof out.incomeActuals !== 'object') {
     out.incomeActuals = {};
   }
+  if (!out.checkupUsage || typeof out.checkupUsage !== 'object') {
+    out.checkupUsage = { month: '', count: 0 };
+  }
   return out;
 }
 
