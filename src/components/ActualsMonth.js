@@ -57,6 +57,10 @@ export default function ActualsMonth({
   const setActual = (month, key, val) => set('actuals', prev => ({
     ...prev, [month]: { ...(prev[month] || {}), [key]: val },
   }));
+  const getIncomeActual = (month, srcId) => state.incomeActuals?.[month]?.[srcId] ?? '';
+  const setIncomeActual = (month, srcId, val) => set('incomeActuals', prev => ({
+    ...prev, [month]: { ...((prev || {})[month] || {}), [srcId]: val },
+  }));
   const getSnap = (month, accId) => state.accountSnapshots?.[month]?.[accId] ?? '';
   const setSnap = (month, accId, val) => set('accountSnapshots', prev => ({
     ...prev, [month]: { ...(prev[month] || {}), [accId]: val },
@@ -70,7 +74,6 @@ export default function ActualsMonth({
     Wants:       (allocByCat.Wants       / 100) * baseIncome,
   };
 
-  const actualIncome  = Number(getActual(selectedMonth, 'income')) || 0;
   const currentMonth  = getCurrentMonthAbbr();
   const monthIdx      = MONTHS.indexOf(selectedMonth);
   const prevMonth     = monthIdx > 0 ? MONTHS[monthIdx - 1] : null;
@@ -224,70 +227,126 @@ export default function ActualsMonth({
         <div>
           <MonthPills />
 
-          {/* Income section */}
-          <div style={{ ...s.card, marginBottom: 14 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-              <Lbl>INCOME — {selectedMonth.toUpperCase()}</Lbl>
-              {healthScore && (
-                <span style={{
-                  fontSize: 11, fontWeight: 700, letterSpacing: '0.06em',
-                  padding: '3px 10px', borderRadius: 20,
-                  background: healthScore.bg, border: `1px solid ${healthScore.border}`,
-                  color: healthScore.color, whiteSpace: 'nowrap',
-                }}>
-                  {healthScore.label === 'On Track' ? '✓' : healthScore.label === 'Slightly Off' ? '⚠' : '✗'} {healthScore.label}
-                </span>
-              )}
-            </div>
+          {/* Income section — per source */}
+          {(() => {
+            const homeCode = state.currencyCode || 'GBP';
 
-            {/* Income sources breakdown */}
-            {state.incomeSources.length > 0 && (
-              <div style={{ marginBottom: 12, padding: '8px 10px', background: '#fdfcfa', borderRadius: 8, border: '1px solid #f0ece4' }}>
-                {state.incomeSources.map(src => {
-                  const homeCode = state.currencyCode || 'GBP';
-                  const isForeign = (src.currency || homeCode) !== homeCode;
-                  const converted = toHome(Number(src.amount) || 0, src.currency || homeCode);
+            // Compute total actual income in home currency
+            const totalActualHome = state.incomeSources.reduce((sum, src) => {
+              const raw = getIncomeActual(selectedMonth, src.id);
+              if (raw === '' || raw === undefined) return sum;
+              const converted = toHome(Number(raw) || 0, src.currency || homeCode);
+              return sum + (converted ?? 0);
+            }, 0);
+            const hasAnyActual = state.incomeSources.some(src => {
+              const raw = getIncomeActual(selectedMonth, src.id);
+              return raw !== '' && raw !== undefined;
+            });
+
+            return (
+              <div style={{ ...s.card, marginBottom: 14 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                  <Lbl>INCOME — {selectedMonth.toUpperCase()}</Lbl>
+                  {healthScore && (
+                    <span style={{
+                      fontSize: 11, fontWeight: 700, letterSpacing: '0.06em',
+                      padding: '3px 10px', borderRadius: 20,
+                      background: healthScore.bg, border: `1px solid ${healthScore.border}`,
+                      color: healthScore.color, whiteSpace: 'nowrap',
+                    }}>
+                      {healthScore.label === 'On Track' ? '✓' : healthScore.label === 'Slightly Off' ? '⚠' : '✗'} {healthScore.label}
+                    </span>
+                  )}
+                </div>
+
+                {state.incomeSources.map((src, idx) => {
                   const srcCur = CURRENCIES.find(c => c.code === (src.currency || homeCode)) || CURRENCIES[0];
-                  const localFmt = `${srcCur.symbol}${new Intl.NumberFormat(srcCur.locale, { maximumFractionDigits: 0 }).format(Math.abs(Number(src.amount) || 0))}`;
+                  const isForeign = (src.currency || homeCode) !== homeCode;
+                  const flag = getCurrencyFlag(src.currency || homeCode);
+                  const plannedLocal = Number(src.amount) || 0;
+                  const plannedHome = toHome(plannedLocal, src.currency || homeCode);
+                  const actualRaw = getIncomeActual(selectedMonth, src.id);
+                  const actualLocal = actualRaw !== '' ? (Number(actualRaw) || 0) : null;
+                  const diffLocal = actualLocal !== null ? actualLocal - plannedLocal : null;
+                  const diffHome = diffLocal !== null ? toHome(diffLocal, src.currency || homeCode) : null;
+
+                  const fSrc = (v) => `${srcCur.symbol}${new Intl.NumberFormat(srcCur.locale, { maximumFractionDigits: 0 }).format(Math.abs(v))}`;
+
                   return (
-                    <div key={src.id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 4 }}>
-                      <span style={{ color: '#6b6660' }}>{src.label}</span>
-                      <span style={{ color: '#4a4643', fontWeight: 500 }}>
-                        {isForeign
-                          ? <>{localFmt} <span style={{ color: '#b0aa9f' }}>({converted !== null ? f(converted) : 'no rate'})</span></>
-                          : f(Number(src.amount) || 0)}
-                      </span>
+                    <div key={src.id} style={{
+                      marginBottom: idx < state.incomeSources.length - 1 ? 12 : 0,
+                      paddingBottom: idx < state.incomeSources.length - 1 ? 12 : 0,
+                      borderBottom: idx < state.incomeSources.length - 1 ? '1px solid #f0ece4' : 'none',
+                    }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+                        <span style={{ fontSize: 12, fontWeight: 600, color: '#2d2a26' }}>{src.label}</span>
+                        <span style={{ fontSize: 11, color: '#b0aa9f' }}>—</span>
+                        <span style={{ fontSize: 11, color: '#9e9890' }}>{flag && `${flag} `}{srcCur.code}</span>
+                      </div>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
+                        <div>
+                          <p style={{ fontSize: 10, color: '#b0aa9f', marginBottom: 4 }}>Planned</p>
+                          <p style={{ fontSize: 13, fontWeight: 600, color: '#4a4643' }}>{fSrc(plannedLocal)}</p>
+                          {isForeign && plannedHome !== null && (
+                            <p style={{ fontSize: 10, color: '#b0aa9f', marginTop: 2 }}>{f(plannedHome)}</p>
+                          )}
+                        </div>
+                        <div>
+                          <p style={{ fontSize: 10, color: '#b0aa9f', marginBottom: 4 }}>Actual</p>
+                          <Inp
+                            type="number"
+                            value={actualRaw}
+                            placeholder={String(plannedLocal)}
+                            onChange={v => setIncomeActual(selectedMonth, src.id, v)}
+                            style={{ fontSize: 13, fontWeight: 600, padding: '4px 8px' }}
+                          />
+                        </div>
+                        <div>
+                          <p style={{ fontSize: 10, color: '#b0aa9f', marginBottom: 4 }}>Difference</p>
+                          {diffLocal !== null ? (
+                            <>
+                              <p style={{ fontSize: 13, fontWeight: 600, color: diffLocal >= 0 ? '#2d9e6b' : '#c94040' }}>
+                                {diffLocal >= 0 ? '+' : ''}{fSrc(Math.abs(diffLocal))}{diffLocal < 0 ? '' : ''}
+                              </p>
+                              {isForeign && diffHome !== null && (
+                                <p style={{ fontSize: 10, color: diffLocal >= 0 ? '#2d9e6b' : '#c94040', marginTop: 2 }}>
+                                  {diffHome >= 0 ? '+' : ''}{f(diffHome)}
+                                </p>
+                              )}
+                            </>
+                          ) : (
+                            <p style={{ fontSize: 13, color: '#d5d0c8' }}>—</p>
+                          )}
+                        </div>
+                      </div>
                     </div>
                   );
                 })}
-              </div>
-            )}
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
-              <div>
-                <p style={{ fontSize: 11, color: '#b0aa9f', marginBottom: 2 }}>Planned</p>
-                <p style={{ fontSize: 9, color: '#c5c0b8', marginBottom: 4 }}>From Plan → Income</p>
-                <p style={{ fontSize: 14, fontWeight: 600 }}>{f(planned.income)}</p>
+                {/* Summary row */}
+                <div style={{ marginTop: 14, paddingTop: 12, borderTop: '2px solid #f0ece4', display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
+                  <div>
+                    <p style={{ fontSize: 10, color: '#b0aa9f', marginBottom: 4 }}>Total planned</p>
+                    <p style={{ fontSize: 13, fontWeight: 700, color: '#2d2a26' }}>{f(planned.income)}</p>
+                  </div>
+                  <div>
+                    <p style={{ fontSize: 10, color: '#b0aa9f', marginBottom: 4 }}>Total actual</p>
+                    <p style={{ fontSize: 13, fontWeight: 700, color: '#2d2a26' }}>{hasAnyActual ? f(totalActualHome) : '—'}</p>
+                  </div>
+                  <div>
+                    <p style={{ fontSize: 10, color: '#b0aa9f', marginBottom: 4 }}>Difference</p>
+                    {hasAnyActual ? (
+                      <p style={{ fontSize: 13, fontWeight: 700, color: totalActualHome >= planned.income ? '#2d9e6b' : '#c94040' }}>
+                        {totalActualHome >= planned.income ? '+' : ''}{f(totalActualHome - planned.income)}
+                      </p>
+                    ) : (
+                      <p style={{ fontSize: 13, color: '#d5d0c8' }}>—</p>
+                    )}
+                  </div>
+                </div>
               </div>
-              <div>
-                <p style={{ fontSize: 11, color: '#b0aa9f', marginBottom: 4 }}>Actual</p>
-                <Inp type="number" value={getActual(selectedMonth, 'income')} placeholder={f(planned.income)}
-                  onChange={v => setActual(selectedMonth, 'income', v)}
-                  style={{ fontSize: 14, fontWeight: 600 }}
-                />
-              </div>
-              <div>
-                <p style={{ fontSize: 11, color: '#b0aa9f', marginBottom: 4 }}>Difference</p>
-                {actualIncome > 0 ? (
-                  <p style={{ fontSize: 14, fontWeight: 600, color: actualIncome >= planned.income ? '#2d9e6b' : '#c94040' }}>
-                    {actualIncome >= planned.income ? '+' : ''}{f(actualIncome - planned.income)}
-                  </p>
-                ) : (
-                  <p style={{ fontSize: 14, color: '#d5d0c8' }}>—</p>
-                )}
-              </div>
-            </div>
-          </div>
+            );
+          })()}
 
           {/* Secondary income allocation breakdowns */}
           {state.incomeSources.length > 1 && (() => {

@@ -169,6 +169,8 @@ export const makeDefaultState = () => ({
   paymentMethods: [],
   // Auto-computed actuals from expenses (separate from manually entered actuals)
   expenseAutoActuals: {},
+  // Per-source income actuals: { [month]: { [incomeSourceId]: amount } }
+  incomeActuals: {},
   // FX API usage tracking
   fxApiCallsThisMonth: { month: '', count: 0 },
   // Onboarding / checklist
