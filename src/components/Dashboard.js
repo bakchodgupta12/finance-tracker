@@ -88,7 +88,7 @@ export default function Dashboard({
   const checkupHasData = (state.expenses || []).length > 0 &&
     Object.values(state.accountSnapshots || {}).some(snap => snap && Object.values(snap).some(v => v > 0));
 
-  const thStyle = { padding: '9px 12px', color: '#b0aa9f', fontSize: 10, letterSpacing: '0.08em', textAlign: 'left', borderBottom: '1px solid #f0ece4', fontWeight: 500 };
+  const thStyle = { padding: '9px 12px', color: '#9e9890', fontSize: 10, letterSpacing: '0.08em', textAlign: 'left', borderBottom: '1px solid #f0ece4', fontWeight: 500 };
   const tdStyle = { padding: '9px 12px' };
 
   // ── Getting Started Checklist ──────────────────
@@ -261,12 +261,13 @@ export default function Dashboard({
           <div style={{ marginTop: 4, marginBottom: 6 }}><span style={s.label}>NET WORTH</span></div>
           <p style={{ fontSize: 19, fontWeight: 600, color: '#1a1714', marginBottom: 2 }}>{f(netWorth)}</p>
           {momChange ? (
-            <p style={{ fontSize: 11, color: momChange.diff >= 0 ? '#2d9e6b' : '#c94040', fontWeight: 600 }}>
-              {momChange.diff >= 0 ? '+' : ''}{f(momChange.diff)}
-              {momChange.pct !== null && ` (${momChange.pct >= 0 ? '+' : ''}${momChange.pct.toFixed(1)}%)`} vs prev
+            <p style={{ fontSize: 12, color: momChange.diff >= 0 ? '#2d9e6b' : '#c94040', fontWeight: 600 }}>
+              {momChange.pct !== null
+                ? `${momChange.pct >= 0 ? '+' : ''}${momChange.pct.toFixed(1)}% since last month`
+                : `${momChange.diff >= 0 ? '+' : ''}${f(momChange.diff)} since last month`}
             </p>
           ) : (
-            <p style={{ fontSize: 11, color: '#b0aa9f' }}>&nbsp;</p>
+            <p style={{ fontSize: 12, color: '#b0aa9f' }}>&nbsp;</p>
           )}
         </div>
 
@@ -372,13 +373,23 @@ export default function Dashboard({
                     style={{ cursor: 'pointer' }}
                   >
                     <td style={{ padding: '10px 4px', fontSize: 11, fontWeight: 600, letterSpacing: '0.1em', color: hdrStyle.color, background: hdrStyle.background }}>
-                      <span style={{ display: 'inline-block', marginRight: 8, transition: 'transform 0.2s', transform: isExpanded ? 'rotate(90deg)' : 'rotate(0deg)', fontSize: 10 }}>▶</span>
-                      {group.label}
+                      {group.label.toUpperCase()}
                     </td>
                     <td style={{ padding: '10px 8px', textAlign: 'right', background: hdrStyle.background, color: hdrStyle.color, fontSize: 12, fontWeight: 600, whiteSpace: 'nowrap' }}>
                       {f(groupTotal)}
                     </td>
-                    <td style={{ background: hdrStyle.background, padding: '10px 8px' }} />
+                    <td style={{ background: hdrStyle.background, padding: '10px 8px', textAlign: 'right' }}>
+                      <span style={{
+                        display: 'inline-block',
+                        width: 8,
+                        height: 8,
+                        borderRight: '1.5px solid currentColor',
+                        borderBottom: '1.5px solid currentColor',
+                        transform: isExpanded ? 'rotate(45deg) translateY(-2px)' : 'rotate(-45deg) translateY(0px)',
+                        transition: 'transform 0.2s ease',
+                        opacity: 0.6,
+                      }} />
+                    </td>
                   </tr>,
                   ...(isExpanded ? group.accs.map(acc => {
                     const localVal = latestSnapshots?.[acc.id] || 0;
@@ -393,7 +404,7 @@ export default function Dashboard({
                             ? <span>{flag && <span style={{ marginRight: 4 }}>{flag}</span>}{accCur.symbol}{new Intl.NumberFormat(accCur.locale, { maximumFractionDigits: 0 }).format(localVal)}</span>
                             : <span style={{ color: '#d5d0c8' }}>—</span>}
                         </td>
-                        <td style={{ ...tdStyle, color: localVal > 0 ? '#2d2a26' : '#d5d0c8', fontWeight: localVal > 0 ? 600 : 400 }}>
+                        <td style={{ ...tdStyle, color: localVal > 0 ? '#2d2a26' : '#d5d0c8', fontWeight: localVal > 0 ? 600 : 400, textAlign: 'right' }}>
                           {localVal > 0 ? (homeVal !== null ? f(homeVal) : 'Rate unavailable') : '—'}
                         </td>
                       </tr>
