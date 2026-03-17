@@ -241,7 +241,7 @@ export default function ActualsMonth({
                   <thead>
                     <tr>
                       {['Account', 'Balance (Local)', '', `In ${state.currencyCode || 'GBP'}`, 'Change'].map((h, i) => (
-                        <th key={i} style={{ padding: i === 0 ? '6px 8px 6px 4px' : i === 1 ? '6px 8px 6px 0' : '6px 8px', color: '#b0aa9f', fontSize: 10, letterSpacing: '0.08em', textAlign: i >= 3 ? 'right' : 'left', borderBottom: '1px solid #f0ece4', fontWeight: 500 }}>{h.toUpperCase()}</th>
+                        <th key={i} style={{ padding: i === 0 ? '6px 8px 6px 4px' : i === 1 ? '6px 8px 6px 0' : '6px 8px', color: '#9e9890', fontSize: 10, letterSpacing: '0.08em', textAlign: i >= 3 ? 'right' : 'left', borderBottom: '1px solid #f0ece4', fontWeight: 500 }}>{h.toUpperCase()}</th>
                       ))}
                     </tr>
                   </thead>

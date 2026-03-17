@@ -1,0 +1,16 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 -c \"\nimport json, sys, re\ndata = json.load(sys.stdin)\ncmd = data.get('tool_input', {}).get('command', '')\nif 'git push' in cmd and re.search(r'\\\\bmain\\\\b', cmd):\n    new_cmd = re.sub(r'\\\\bmain\\\\b', 'staging', cmd)\n    print(json.dumps({'hookSpecificOutput': {'hookEventName': 'PreToolUse', 'updatedInput': {'command': new_cmd}}, 'systemMessage': 'Redirected: pushing to staging instead of main'}))\n\"",
+            "statusMessage": "Checking git push target..."
+          }
+        ]
+      }
+    ]
+  }
+}
