@@ -35,6 +35,16 @@ function BalanceCell({ value, onChange, prefix = '' }) {
         onKeyDown={e => {
           if (e.key === 'Enter' || e.key === 'Tab') setEditing(false);
           if (e.key === 'Escape') setEditing(false);
+          const allowed = [
+            'Backspace', 'Delete', 'Tab', 'Enter', 'Escape',
+            'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown',
+            'Home', 'End',
+          ];
+          const isDigit = e.key >= '0' && e.key <= '9';
+          const isDecimal = e.key === '.' && !e.currentTarget.value.includes('.');
+          if (!isDigit && !isDecimal && !allowed.includes(e.key)) {
+            e.preventDefault();
+          }
         }}
         style={{
           display: 'block', width: '100%', boxSizing: 'border-box',
@@ -228,7 +238,7 @@ export default function ActualsMonth({
                   <thead>
                     <tr>
                       {['Account', 'Balance (Local)', '', `In ${state.currencyCode || 'GBP'}`, 'Change'].map((h, i) => (
-                        <th key={i} style={{ padding: i === 0 ? '6px 8px 6px 4px' : '6px 8px', color: '#b0aa9f', fontSize: 10, letterSpacing: '0.08em', textAlign: i >= 3 ? 'right' : 'left', borderBottom: '1px solid #f0ece4', fontWeight: 500 }}>{h.toUpperCase()}</th>
+                        <th key={i} style={{ padding: i === 0 ? '6px 8px 6px 4px' : i === 1 ? '6px 8px 6px 0' : '6px 8px', color: '#b0aa9f', fontSize: 10, letterSpacing: '0.08em', textAlign: i >= 3 ? 'right' : 'left', borderBottom: '1px solid #f0ece4', fontWeight: 500 }}>{h.toUpperCase()}</th>
                       ))}
                     </tr>
                   </thead>
