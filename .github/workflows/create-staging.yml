@@ -1,0 +1,30 @@
+name: Create Staging Branch
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+      - master
+
+jobs:
+  create-staging:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Create staging branch if it doesn't exist
+        run: |
+          git fetch origin
+          if git ls-remote --exit-code --heads origin staging; then
+            echo "Staging branch already exists"
+          else
+            git checkout -b staging
+            git push origin staging
+            echo "Staging branch created"
+          fi
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
