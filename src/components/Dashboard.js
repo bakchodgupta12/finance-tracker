@@ -358,9 +358,9 @@ export default function Dashboard({
             </colgroup>
             <thead>
               <tr>
-                <th style={{ padding: '8px 0', textAlign: 'left', fontSize: 10, fontWeight: 500, letterSpacing: '0.08em', color: '#9e9890', borderBottom: '1px solid #f0ece4' }}>ACCOUNT</th>
-                <th style={{ padding: '8px 0', textAlign: 'left', fontSize: 10, fontWeight: 500, letterSpacing: '0.08em', color: '#9e9890', borderBottom: '1px solid #f0ece4' }}>BALANCE</th>
-                <th style={{ padding: '8px 0', textAlign: 'left', fontSize: 10, fontWeight: 500, letterSpacing: '0.08em', color: '#9e9890', borderBottom: '1px solid #f0ece4' }}>IN {(state.currencyCode || 'GBP').toUpperCase()}</th>
+                <th style={{ padding: '8px 12px', textAlign: 'left', fontSize: 10, fontWeight: 500, letterSpacing: '0.08em', color: '#9e9890', borderBottom: '1px solid #f0ece4' }}>ACCOUNT</th>
+                <th style={{ padding: '8px 12px', textAlign: 'left', fontSize: 10, fontWeight: 500, letterSpacing: '0.08em', color: '#9e9890', borderBottom: '1px solid #f0ece4' }}>BALANCE</th>
+                <th style={{ padding: '8px 12px', textAlign: 'left', fontSize: 10, fontWeight: 500, letterSpacing: '0.08em', color: '#9e9890', borderBottom: '1px solid #f0ece4' }}>IN {(state.currencyCode || 'GBP').toUpperCase()}</th>
               </tr>
             </thead>
             <tbody>
@@ -379,11 +379,14 @@ export default function Dashboard({
                     onClick={() => setExpandedGroups(prev => ({ ...prev, [groupKey]: !prev[groupKey] }))}
                     style={{ cursor: 'pointer' }}
                   >
-                    <td colSpan={2} style={{ padding: '10px 0', background: hdrStyle.background }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingRight: 8 }}>
-                        <span style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.1em', color: hdrStyle.color }}>
-                          {group.label.toUpperCase()}
-                        </span>
+                    <td colSpan={2} style={{ padding: '10px 0 10px 12px', background: hdrStyle.background }}>
+                      <span style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.1em', color: hdrStyle.color }}>
+                        {group.label.toUpperCase()}
+                      </span>
+                    </td>
+                    <td style={{ padding: '10px 12px', background: hdrStyle.background }}>
+                      <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, color: hdrStyle.color, fontWeight: 600, fontSize: 13 }}>
+                        <span>{f(groupTotal)}</span>
                         <span style={{
                           display: 'inline-block',
                           width: 7,
@@ -397,9 +400,6 @@ export default function Dashboard({
                         }} />
                       </div>
                     </td>
-                    <td style={{ padding: '10px 0', background: hdrStyle.background, fontSize: 13, fontWeight: 600, color: hdrStyle.color, textAlign: 'left', whiteSpace: 'nowrap' }}>
-                      {f(groupTotal)}
-                    </td>
                   </tr>,
                   ...(isExpanded ? group.accs.map(acc => {
                     const localVal = latestSnapshots?.[acc.id] || 0;
@@ -408,15 +408,15 @@ export default function Dashboard({
                     const homeVal = toHome(localVal, acc.currency);
                     return (
                       <tr key={acc.id} style={{ borderBottom: '1px solid #f9f7f3' }}>
-                        <td style={{ padding: '8px 0', fontSize: 14, color: '#1a1714', fontWeight: 500, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>
+                        <td style={{ padding: '9px 12px', fontSize: 13, color: '#1a1714', fontWeight: 600, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>
                           {acc.name}
                         </td>
-                        <td style={{ padding: '8px 0', fontSize: 14, color: '#1a1714', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        <td style={{ padding: '9px 12px', fontSize: 13, color: '#1a1714', fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                           {localVal > 0
                             ? <span>{flag && <span style={{ marginRight: 4 }}>{flag}</span>}{accCur.symbol}{new Intl.NumberFormat(accCur.locale, { maximumFractionDigits: 0 }).format(localVal)}</span>
                             : <span style={{ color: '#d5d0c8' }}>—</span>}
                         </td>
-                        <td style={{ padding: '8px 0', fontSize: 14, color: localVal > 0 ? '#1a1714' : '#d5d0c8', fontWeight: localVal > 0 ? 500 : 400, whiteSpace: 'nowrap' }}>
+                        <td style={{ padding: '9px 12px', fontSize: 13, color: localVal > 0 ? '#1a1714' : '#d5d0c8', fontWeight: localVal > 0 ? 600 : 400, whiteSpace: 'nowrap' }}>
                           {localVal > 0 ? (homeVal !== null ? f(homeVal) : 'Rate unavailable') : '—'}
                         </td>
                       </tr>
