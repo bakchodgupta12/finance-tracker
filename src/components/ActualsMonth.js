@@ -1,10 +1,65 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   s, Lbl, Inp, Divider, EditableCell,
   CAT_COLORS, CATEGORIES, ACCOUNT_GROUPS, GROUP_HEADER_STYLES,
   getCurrency, getCurrencyFlag, getCurrentMonthAbbr, CURRENCIES,
 } from '../shared';
 import ExpenseTracker from './ExpenseTracker';
+
+// ── Balance Cell (Balances table only) ────────────────────────────────────────
+// Fixed 120px across all states — no layout shift on click, underline style only
+function BalanceCell({ value, onChange, prefix = '' }) {
+  const [editing, setEditing] = useState(false);
+  const inputRef = useRef(null);
+
+  useEffect(() => {
+    if (editing && inputRef.current) {
+      inputRef.current.focus();
+      inputRef.current.select();
+    }
+  }, [editing]);
+
+  const hasValue = value !== null && value !== undefined && value !== '' && value !== 0;
+  const formatted = hasValue
+    ? `${prefix}${new Intl.NumberFormat('en-GB', { maximumFractionDigits: 0 }).format(Number(value))}`
+    : null;
+
+  if (editing) {
+    return (
+      <input
+        ref={inputRef}
+        type="number"
+        value={value || ''}
+        onChange={e => onChange(e.target.value === '' ? '' : (parseFloat(e.target.value) || 0))}
+        onBlur={() => setEditing(false)}
+        onKeyDown={e => {
+          if (e.key === 'Enter' || e.key === 'Tab') setEditing(false);
+          if (e.key === 'Escape') setEditing(false);
+        }}
+        style={{
+          width: 120, background: 'transparent', border: 'none',
+          borderBottom: '1px solid #7eb5d6', borderRadius: 0,
+          padding: '0 0 1px 0', fontSize: 14, color: '#1a1714',
+          outline: 'none', fontFamily: 'inherit', MozAppearance: 'textfield',
+        }}
+      />
+    );
+  }
+
+  return (
+    <span onClick={() => setEditing(true)} style={{ cursor: 'text' }}>
+      <span style={{
+        display: 'inline-block', width: 120, textAlign: 'left',
+        ...(hasValue
+          ? { color: '#1a1714', fontWeight: 500, fontSize: 14 }
+          : { color: '#b0aa9f', borderBottom: '1px solid #d5d0c8', paddingBottom: 1 }
+        ),
+      }}>
+        {hasValue ? formatted : '—'}
+      </span>
+    </span>
+  );
+}
 
 // ── Trades Placeholder ────────────────────────────────────────────────────────
 function TradesPlaceholder() {
@@ -185,12 +240,10 @@ export default function ActualsMonth({
                             <td style={{ padding: '9px 12px', fontWeight: 500, color: '#1a1714' }}>{acc.name}</td>
                             <td style={{ padding: '4px 8px 4px 12px' }}>
                               <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                                <EditableCell
+                                <BalanceCell
                                   value={localVal}
                                   onChange={v => setSnap(selectedMonth, acc.id, v)}
                                   prefix={accCur.symbol}
-                                  width={140}
-                                  narrowEmpty
                                 />
                                 <span style={{
                                   display: 'inline-block', width: 56, flexShrink: 0,
