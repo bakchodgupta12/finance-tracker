@@ -3,7 +3,7 @@ import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
 } from 'recharts';
 import {
-  s, Lbl, Inp, DelBtn, AddBtn, Divider, TypeBadge, ChartTip, Select,
+  s, Lbl, Inp, DelBtn, AddBtn, Divider, TypeBadge, ChartTip, Select, fmtChart,
   getCurrency, getCurrencyFlag, ACCOUNT_GROUPS, GROUP_HEADER_STYLES, CURRENCIES
 } from '../shared';
 
@@ -103,10 +103,21 @@ export default function NetWorth({
                 <tbody>
                   {accountGroups.map(group => {
                     const hdrStyle = GROUP_HEADER_STYLES[group.label] || { background: '#f9f7f3', color: '#9e9890' };
+                    const groupTotal = group.accounts.reduce((sum, acc) => {
+                      const v = latestSnapshots?.[acc.id] || 0;
+                      const h = toHome(v, acc.currency);
+                      return sum + (h ?? 0);
+                    }, 0);
                     return [
                       <tr key={`hdr-${group.label}`} style={{ background: hdrStyle.background }}>
-                        <td colSpan={5} style={{ padding: '6px 12px', fontSize: 10, fontWeight: 700, color: hdrStyle.color, letterSpacing: '0.1em' }}>
-                          {group.label.toUpperCase()}
+                        <td colSpan={3} style={{ padding: '10px 4px', fontSize: 11, fontWeight: 600, letterSpacing: '0.1em', color: hdrStyle.color, background: hdrStyle.background }}>
+                          {group.label}
+                        </td>
+                        <td style={{ padding: '10px 12px', fontSize: 12, fontWeight: 600, color: hdrStyle.color, background: hdrStyle.background, textAlign: 'right', whiteSpace: 'nowrap' }}>
+                          {f(groupTotal)}
+                        </td>
+                        <td style={{ background: hdrStyle.background, padding: '10px 12px' }}>
+                          {/* IN HKD column — empty in header */}
                         </td>
                       </tr>,
                       ...group.accounts.map(acc => {
@@ -154,8 +165,8 @@ export default function NetWorth({
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f0ece4" />
                 <XAxis dataKey="month" stroke="#e8e4dc" tick={{ fill: '#b0aa9f', fontSize: 11 }} />
-                <YAxis stroke="#e8e4dc" tick={{ fill: '#b0aa9f', fontSize: 11 }} tickFormatter={v => { const abs = Math.abs(v); if (abs >= 1_000_000) return `${currency.symbol}${(abs / 1_000_000).toFixed(1)}m`; return `${currency.symbol}${new Intl.NumberFormat(currency.locale, { maximumFractionDigits: 0 }).format(abs)}`; }} />
-                <Tooltip content={<ChartTip />} />
+                <YAxis stroke="#e8e4dc" tick={{ fill: '#b0aa9f', fontSize: 11 }} tickFormatter={v => fmtChart(v, currency.symbol)} />
+                <Tooltip content={<ChartTip symbol={currency.symbol} />} />
                 <Area type="monotone" dataKey="total" name="Net Worth" stroke="#7ec8a0" fill="url(#nwGrad)" strokeWidth={2} dot={{ fill: '#7ec8a0', r: 3 }} />
               </AreaChart>
             </ResponsiveContainer>

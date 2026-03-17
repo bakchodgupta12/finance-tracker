@@ -3,7 +3,7 @@ import {
   PieChart, Pie, Cell
 } from 'recharts';
 import {
-  s, Lbl, Inp, DelBtn, AddBtn, Divider, Select, EditableCell,
+  s, Lbl, Inp, DelBtn, AddBtn, Divider, Select, EditableCell, blockNonNumeric,
   CAT_COLORS, CATEGORIES, CURRENCIES
 } from '../shared';
 
@@ -212,6 +212,7 @@ export default function Plan({ state, set, f, currency, baseIncome, allocByCat, 
                           type="number"
                           value={bench}
                           onChange={e => set(key, parseFloat(e.target.value) || 0)}
+                          onKeyDown={blockNonNumeric}
                           style={{ ...s.input, width: 42, padding: '2px 4px', fontSize: 11, textAlign: 'center' }}
                         />
                         <span style={{ color: '#b0aa9f', fontSize: 10 }}>%</span>
