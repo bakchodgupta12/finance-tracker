@@ -241,7 +241,7 @@ export default function ActualsMonth({
                   <thead>
                     <tr>
                       {['Account', 'Balance (Local)', '', `In ${state.currencyCode || 'GBP'}`, 'Change'].map((h, i) => (
-                        <th key={i} style={{ padding: i === 0 ? '6px 8px 6px 4px' : i === 1 ? '6px 8px 6px 0' : '6px 8px', color: '#9e9890', fontSize: 10, letterSpacing: '0.08em', textAlign: i >= 3 ? 'right' : 'left', borderBottom: '1px solid #f0ece4', fontWeight: 500 }}>{h.toUpperCase()}</th>
+                        <th key={i} style={{ padding: '9px 12px', color: '#9e9890', fontSize: 10, letterSpacing: '0.08em', textAlign: 'left', borderBottom: '1px solid #f0ece4', fontWeight: 500 }}>{h.toUpperCase()}</th>
                       ))}
                     </tr>
                   </thead>
@@ -250,7 +250,7 @@ export default function ActualsMonth({
                       const hdrStyle = GROUP_HEADER_STYLES[group.label] || { background: '#f9f7f3', color: '#9e9890' };
                       return [
                         <tr key={`hdr-${group.label}`} style={{ background: hdrStyle.background }}>
-                          <td colSpan={5} style={{ padding: '8px 0 8px 4px', fontSize: 11, fontWeight: 600, color: hdrStyle.color, letterSpacing: '0.1em' }}>
+                          <td colSpan={5} style={{ padding: '10px 12px', fontSize: 11, fontWeight: 600, color: hdrStyle.color, letterSpacing: '0.1em' }}>
                             {group.label.toUpperCase()}
                           </td>
                         </tr>,
@@ -267,8 +267,8 @@ export default function ActualsMonth({
                           const balIdx   = flatAccounts.findIndex(a => a.id === acc.id);
                           return (
                             <tr key={acc.id} style={{ borderBottom: '1px solid #f9f7f3' }}>
-                              <td style={{ padding: '8px 8px 8px 4px', fontWeight: 500, color: '#1a1714', overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>{acc.name}</td>
-                              <td style={{ padding: '8px 8px 8px 0', overflow: 'hidden' }}>
+                              <td style={{ padding: '9px 12px', fontWeight: 600, color: '#1a1714', overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>{acc.name}</td>
+                              <td style={{ padding: '9px 12px', overflow: 'hidden' }}>
                                 <BalanceCell
                                   value={localVal}
                                   onChange={v => setSnap(selectedMonth, acc.id, v)}
@@ -276,16 +276,16 @@ export default function ActualsMonth({
                                   balanceIndex={balIdx}
                                 />
                               </td>
-                              <td style={{ padding: '8px 4px', fontSize: 13, color: '#6b6660', whiteSpace: 'nowrap', overflow: 'hidden' }}>
+                              <td style={{ padding: '9px 12px', fontSize: 13, color: '#6b6660', whiteSpace: 'nowrap', overflow: 'hidden' }}>
                                 {flag} {accCur.code}
                               </td>
-                              <td style={{ padding: '8px 8px', fontSize: 14, fontWeight: 500, textAlign: 'right', whiteSpace: 'nowrap', overflow: 'hidden' }}>
+                              <td style={{ padding: '9px 12px', fontSize: 13, fontWeight: 600, textAlign: 'left', whiteSpace: 'nowrap', overflow: 'hidden' }}>
                                 {homeVal !== null
                                   ? <span style={{ color: '#1a1714' }}>{f(homeVal)}</span>
                                   : <span style={{ color: '#b0aa9f' }}>—</span>
                                 }
                               </td>
-                              <td style={{ padding: '8px 8px', fontSize: 13, textAlign: 'right', whiteSpace: 'nowrap',
+                              <td style={{ padding: '9px 12px', fontSize: 13, textAlign: 'left', whiteSpace: 'nowrap',
                                 color: pct === null || pct === 'no-prev' ? '#b0aa9f' : pct >= 0 ? '#2d9e6b' : '#D96B6B' }}>
                                 {pct === null || pct === 'no-prev'
                                   ? '—'
