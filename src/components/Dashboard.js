@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import {
-  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
+  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
 } from 'recharts';
 import {
   s, Lbl, ChartTip, fmtChart,
@@ -88,8 +88,6 @@ export default function Dashboard({
   const checkupHasData = (state.expenses || []).length > 0 &&
     Object.values(state.accountSnapshots || {}).some(snap => snap && Object.values(snap).some(v => v > 0));
 
-  const thStyle = { padding: '9px 12px', color: '#9e9890', fontSize: 10, letterSpacing: '0.08em', textAlign: 'left', borderBottom: '1px solid #f0ece4', fontWeight: 500 };
-  const tdStyle = { padding: '9px 12px' };
 
   // ── Getting Started Checklist ──────────────────
   const checklistItems = [
@@ -323,13 +321,19 @@ export default function Dashboard({
           <Lbl>NET WORTH TREND</Lbl>
           <div style={{ marginTop: 16 }}>
             <ResponsiveContainer width="100%" height={160}>
-              <LineChart data={chartData}>
+              <AreaChart data={chartData}>
+                <defs>
+                  <linearGradient id="dashGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#7eb5d6" stopOpacity={0.25} />
+                    <stop offset="95%" stopColor="#7eb5d6" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f0ece4" />
                 <XAxis dataKey="month" stroke="#e8e4dc" tick={{ fill: '#b0aa9f', fontSize: 11 }} />
                 <YAxis stroke="#e8e4dc" tick={{ fill: '#b0aa9f', fontSize: 11 }} tickFormatter={v => fmtChart(v, currency.symbol)} />
                 <Tooltip content={<ChartTip symbol={currency.symbol} />} />
-                <Line type="monotone" dataKey="total" name="Net Worth" stroke="#7ec8a0" strokeWidth={2} dot={{ fill: '#7ec8a0', r: 4, strokeWidth: 0 }} activeDot={{ r: 5 }} />
-              </LineChart>
+                <Area type="monotone" dataKey="total" name="Net Worth" stroke="#7eb5d6" fill="url(#dashGrad)" strokeWidth={2} dot={{ fill: '#7eb5d6', r: 4, strokeWidth: 0 }} activeDot={{ r: 5 }} />
+              </AreaChart>
             </ResponsiveContainer>
           </div>
         </div>
@@ -342,18 +346,21 @@ export default function Dashboard({
       {/* Account Balances — collapsible groups */}
       {hasAnyAccounts && (
         <div style={{ ...s.card, marginBottom: 16 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 4 }}>
-            <Lbl>ACCOUNT BALANCES</Lbl>
-          </div>
-          <p style={{ fontSize: 12, color: '#b0aa9f', marginBottom: 16 }}>
+          <Lbl>ACCOUNT BALANCES</Lbl>
+          <p style={{ fontSize: 12, color: '#b0aa9f', marginBottom: 16, marginTop: 4 }}>
             Latest snapshot{latestSnapMonth ? ` · ${latestSnapMonth} ${selectedYear}` : ''}
           </p>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+          <table style={{ width: '100%', tableLayout: 'fixed', borderCollapse: 'collapse' }}>
+            <colgroup>
+              <col style={{ width: '45%' }} />
+              <col style={{ width: '30%' }} />
+              <col style={{ width: '25%' }} />
+            </colgroup>
             <thead>
               <tr>
-                <th style={thStyle}>ACCOUNT</th>
-                <th style={{ ...thStyle, textAlign: 'right' }}>BALANCE</th>
-                <th style={{ ...thStyle, textAlign: 'right' }}>IN {(state.currencyCode || 'GBP').toUpperCase()}</th>
+                <th style={{ padding: '8px 0', textAlign: 'left', fontSize: 10, fontWeight: 500, letterSpacing: '0.08em', color: '#9e9890', borderBottom: '1px solid #f0ece4' }}>ACCOUNT</th>
+                <th style={{ padding: '8px 0', textAlign: 'left', fontSize: 10, fontWeight: 500, letterSpacing: '0.08em', color: '#9e9890', borderBottom: '1px solid #f0ece4' }}>BALANCE</th>
+                <th style={{ padding: '8px 0', textAlign: 'left', fontSize: 10, fontWeight: 500, letterSpacing: '0.08em', color: '#9e9890', borderBottom: '1px solid #f0ece4' }}>IN {(state.currencyCode || 'GBP').toUpperCase()}</th>
               </tr>
             </thead>
             <tbody>
@@ -372,23 +379,26 @@ export default function Dashboard({
                     onClick={() => setExpandedGroups(prev => ({ ...prev, [groupKey]: !prev[groupKey] }))}
                     style={{ cursor: 'pointer' }}
                   >
-                    <td style={{ padding: '10px 4px', fontSize: 11, fontWeight: 600, letterSpacing: '0.1em', color: hdrStyle.color, background: hdrStyle.background }}>
-                      {group.label.toUpperCase()}
+                    <td colSpan={2} style={{ padding: '10px 0', background: hdrStyle.background }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingRight: 8 }}>
+                        <span style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.1em', color: hdrStyle.color }}>
+                          {group.label.toUpperCase()}
+                        </span>
+                        <span style={{
+                          display: 'inline-block',
+                          width: 7,
+                          height: 7,
+                          borderRight: '1.5px solid ' + hdrStyle.color,
+                          borderBottom: '1.5px solid ' + hdrStyle.color,
+                          transform: isExpanded ? 'rotate(45deg) translateY(-2px)' : 'rotate(-45deg)',
+                          transition: 'transform 0.2s ease',
+                          opacity: 0.7,
+                          flexShrink: 0,
+                        }} />
+                      </div>
                     </td>
-                    <td style={{ padding: '10px 8px', textAlign: 'right', background: hdrStyle.background, color: hdrStyle.color, fontSize: 12, fontWeight: 600, whiteSpace: 'nowrap' }}>
+                    <td style={{ padding: '10px 0', background: hdrStyle.background, fontSize: 13, fontWeight: 600, color: hdrStyle.color, textAlign: 'left', whiteSpace: 'nowrap' }}>
                       {f(groupTotal)}
-                    </td>
-                    <td style={{ background: hdrStyle.background, padding: '10px 8px', textAlign: 'right' }}>
-                      <span style={{
-                        display: 'inline-block',
-                        width: 8,
-                        height: 8,
-                        borderRight: '1.5px solid currentColor',
-                        borderBottom: '1.5px solid currentColor',
-                        transform: isExpanded ? 'rotate(45deg) translateY(-2px)' : 'rotate(-45deg) translateY(0px)',
-                        transition: 'transform 0.2s ease',
-                        opacity: 0.6,
-                      }} />
                     </td>
                   </tr>,
                   ...(isExpanded ? group.accs.map(acc => {
@@ -398,13 +408,15 @@ export default function Dashboard({
                     const homeVal = toHome(localVal, acc.currency);
                     return (
                       <tr key={acc.id} style={{ borderBottom: '1px solid #f9f7f3' }}>
-                        <td style={{ ...tdStyle, fontWeight: 500, color: '#1a1714', paddingLeft: 24 }}>{acc.name}</td>
-                        <td style={{ ...tdStyle, color: '#6b6660', textAlign: 'right' }}>
+                        <td style={{ padding: '8px 0', fontSize: 14, color: '#1a1714', fontWeight: 500, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>
+                          {acc.name}
+                        </td>
+                        <td style={{ padding: '8px 0', fontSize: 14, color: '#1a1714', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                           {localVal > 0
                             ? <span>{flag && <span style={{ marginRight: 4 }}>{flag}</span>}{accCur.symbol}{new Intl.NumberFormat(accCur.locale, { maximumFractionDigits: 0 }).format(localVal)}</span>
                             : <span style={{ color: '#d5d0c8' }}>—</span>}
                         </td>
-                        <td style={{ ...tdStyle, color: localVal > 0 ? '#2d2a26' : '#d5d0c8', fontWeight: localVal > 0 ? 600 : 400, textAlign: 'right' }}>
+                        <td style={{ padding: '8px 0', fontSize: 14, color: localVal > 0 ? '#1a1714' : '#d5d0c8', fontWeight: localVal > 0 ? 500 : 400, whiteSpace: 'nowrap' }}>
                           {localVal > 0 ? (homeVal !== null ? f(homeVal) : 'Rate unavailable') : '—'}
                         </td>
                       </tr>

@@ -96,8 +96,8 @@ export default function NetWorth({
             ) : (
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
                 <thead>
-                  <tr>{['Account', 'Type', 'Currency', 'Balance', `In ${state.currencyCode || 'GBP'}`].map((h, i) => (
-                    <th key={h} style={{ padding: i === 0 ? '9px 12px 9px 4px' : '9px 12px', color: '#9e9890', fontSize: 10, letterSpacing: '0.08em', textAlign: i >= 3 ? 'right' : 'left', borderBottom: '1px solid #f0ece4', fontWeight: 500 }}>{h.toUpperCase()}</th>
+                  <tr>{['Account', 'Type', 'Currency', 'Balance', `In ${state.currencyCode || 'GBP'}`].map((h) => (
+                    <th key={h} style={{ padding: '9px 12px', color: '#9e9890', fontSize: 10, letterSpacing: '0.08em', textAlign: 'left', borderBottom: '1px solid #f0ece4', fontWeight: 500 }}>{h.toUpperCase()}</th>
                   ))}</tr>
                 </thead>
                 <tbody>
@@ -110,11 +110,11 @@ export default function NetWorth({
                     }, 0);
                     return [
                       <tr key={`hdr-${group.label}`} style={{ background: hdrStyle.background }}>
-                        <td colSpan={3} style={{ padding: '10px 4px', fontSize: 11, fontWeight: 600, letterSpacing: '0.1em', color: hdrStyle.color, background: hdrStyle.background }}>
+                        <td colSpan={3} style={{ padding: '10px 12px', fontSize: 11, fontWeight: 600, letterSpacing: '0.1em', color: hdrStyle.color, background: hdrStyle.background }}>
                           {group.label.toUpperCase()}
                         </td>
                         <td style={{ background: hdrStyle.background, padding: '10px 12px' }} />
-                        <td style={{ padding: '10px 12px', fontSize: 12, fontWeight: 600, color: hdrStyle.color, background: hdrStyle.background, textAlign: 'right', whiteSpace: 'nowrap' }}>
+                        <td style={{ padding: '10px 12px', fontSize: 12, fontWeight: 600, color: hdrStyle.color, background: hdrStyle.background, textAlign: 'left', whiteSpace: 'nowrap' }}>
                           {f(groupTotal)}
                         </td>
                       </tr>,
@@ -125,15 +125,15 @@ export default function NetWorth({
                         const homeVal = toHome(localVal, acc.currency);
                         return (
                           <tr key={acc.id} style={{ borderBottom: '1px solid #f9f7f3' }}>
-                            <td style={{ padding: '9px 12px 9px 4px', fontWeight: 600, color: '#1a1714' }}>{acc.name}</td>
+                            <td style={{ padding: '9px 12px', fontWeight: 600, color: '#1a1714' }}>{acc.name}</td>
                             <td style={{ padding: '9px 12px' }}><TypeBadge type={acc.type} /></td>
                             <td style={{ padding: '9px 12px', color: '#9e9890', fontSize: 12 }}>
                               {flag && <span style={{ marginRight: 4 }}>{flag}</span>}{acc.currency}
                             </td>
-                            <td style={{ padding: '9px 12px', fontWeight: 500, textAlign: 'right' }}>
+                            <td style={{ padding: '9px 12px', fontWeight: 500, textAlign: 'left' }}>
                               {localVal > 0 ? `${accCur.symbol}${new Intl.NumberFormat(accCur.locale, { maximumFractionDigits: 0 }).format(localVal)}` : <span style={{ color: '#d5d0c8' }}>—</span>}
                             </td>
-                            <td style={{ padding: '9px 12px', color: localVal > 0 ? '#2d2a26' : '#d5d0c8', fontWeight: localVal > 0 ? 600 : 400, textAlign: 'right' }}>
+                            <td style={{ padding: '9px 12px', color: localVal > 0 ? '#2d2a26' : '#d5d0c8', fontWeight: localVal > 0 ? 600 : 400, textAlign: 'left' }}>
                               {localVal > 0 ? (homeVal !== null ? f(homeVal) : 'Rate unavailable') : '—'}
                             </td>
                           </tr>
