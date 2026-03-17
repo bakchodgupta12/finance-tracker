@@ -90,7 +90,7 @@ export default function ActualsTable({
             <tr>
               {['Month', 'Income', 'Savings', 'Investments', 'Needs', 'Wants', 'Net'].map(h => (
                 <th key={h} style={{
-                  padding: '8px 8px', color: '#b0aa9f', fontSize: 10, letterSpacing: '0.08em',
+                  padding: '8px 8px', color: '#9e9890', fontSize: 10, letterSpacing: '0.08em',
                   textAlign: 'left', borderBottom: '1px solid #f0ece4', fontWeight: 500,
                   whiteSpace: 'nowrap'
                 }}>{h.toUpperCase()}</th>
@@ -188,9 +188,9 @@ export default function ActualsTable({
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, marginBottom: 8 }}>
               <thead>
                 <tr>
-                  <th style={{ padding: '6px 8px', color: '#b0aa9f', fontSize: 10, textAlign: 'left', borderBottom: '1px solid #f0ece4', fontWeight: 500, whiteSpace: 'nowrap' }}>MONTH</th>
+                  <th style={{ padding: '6px 8px', color: '#9e9890', fontSize: 10, textAlign: 'left', borderBottom: '1px solid #f0ece4', fontWeight: 500, whiteSpace: 'nowrap' }}>MONTH</th>
                   {group.accounts.map(acc => (
-                    <th key={acc.id} style={{ padding: '6px 8px', color: '#b0aa9f', fontSize: 10, textAlign: 'left', borderBottom: '1px solid #f0ece4', fontWeight: 500, whiteSpace: 'nowrap' }}>
+                    <th key={acc.id} style={{ padding: '6px 8px', color: '#9e9890', fontSize: 10, textAlign: 'left', borderBottom: '1px solid #f0ece4', fontWeight: 500, whiteSpace: 'nowrap' }}>
                       {acc.name} ({acc.currency})
                     </th>
                   ))}
@@ -236,9 +236,9 @@ export default function ActualsTable({
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
           <thead>
             <tr>
-              <th style={{ padding: '6px 8px', color: '#b0aa9f', fontSize: 10, textAlign: 'left', borderBottom: '1px solid #f0ece4', fontWeight: 500 }}>MONTH</th>
-              <th style={{ padding: '6px 8px', color: '#b0aa9f', fontSize: 10, textAlign: 'left', borderBottom: '1px solid #f0ece4', fontWeight: 500 }}>TOTAL ({state.currencyCode || 'GBP'})</th>
-              <th style={{ padding: '6px 8px', color: '#b0aa9f', fontSize: 10, textAlign: 'left', borderBottom: '1px solid #f0ece4', fontWeight: 500 }}>CHANGE</th>
+              <th style={{ padding: '6px 8px', color: '#9e9890', fontSize: 10, textAlign: 'left', borderBottom: '1px solid #f0ece4', fontWeight: 500 }}>MONTH</th>
+              <th style={{ padding: '6px 8px', color: '#9e9890', fontSize: 10, textAlign: 'left', borderBottom: '1px solid #f0ece4', fontWeight: 500 }}>TOTAL ({state.currencyCode || 'GBP'})</th>
+              <th style={{ padding: '6px 8px', color: '#9e9890', fontSize: 10, textAlign: 'left', borderBottom: '1px solid #f0ece4', fontWeight: 500 }}>CHANGE</th>
             </tr>
           </thead>
           <tbody>
