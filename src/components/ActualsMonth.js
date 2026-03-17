@@ -219,7 +219,7 @@ export default function ActualsMonth({
               <div style={{ overflowX: 'auto', width: '100%' }}>
                 <table style={{ width: '100%', minWidth: 600, tableLayout: 'fixed', borderCollapse: 'collapse', fontSize: 13 }}>
                   <colgroup>
-                    <col />
+                    <col style={{ width: '220px' }} />
                     <col style={{ width: '130px' }} />
                     <col style={{ width: '80px' }} />
                     <col style={{ width: '140px' }} />
@@ -237,7 +237,7 @@ export default function ActualsMonth({
                       const hdrStyle = GROUP_HEADER_STYLES[group.label] || { background: '#f9f7f3', color: '#9e9890' };
                       return [
                         <tr key={`hdr-${group.label}`} style={{ background: hdrStyle.background }}>
-                          <td colSpan={5} style={{ padding: '8px 0', fontSize: 11, fontWeight: 600, color: hdrStyle.color, letterSpacing: '0.1em' }}>
+                          <td colSpan={5} style={{ padding: '8px 0 8px 12px', fontSize: 11, fontWeight: 600, color: hdrStyle.color, letterSpacing: '0.1em' }}>
                             {group.label.toUpperCase()}
                           </td>
                         </tr>,
