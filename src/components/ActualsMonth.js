@@ -228,7 +228,7 @@ export default function ActualsMonth({
                   <thead>
                     <tr>
                       {['Account', 'Balance (Local)', '', `In ${state.currencyCode || 'GBP'}`, 'Change'].map((h, i) => (
-                        <th key={i} style={{ padding: '6px 8px', color: '#b0aa9f', fontSize: 10, letterSpacing: '0.08em', textAlign: i >= 3 ? 'right' : 'left', borderBottom: '1px solid #f0ece4', fontWeight: 500 }}>{h.toUpperCase()}</th>
+                        <th key={i} style={{ padding: i === 0 ? '6px 8px 6px 4px' : '6px 8px', color: '#b0aa9f', fontSize: 10, letterSpacing: '0.08em', textAlign: i >= 3 ? 'right' : 'left', borderBottom: '1px solid #f0ece4', fontWeight: 500 }}>{h.toUpperCase()}</th>
                       ))}
                     </tr>
                   </thead>
@@ -237,7 +237,7 @@ export default function ActualsMonth({
                       const hdrStyle = GROUP_HEADER_STYLES[group.label] || { background: '#f9f7f3', color: '#9e9890' };
                       return [
                         <tr key={`hdr-${group.label}`} style={{ background: hdrStyle.background }}>
-                          <td colSpan={5} style={{ padding: '8px 0 8px 12px', fontSize: 11, fontWeight: 600, color: hdrStyle.color, letterSpacing: '0.1em' }}>
+                          <td colSpan={5} style={{ padding: '8px 0 8px 4px', fontSize: 11, fontWeight: 600, color: hdrStyle.color, letterSpacing: '0.1em' }}>
                             {group.label.toUpperCase()}
                           </td>
                         </tr>,
@@ -253,7 +253,7 @@ export default function ActualsMonth({
                             : null;
                           return (
                             <tr key={acc.id} style={{ borderBottom: '1px solid #f9f7f3' }}>
-                              <td style={{ padding: '8px 8px 8px 0', fontWeight: 500, color: '#1a1714', overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>{acc.name}</td>
+                              <td style={{ padding: '8px 8px 8px 4px', fontWeight: 500, color: '#1a1714', overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>{acc.name}</td>
                               <td style={{ padding: '8px 8px 8px 0', overflow: 'hidden' }}>
                                 <BalanceCell
                                   value={localVal}
