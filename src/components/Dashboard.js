@@ -353,7 +353,7 @@ export default function Dashboard({
               <tr>
                 <th style={thStyle}>ACCOUNT</th>
                 <th style={{ ...thStyle, textAlign: 'right' }}>BALANCE</th>
-                <th style={thStyle}>IN {(state.currencyCode || 'GBP').toUpperCase()}</th>
+                <th style={{ ...thStyle, textAlign: 'right' }}>IN {(state.currencyCode || 'GBP').toUpperCase()}</th>
               </tr>
             </thead>
             <tbody>

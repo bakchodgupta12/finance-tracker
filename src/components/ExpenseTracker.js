@@ -314,7 +314,7 @@ export default function ExpenseTracker({
 
   // ── Style helpers ─────────────────────────────────────────────────────────
   const thSt = {
-    padding: '6px 8px', color: '#b0aa9f', fontSize: 10, letterSpacing: '0.08em',
+    padding: '6px 8px', color: '#9e9890', fontSize: 10, letterSpacing: '0.08em',
     textAlign: 'left', borderBottom: '1px solid #f0ece4', fontWeight: 500, whiteSpace: 'nowrap',
   };
   const tdSt  = { padding: '6px 8px', fontSize: 13, color: '#2d2a26', verticalAlign: 'middle' };
@@ -543,7 +543,7 @@ export default function ExpenseTracker({
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
                   <thead>
                     <tr>{['Date', 'Description', 'Amount', 'Currency', 'Category', ''].map(h => (
-                      <th key={h} style={thSt}>{h}</th>
+                      <th key={h} style={thSt}>{h.toUpperCase()}</th>
                     ))}</tr>
                   </thead>
                   <tbody>
@@ -605,7 +605,7 @@ export default function ExpenseTracker({
                 <thead>
                   <tr>
                     {['Date', 'Description', 'Amount', 'Currency', 'Category', 'Paid By', ''].map(h => (
-                      <th key={h} style={{ ...thSt, textAlign: h === 'Amount' ? 'right' : 'left' }}>{h}</th>
+                      <th key={h} style={{ ...thSt, textAlign: h === 'Amount' ? 'right' : 'left' }}>{h.toUpperCase()}</th>
                     ))}
                   </tr>
                 </thead>
