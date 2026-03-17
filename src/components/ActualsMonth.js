@@ -7,7 +7,7 @@ import {
 import ExpenseTracker from './ExpenseTracker';
 
 // ── Balance Cell (Balances table only) ────────────────────────────────────────
-// All three states use display:block + width:100% — column never shifts
+// All three states: display:block, width:100%, padding:'3px 0' — row never shifts
 function BalanceCell({ value, onChange, prefix = '' }) {
   const [editing, setEditing] = useState(false);
   const inputRef = useRef(null);
@@ -39,10 +39,10 @@ function BalanceCell({ value, onChange, prefix = '' }) {
         style={{
           display: 'block', width: '100%', boxSizing: 'border-box',
           background: 'transparent', border: 'none',
-          borderBottom: '1px solid #7eb5d6', borderRadius: 0,
-          padding: '4px 0', paddingBottom: 3,
-          fontSize: 14, color: '#1a1714',
-          outline: 'none', fontFamily: 'inherit', MozAppearance: 'textfield',
+          borderBottom: '1px solid #7eb5d6',
+          outline: 'none', fontSize: 14, color: '#1a1714',
+          padding: '3px 0', fontFamily: 'inherit',
+          MozAppearance: 'textfield', WebkitAppearance: 'none',
         }}
       />
     );
@@ -52,9 +52,9 @@ function BalanceCell({ value, onChange, prefix = '' }) {
     return (
       <span
         onClick={() => setEditing(true)}
-        style={{ display: 'block', width: '100%', color: '#b0aa9f', fontSize: 14, padding: '4px 0', cursor: 'text', userSelect: 'none' }}
-        onMouseEnter={e => { e.currentTarget.style.borderBottom = '1px solid #d5d0c8'; e.currentTarget.style.paddingBottom = '3px'; }}
-        onMouseLeave={e => { e.currentTarget.style.borderBottom = 'none'; e.currentTarget.style.paddingBottom = '4px'; }}
+        style={{ display: 'block', width: '100%', color: '#b0aa9f', fontSize: 14, cursor: 'text', padding: '3px 0', userSelect: 'none' }}
+        onMouseEnter={e => { e.currentTarget.style.borderBottom = '1px solid #d5d0c8'; }}
+        onMouseLeave={e => { e.currentTarget.style.borderBottom = 'none'; }}
       >—</span>
     );
   }
@@ -62,7 +62,7 @@ function BalanceCell({ value, onChange, prefix = '' }) {
   return (
     <span
       onClick={() => setEditing(true)}
-      style={{ display: 'block', width: '100%', color: '#1a1714', fontWeight: 500, fontSize: 14, padding: '4px 0', cursor: 'text' }}
+      style={{ display: 'block', width: '100%', color: '#1a1714', fontWeight: 500, fontSize: 14, cursor: 'text', padding: '3px 0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
     >
       {formatted}
     </span>
@@ -216,72 +216,75 @@ export default function ActualsMonth({
             {accountGroups.length === 0 ? (
               <p style={{ fontSize: 13, color: '#b0aa9f' }}>No accounts set up yet. Add them in Settings → Accounts.</p>
             ) : (
-              <table style={{ width: '100%', tableLayout: 'fixed', borderCollapse: 'collapse', fontSize: 13 }}>
-                <colgroup>
-                  <col style={{ width: '30%' }} />
-                  <col style={{ width: '22%' }} />
-                  <col style={{ width: '10%' }} />
-                  <col style={{ width: '22%' }} />
-                  <col style={{ width: '16%' }} />
-                </colgroup>
-                <thead>
-                  <tr>
-                    {['Account', 'Balance (Local)', '', `In ${state.currencyCode || 'GBP'}`, 'Change'].map((h, i) => (
-                      <th key={i} style={{ padding: '6px 10px', color: '#b0aa9f', fontSize: 10, letterSpacing: '0.08em', textAlign: 'left', borderBottom: '1px solid #f0ece4', fontWeight: 500 }}>{h.toUpperCase()}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {accountGroups.map(group => {
-                    const hdrStyle = GROUP_HEADER_STYLES[group.label] || { background: '#f9f7f3', color: '#9e9890' };
-                    return [
-                      <tr key={`hdr-${group.label}`} style={{ background: hdrStyle.background }}>
-                        <td colSpan={5} style={{ padding: '6px 12px', fontSize: 10, fontWeight: 700, color: hdrStyle.color, letterSpacing: '0.1em' }}>
-                          {group.label.toUpperCase()}
-                        </td>
-                      </tr>,
-                      ...group.accounts.map(acc => {
-                        const localVal = getSnap(selectedMonth, acc.id);
-                        const accCur   = getCurrency(acc.currency);
-                        const flag     = getCurrencyFlag(acc.currency);
-                        const numVal   = Number(localVal) || 0;
-                        const homeVal  = localVal !== '' ? toHome(numVal, acc.currency) : null;
-                        const prevVal  = prevMonth ? (Number(getSnap(prevMonth, acc.id)) || 0) : 0;
-                        const pct      = numVal > 0
-                          ? (prevVal > 0 ? ((numVal - prevVal) / prevVal) * 100 : 'no-prev')
-                          : null;
-                        return (
-                          <tr key={acc.id} style={{ borderBottom: '1px solid #f9f7f3' }}>
-                            <td style={{ padding: '6px 12px', fontWeight: 500, color: '#1a1714', overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>{acc.name}</td>
-                            <td style={{ padding: '0 8px 0 12px', overflow: 'hidden' }}>
-                              <BalanceCell
-                                value={localVal}
-                                onChange={v => setSnap(selectedMonth, acc.id, v)}
-                                prefix={accCur.symbol}
-                              />
-                            </td>
-                            <td style={{ padding: '6px 8px', color: '#6b6660', fontSize: 13, whiteSpace: 'nowrap', overflow: 'hidden' }}>
-                              {flag} {accCur.code}
-                            </td>
-                            <td style={{ padding: '6px 8px', color: homeVal === null ? '#d5d0c8' : '#1a1714', fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textAlign: 'right' }}>
-                              {homeVal === null ? (localVal !== '' ? 'N/A' : '—') : f(homeVal)}
-                            </td>
-                            <td style={{ padding: '6px 8px' }}>
-                              {pct === null ? null : pct === 'no-prev' ? (
-                                <span style={{ fontSize: 11, color: '#d5d0c8' }}>—</span>
-                              ) : (
-                                <span style={{ fontSize: 11, color: pct >= 0 ? '#2d9e6b' : '#c94040', fontWeight: 600 }}>
-                                  {pct >= 0 ? '+' : ''}{pct.toFixed(1)}%
-                                </span>
-                              )}
-                            </td>
-                          </tr>
-                        );
-                      }),
-                    ];
-                  })}
-                </tbody>
-              </table>
+              <div style={{ overflowX: 'auto', width: '100%' }}>
+                <table style={{ width: '100%', minWidth: 600, tableLayout: 'fixed', borderCollapse: 'collapse', fontSize: 13 }}>
+                  <colgroup>
+                    <col />
+                    <col style={{ width: '130px' }} />
+                    <col style={{ width: '80px' }} />
+                    <col style={{ width: '140px' }} />
+                    <col style={{ width: '80px' }} />
+                  </colgroup>
+                  <thead>
+                    <tr>
+                      {['Account', 'Balance (Local)', '', `In ${state.currencyCode || 'GBP'}`, 'Change'].map((h, i) => (
+                        <th key={i} style={{ padding: '6px 8px', color: '#b0aa9f', fontSize: 10, letterSpacing: '0.08em', textAlign: i >= 3 ? 'right' : 'left', borderBottom: '1px solid #f0ece4', fontWeight: 500 }}>{h.toUpperCase()}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {accountGroups.map(group => {
+                      const hdrStyle = GROUP_HEADER_STYLES[group.label] || { background: '#f9f7f3', color: '#9e9890' };
+                      return [
+                        <tr key={`hdr-${group.label}`} style={{ background: hdrStyle.background }}>
+                          <td colSpan={5} style={{ padding: '8px 0', fontSize: 11, fontWeight: 600, color: hdrStyle.color, letterSpacing: '0.1em' }}>
+                            {group.label.toUpperCase()}
+                          </td>
+                        </tr>,
+                        ...group.accounts.map(acc => {
+                          const localVal = getSnap(selectedMonth, acc.id);
+                          const accCur   = getCurrency(acc.currency);
+                          const flag     = getCurrencyFlag(acc.currency);
+                          const numVal   = Number(localVal) || 0;
+                          const homeVal  = localVal !== '' ? toHome(numVal, acc.currency) : null;
+                          const prevVal  = prevMonth ? (Number(getSnap(prevMonth, acc.id)) || 0) : 0;
+                          const pct      = numVal > 0
+                            ? (prevVal > 0 ? ((numVal - prevVal) / prevVal) * 100 : 'no-prev')
+                            : null;
+                          return (
+                            <tr key={acc.id} style={{ borderBottom: '1px solid #f9f7f3' }}>
+                              <td style={{ padding: '8px 8px 8px 0', fontWeight: 500, color: '#1a1714', overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>{acc.name}</td>
+                              <td style={{ padding: '8px 8px 8px 0', overflow: 'hidden' }}>
+                                <BalanceCell
+                                  value={localVal}
+                                  onChange={v => setSnap(selectedMonth, acc.id, v)}
+                                  prefix={accCur.symbol}
+                                />
+                              </td>
+                              <td style={{ padding: '8px 4px', fontSize: 13, color: '#6b6660', whiteSpace: 'nowrap', overflow: 'hidden' }}>
+                                {flag} {accCur.code}
+                              </td>
+                              <td style={{ padding: '8px 8px', fontSize: 14, fontWeight: 500, textAlign: 'right', whiteSpace: 'nowrap', overflow: 'hidden' }}>
+                                {homeVal !== null
+                                  ? <span style={{ color: '#1a1714' }}>{f(homeVal)}</span>
+                                  : <span style={{ color: '#b0aa9f' }}>—</span>
+                                }
+                              </td>
+                              <td style={{ padding: '8px 8px', fontSize: 13, textAlign: 'right', whiteSpace: 'nowrap',
+                                color: pct === null || pct === 'no-prev' ? '#b0aa9f' : pct >= 0 ? '#2d9e6b' : '#D96B6B' }}>
+                                {pct === null || pct === 'no-prev'
+                                  ? '—'
+                                  : `${pct >= 0 ? '+' : ''}${pct.toFixed(1)}%`
+                                }
+                              </td>
+                            </tr>
+                          );
+                        }),
+                      ];
+                    })}
+                  </tbody>
+                </table>
+              </div>
             )}
           </div>
         </div>
