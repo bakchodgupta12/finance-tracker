@@ -3,7 +3,7 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell,
 } from 'recharts';
-import { s, Lbl, DelBtn, Select, CURRENCIES, getCurrency, getCurrencyFlag, ALL_MONTHS } from '../shared';
+import { s, Lbl, DelBtn, Select, CURRENCIES, getCurrency, getCurrencyFlag, ALL_MONTHS, blockNonNumeric, fmtChart } from '../shared';
 
 // ── Auto-suggest helper ───────────────────────────────────────────────────────
 function getAutoSuggest(description, expenses) {
@@ -383,28 +383,19 @@ export default function ExpenseTracker({
               <div style={{ marginBottom: 20 }}>
                 <Lbl>MONTHLY SPEND</Lbl>
                 <div style={{ marginTop: 10 }}>
-                  {(() => {
-                    const yFmt = v => {
-                      const abs = Math.abs(v);
-                      if (abs >= 1_000_000) return `${currency.symbol}${(abs / 1_000_000).toFixed(1)}m`;
-                      return `${currency.symbol}${new Intl.NumberFormat(currency.locale, { maximumFractionDigits: 0 }).format(abs)}`;
-                    };
-                    return (
                   <ResponsiveContainer width="100%" height={140}>
                     <BarChart data={barChartData} barSize={24}>
                       <CartesianGrid strokeDasharray="3 3" stroke="#f0ece4" />
                       <XAxis dataKey="month" stroke="#e8e4dc" tick={{ fill: '#b0aa9f', fontSize: 11 }} />
-                      <YAxis stroke="#e8e4dc" tick={{ fill: '#b0aa9f', fontSize: 11 }} tickFormatter={yFmt} />
+                      <YAxis stroke="#e8e4dc" tick={{ fill: '#b0aa9f', fontSize: 11 }} tickFormatter={v => fmtChart(v, currency.symbol)} />
                       <Tooltip
-                        formatter={val => [f(val), 'Spend']}
+                        formatter={val => [fmtChart(val, currency.symbol), 'Spend']}
                         labelStyle={{ color: '#2d2a26', fontSize: 12 }}
                         contentStyle={{ border: '1px solid #e8e4dc', borderRadius: 8, fontSize: 12 }}
                       />
                       <Bar dataKey="total" fill="#e8a598" radius={[4, 4, 0, 0]} />
                     </BarChart>
                   </ResponsiveContainer>
-                    );
-                  })()}
                 </div>
               </div>
             ) : (
@@ -679,6 +670,7 @@ export default function ExpenseTracker({
                             <input
                               type="number" value={exp.amount} placeholder="0"
                               onChange={e => updateExp(exp.id, 'amount', e.target.value === '' ? '' : parseFloat(e.target.value) || 0)}
+                              onKeyDown={blockNonNumeric}
                               style={{ ...inpSt, width: '100%', textAlign: 'right' }}
                             />
                           </td>

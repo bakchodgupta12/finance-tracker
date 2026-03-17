@@ -1,6 +1,25 @@
 import React, { useState, useEffect, useRef } from 'react';
 
 // ─────────────────────────────────────────────
+// Input handlers
+// ─────────────────────────────────────────────
+export const blockNonNumeric = (e) => {
+  const allowed = [
+    'Backspace', 'Delete', 'Tab', 'Enter', 'Escape',
+    'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown',
+    'Home', 'End', 'a', 'A', 'c', 'C', 'v', 'V',
+    'x', 'X', 'z', 'Z',
+  ];
+  // Allow Cmd/Ctrl combinations (select all, copy, paste, undo)
+  if (e.metaKey || e.ctrlKey) return;
+  const isDigit = e.key >= '0' && e.key <= '9';
+  const isDecimal = e.key === '.' && !e.currentTarget.value.includes('.');
+  if (!isDigit && !isDecimal && !allowed.includes(e.key)) {
+    e.preventDefault();
+  }
+};
+
+// ─────────────────────────────────────────────
 // Constants
 // ─────────────────────────────────────────────
 export const ALL_MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
@@ -66,6 +85,15 @@ export const GROUP_HEADER_STYLES = {
 // ─────────────────────────────────────────────
 export function getCurrency(code) {
   return CURRENCIES.find(c => c.code === code) || CURRENCIES[0];
+}
+
+export function fmtChart(value, symbol) {
+  const n = Number(value) || 0;
+  const abs = Math.abs(n);
+  const sign = n < 0 ? '-' : '';
+  if (abs >= 1_000_000) return sign + symbol + (abs / 1_000_000).toFixed(1) + 'm';
+  if (abs >= 1_000) return sign + symbol + (abs / 1_000).toFixed(1) + 'k';
+  return sign + symbol + Math.round(abs);
 }
 
 export function fmt(v = 0, sym = '£', locale = 'en-GB') {
@@ -196,11 +224,16 @@ export const s = {
 // ─────────────────────────────────────────────
 // Atom components
 // ─────────────────────────────────────────────
-export const Inp = ({ value, onChange, type='text', style={}, placeholder='', onKeyDown, disabled }) => (
-  <input type={type} value={value} placeholder={placeholder} onKeyDown={onKeyDown} disabled={disabled}
-    onChange={e => onChange(type==='number' ? (e.target.value === '' ? '' : (parseFloat(e.target.value) || 0)) : e.target.value)}
-    style={{ ...s.input, ...style, opacity: disabled ? 0.5 : 1 }} />
-);
+export const Inp = ({ value, onChange, type='text', style={}, placeholder='', onKeyDown, disabled }) => {
+  const handleKeyDown = type === 'number'
+    ? (e) => { blockNonNumeric(e); onKeyDown?.(e); }
+    : onKeyDown;
+  return (
+    <input type={type} value={value} placeholder={placeholder} onKeyDown={handleKeyDown} disabled={disabled}
+      onChange={e => onChange(type==='number' ? (e.target.value === '' ? '' : (parseFloat(e.target.value) || 0)) : e.target.value)}
+      style={{ ...s.input, ...style, opacity: disabled ? 0.5 : 1 }} />
+  );
+};
 
 export const Select = ({ value, onChange, style = {}, children }) => {
   const { flex, width = '100%', ...restStyle } = style;
@@ -332,6 +365,7 @@ export function EditableCell({
       onKeyDown={e => {
         if (e.key === 'Enter' || e.key === 'Tab') setEditing(false);
         if (e.key === 'Escape') setEditing(false);
+        blockNonNumeric(e);
       }}
       style={{
         width: width,
@@ -350,12 +384,13 @@ export function EditableCell({
   );
 }
 
-export const ChartTip = ({ active, payload, label }) => {
+export const ChartTip = ({ active, payload, label, symbol }) => {
   if (!active || !payload?.length) return null;
+  const formatVal = v => symbol ? fmtChart(v, symbol) : v;
   return (
     <div style={{ background:'#fff', border:'1px solid #e8e4dc', borderRadius:10, padding:'10px 14px', boxShadow:'0 4px 20px rgba(0,0,0,0.07)', fontSize:12 }}>
       <p style={{ color:'#9e9890', marginBottom:5, fontSize:10, letterSpacing:'0.1em' }}>{label}</p>
-      {payload.map((p,i) => <p key={i} style={{ color:p.color||'#2d2a26', margin:'2px 0', fontWeight:600 }}>{p.name}: {p.value}</p>)}
+      {payload.map((p,i) => <p key={i} style={{ color:p.color||'#2d2a26', margin:'2px 0', fontWeight:600 }}>{p.name}: {formatVal(p.value)}</p>)}
     </div>
   );
 };

@@ -3,7 +3,7 @@ import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
 } from 'recharts';
 import {
-  s, Lbl, ChartTip,
+  s, Lbl, ChartTip, fmtChart,
   ACCOUNT_GROUPS, GROUP_HEADER_STYLES,
   getCurrency, getCurrencyFlag, getGreeting, getCurrentMonthAbbr, ALL_MONTHS
 } from '../shared';
@@ -77,6 +77,7 @@ export default function Dashboard({
     (state.userId ? state.userId.charAt(0).toUpperCase() + state.userId.slice(1).toLowerCase() : '');
 
   const [showCheckup, setShowCheckup] = useState(false);
+  const [expandedGroups, setExpandedGroups] = useState({});
 
   // Health checkup button state
   const checkupNow = new Date().toISOString().slice(0, 7);
@@ -320,24 +321,15 @@ export default function Dashboard({
         <div style={{ ...s.card, marginBottom: 16 }}>
           <Lbl>NET WORTH TREND</Lbl>
           <div style={{ marginTop: 16 }}>
-            {(() => {
-              const yFmt = v => {
-                const abs = Math.abs(v);
-                if (abs >= 1_000_000) return `${currency.symbol}${(abs / 1_000_000).toFixed(1)}m`;
-                return `${currency.symbol}${new Intl.NumberFormat(currency.locale, { maximumFractionDigits: 0 }).format(abs)}`;
-              };
-              return (
             <ResponsiveContainer width="100%" height={160}>
               <LineChart data={chartData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f0ece4" />
                 <XAxis dataKey="month" stroke="#e8e4dc" tick={{ fill: '#b0aa9f', fontSize: 11 }} />
-                <YAxis stroke="#e8e4dc" tick={{ fill: '#b0aa9f', fontSize: 11 }} tickFormatter={yFmt} />
-                <Tooltip content={<ChartTip />} />
+                <YAxis stroke="#e8e4dc" tick={{ fill: '#b0aa9f', fontSize: 11 }} tickFormatter={v => fmtChart(v, currency.symbol)} />
+                <Tooltip content={<ChartTip symbol={currency.symbol} />} />
                 <Line type="monotone" dataKey="total" name="Net Worth" stroke="#7ec8a0" strokeWidth={2} dot={{ fill: '#7ec8a0', r: 4, strokeWidth: 0 }} activeDot={{ r: 5 }} />
               </LineChart>
             </ResponsiveContainer>
-              );
-            })()}
           </div>
         </div>
       ) : (
@@ -346,7 +338,7 @@ export default function Dashboard({
         </div>
       )}
 
-      {/* Account Balances — single unified table */}
+      {/* Account Balances — collapsible groups */}
       {hasAnyAccounts && (
         <div style={{ ...s.card, marginBottom: 16 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 4 }}>
@@ -359,28 +351,44 @@ export default function Dashboard({
             <thead>
               <tr>
                 <th style={thStyle}>ACCOUNT</th>
-                <th style={thStyle}>LOCAL BALANCE</th>
+                <th style={{ ...thStyle, textAlign: 'right' }}>BALANCE</th>
                 <th style={thStyle}>IN {(state.currencyCode || 'GBP').toUpperCase()}</th>
               </tr>
             </thead>
             <tbody>
               {allAccountsWithGroup.map(group => {
                 const hdrStyle = GROUP_HEADER_STYLES[group.label] || { background: '#f9f7f3', color: '#9e9890' };
+                const groupKey = group.label;
+                const isExpanded = !!expandedGroups[groupKey];
+                const groupTotal = group.accs.reduce((sum, acc) => {
+                  const v = latestSnapshots?.[acc.id] || 0;
+                  const h = toHome(v, acc.currency);
+                  return sum + (h ?? 0);
+                }, 0);
                 return [
-                  <tr key={`hdr-${group.label}`} style={{ background: hdrStyle.background }}>
-                    <td colSpan={3} style={{ padding: '6px 12px', fontSize: 10, fontWeight: 700, color: hdrStyle.color, letterSpacing: '0.1em' }}>
-                      {group.label.toUpperCase()}
+                  <tr
+                    key={`hdr-${group.label}`}
+                    onClick={() => setExpandedGroups(prev => ({ ...prev, [groupKey]: !prev[groupKey] }))}
+                    style={{ cursor: 'pointer' }}
+                  >
+                    <td style={{ padding: '10px 4px', fontSize: 11, fontWeight: 600, letterSpacing: '0.1em', color: hdrStyle.color, background: hdrStyle.background }}>
+                      <span style={{ display: 'inline-block', marginRight: 8, transition: 'transform 0.2s', transform: isExpanded ? 'rotate(90deg)' : 'rotate(0deg)', fontSize: 10 }}>▶</span>
+                      {group.label}
                     </td>
+                    <td style={{ padding: '10px 8px', textAlign: 'right', background: hdrStyle.background, color: hdrStyle.color, fontSize: 12, fontWeight: 600, whiteSpace: 'nowrap' }}>
+                      {f(groupTotal)}
+                    </td>
+                    <td style={{ background: hdrStyle.background, padding: '10px 8px' }} />
                   </tr>,
-                  ...group.accs.map(acc => {
+                  ...(isExpanded ? group.accs.map(acc => {
                     const localVal = latestSnapshots?.[acc.id] || 0;
                     const accCur = getCurrency(acc.currency);
                     const flag = getCurrencyFlag(acc.currency);
                     const homeVal = toHome(localVal, acc.currency);
                     return (
                       <tr key={acc.id} style={{ borderBottom: '1px solid #f9f7f3' }}>
-                        <td style={{ ...tdStyle, fontWeight: 500, color: '#1a1714' }}>{acc.name}</td>
-                        <td style={{ ...tdStyle, color: '#6b6660' }}>
+                        <td style={{ ...tdStyle, fontWeight: 500, color: '#1a1714', paddingLeft: 24 }}>{acc.name}</td>
+                        <td style={{ ...tdStyle, color: '#6b6660', textAlign: 'right' }}>
                           {localVal > 0
                             ? <span>{flag && <span style={{ marginRight: 4 }}>{flag}</span>}{accCur.symbol}{new Intl.NumberFormat(accCur.locale, { maximumFractionDigits: 0 }).format(localVal)}</span>
                             : <span style={{ color: '#d5d0c8' }}>—</span>}
@@ -390,7 +398,7 @@ export default function Dashboard({
                         </td>
                       </tr>
                     );
-                  }),
+                  }) : []),
                 ];
               })}
             </tbody>

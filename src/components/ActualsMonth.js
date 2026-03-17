@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import {
-  s, Lbl, Inp, Divider, EditableCell,
+  s, Lbl, Inp, Divider, EditableCell, blockNonNumeric,
   CAT_COLORS, CATEGORIES, ACCOUNT_GROUPS, GROUP_HEADER_STYLES,
   getCurrency, getCurrencyFlag, getCurrentMonthAbbr, CURRENCIES,
 } from '../shared';
@@ -8,7 +8,7 @@ import ExpenseTracker from './ExpenseTracker';
 
 // ── Balance Cell (Balances table only) ────────────────────────────────────────
 // All three states: display:block, width:100%, padding:'3px 0' — row never shifts
-function BalanceCell({ value, onChange, prefix = '' }) {
+function BalanceCell({ value, onChange, prefix = '', balanceIndex }) {
   const [editing, setEditing] = useState(false);
   const inputRef = useRef(null);
 
@@ -33,18 +33,16 @@ function BalanceCell({ value, onChange, prefix = '' }) {
         onChange={e => onChange(e.target.value === '' ? '' : (parseFloat(e.target.value) || 0))}
         onBlur={() => setEditing(false)}
         onKeyDown={e => {
-          if (e.key === 'Enter' || e.key === 'Tab') setEditing(false);
-          if (e.key === 'Escape') setEditing(false);
-          const allowed = [
-            'Backspace', 'Delete', 'Tab', 'Enter', 'Escape',
-            'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown',
-            'Home', 'End',
-          ];
-          const isDigit = e.key >= '0' && e.key <= '9';
-          const isDecimal = e.key === '.' && !e.currentTarget.value.includes('.');
-          if (!isDigit && !isDecimal && !allowed.includes(e.key)) {
+          if (e.key === 'Enter') { setEditing(false); return; }
+          if (e.key === 'Escape') { setEditing(false); return; }
+          if (e.key === 'Tab') {
             e.preventDefault();
+            setEditing(false);
+            const next = document.querySelector(`[data-balance-index="${balanceIndex + 1}"]`);
+            if (next) next.click();
+            return;
           }
+          blockNonNumeric(e);
         }}
         style={{
           display: 'block', width: '100%', boxSizing: 'border-box',
@@ -61,6 +59,7 @@ function BalanceCell({ value, onChange, prefix = '' }) {
   if (!hasValue) {
     return (
       <span
+        data-balance-index={balanceIndex}
         onClick={() => setEditing(true)}
         style={{ display: 'block', width: '100%', color: '#b0aa9f', fontSize: 14, cursor: 'text', padding: '3px 0', userSelect: 'none' }}
         onMouseEnter={e => { e.currentTarget.style.borderBottom = '1px solid #d5d0c8'; }}
@@ -71,6 +70,7 @@ function BalanceCell({ value, onChange, prefix = '' }) {
 
   return (
     <span
+      data-balance-index={balanceIndex}
       onClick={() => setEditing(true)}
       style={{ display: 'block', width: '100%', color: '#1a1714', fontWeight: 500, fontSize: 14, cursor: 'text', padding: '3px 0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
     >
@@ -156,6 +156,9 @@ export default function ActualsMonth({
     const accs = (state.accounts || []).filter(a => group.types.includes(a.type));
     return { ...group, accounts: accs };
   }).filter(g => g.accounts.length > 0);
+
+  // Flat list of all accounts for Tab navigation indices
+  const flatAccounts = accountGroups.flatMap(g => g.accounts);
 
   // Health score (used in Income sub-tab)
   const healthScore = (() => {
@@ -261,6 +264,7 @@ export default function ActualsMonth({
                           const pct      = numVal > 0
                             ? (prevVal > 0 ? ((numVal - prevVal) / prevVal) * 100 : 'no-prev')
                             : null;
+                          const balIdx   = flatAccounts.findIndex(a => a.id === acc.id);
                           return (
                             <tr key={acc.id} style={{ borderBottom: '1px solid #f9f7f3' }}>
                               <td style={{ padding: '8px 8px 8px 4px', fontWeight: 500, color: '#1a1714', overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>{acc.name}</td>
@@ -269,6 +273,7 @@ export default function ActualsMonth({
                                   value={localVal}
                                   onChange={v => setSnap(selectedMonth, acc.id, v)}
                                   prefix={accCur.symbol}
+                                  balanceIndex={balIdx}
                                 />
                               </td>
                               <td style={{ padding: '8px 4px', fontSize: 13, color: '#6b6660', whiteSpace: 'nowrap', overflow: 'hidden' }}>
