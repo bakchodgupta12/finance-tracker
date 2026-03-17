@@ -190,6 +190,7 @@ export default function ActualsMonth({
                                   onChange={v => setSnap(selectedMonth, acc.id, v)}
                                   prefix={accCur.symbol}
                                   width={140}
+                                  narrowEmpty
                                 />
                                 <span style={{
                                   display: 'inline-block', width: 56, flexShrink: 0,

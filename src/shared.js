@@ -260,6 +260,7 @@ export function EditableCell({
   suffix = '',
   width = 120,
   align = 'left',
+  narrowEmpty = false,
 }) {
   const [editing, setEditing] = useState(false);
   const inputRef = useRef(null);
@@ -277,6 +278,26 @@ export function EditableCell({
     new Intl.NumberFormat('en-GB', { maximumFractionDigits: 0 }).format(Number(v));
 
   if (!editing) {
+    if (narrowEmpty && !hasValue) {
+      return (
+        <div
+          onClick={() => setEditing(true)}
+          style={{ cursor: 'text', padding: '6px 4px', display: 'inline-block', userSelect: 'none' }}
+          onMouseEnter={e => { const sp = e.currentTarget.querySelector('span'); if (sp) sp.style.borderBottomColor = '#9e9890'; }}
+          onMouseLeave={e => { const sp = e.currentTarget.querySelector('span'); if (sp) sp.style.borderBottomColor = '#d5d0c8'; }}
+        >
+          <span style={{
+            color: '#b0aa9f',
+            borderBottom: '1px solid #d5d0c8',
+            paddingBottom: '1px',
+            display: 'inline-block',
+            minWidth: 16,
+            transition: 'border-color 0.15s',
+          }}>—</span>
+        </div>
+      );
+    }
+
     return (
       <div
         onClick={() => setEditing(true)}
