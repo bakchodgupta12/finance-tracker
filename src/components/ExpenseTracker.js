@@ -504,6 +504,12 @@ export default function ExpenseTracker({
     textAlign: 'left', borderBottom: '1px solid #f0ece4', fontWeight: 500, whiteSpace: 'nowrap',
   };
   const tdSt  = { padding: '6px 8px', fontSize: 13, color: '#2d2a26', verticalAlign: 'middle' };
+  const recurringColStyle = {
+    width: 32, minWidth: 32, maxWidth: 32,
+    padding: '0 4px',
+    textAlign: 'center', verticalAlign: 'middle',
+    boxSizing: 'border-box',
+  };
   const inpSt = { ...s.input, padding: '4px 8px', fontSize: 13 };
   const autoFillBg = '#fffbeb';
 
@@ -776,7 +782,7 @@ export default function ExpenseTracker({
                             {exp.amount ? `${accCur.symbol}${Number(exp.amount).toLocaleString()}` : <span style={{ color: '#d5d0c8' }}>—</span>}
                           </td>
                           <td style={{ ...tdSt, color: '#9e9890' }}>
-                            {flag && <span style={{ marginRight: 4 }}>{flag}</span>}{exp.currency}
+                            {exp.currency}{flag && <span style={{ marginLeft: 4 }}>{flag}</span>}
                           </td>
                           <td style={tdSt}>
                             {exp.category
@@ -832,8 +838,10 @@ export default function ExpenseTracker({
                     <th style={{ ...thSt, paddingLeft: 0 }}>CURRENCY</th>
                     <th style={{ ...thSt, paddingLeft: 0 }}>CATEGORY</th>
                     <th style={{ ...thSt, paddingLeft: 0 }}>PAID BY</th>
-                    <th style={{ ...thSt, paddingLeft: 0, textAlign: 'center', verticalAlign: 'middle', padding: '8px 4px' }}>
-                      <RecurringIcon active={false} />
+                    <th style={{ ...thSt, ...recurringColStyle, borderBottom: '1px solid #f0ece4' }}>
+                      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
+                        <RecurringIcon active={false} />
+                      </div>
                     </th>
                     <th style={{ ...thSt, paddingLeft: 0 }} />
                   </tr>
@@ -855,7 +863,7 @@ export default function ExpenseTracker({
                         </td>
                         <td style={{ width: 16, padding: 0, border: 'none' }} />
                         <td style={{ ...tdSt, paddingLeft: 0, color: '#9e9890' }}>
-                          {phFlag && <span style={{ marginRight: 3 }}>{phFlag}</span>}{ph.currency}
+                          {ph.currency}{phFlag && <span style={{ marginLeft: 3 }}>{phFlag}</span>}
                         </td>
                         <td style={{ ...tdSt, paddingLeft: 0 }}>
                           {ph.category
@@ -868,8 +876,10 @@ export default function ExpenseTracker({
                         <td style={{ ...tdSt, paddingLeft: 0, color: '#9e9890' }}>
                           {ph.paidBy || <span style={{ color: '#d5d0c8' }}>—</span>}
                         </td>
-                        <td style={{ padding: '8px 4px', textAlign: 'center', verticalAlign: 'middle' }}>
-                          <RecurringIcon active={true} />
+                        <td style={recurringColStyle}>
+                          <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
+                            <RecurringIcon active={true} />
+                          </div>
                         </td>
                         <td style={{ padding: '6px 8px', width: 110 }}>
                           {isConfirmed ? (
@@ -1010,18 +1020,20 @@ export default function ExpenseTracker({
                             </Select>
                           </td>
                           {/* Recurring toggle (edit mode) */}
-                          <td style={{ padding: '8px 4px', textAlign: 'center', verticalAlign: 'middle' }}>
-                            <button
-                              onMouseDown={e => { e.preventDefault(); toggleRecurring(exp.id); }}
-                              title={exp.recurring ? 'Mark non-recurring' : 'Mark recurring'}
-                              style={{
-                                background: exp.recurring ? '#ebf4fb' : 'none',
-                                border: 'none',
-                                borderRadius: '50%', width: 26, height: 26,
-                                cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                padding: 0,
-                              }}
-                            ><RecurringIcon active={exp.recurring} /></button>
+                          <td style={recurringColStyle}>
+                            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
+                              <button
+                                onMouseDown={e => { e.preventDefault(); toggleRecurring(exp.id); }}
+                                title={exp.recurring ? 'Mark non-recurring' : 'Mark recurring'}
+                                style={{
+                                  background: exp.recurring ? '#ebf4fb' : 'none',
+                                  border: 'none',
+                                  borderRadius: '50%', width: 26, height: 26,
+                                  cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                  padding: 0,
+                                }}
+                              ><RecurringIcon active={exp.recurring} /></button>
+                            </div>
                           </td>
                           <td style={{ padding: '5px 8px' }}>
                             <DelBtn onClick={() => deleteExp(exp.id)} />
@@ -1089,7 +1101,7 @@ export default function ExpenseTracker({
                           </td>
                           <td style={{ width: 16, padding: 0, border: 'none' }} />
                           <td style={{ ...tdSt, paddingLeft: 0, color: '#9e9890' }}>
-                            {flag && <span style={{ marginRight: 3 }}>{flag}</span>}{exp.currency}
+                            {exp.currency}{flag && <span style={{ marginLeft: 3 }}>{flag}</span>}
                           </td>
                           <td style={{ ...tdSt, paddingLeft: 0 }}>
                             {exp.category
@@ -1103,19 +1115,21 @@ export default function ExpenseTracker({
                             {exp.paidBy || <span style={{ color: '#d5d0c8' }}>—</span>}
                           </td>
                           {/* Recurring toggle (view mode) */}
-                          <td style={{ padding: '8px 4px', textAlign: 'center', verticalAlign: 'middle' }} onClick={e => e.stopPropagation()}>
-                            <button
-                              onClick={() => toggleRecurring(exp.id)}
-                              title={exp.recurring ? 'Mark non-recurring' : 'Mark recurring'}
-                              style={{
-                                background: exp.recurring ? '#ebf4fb' : 'none',
-                                border: 'none', borderRadius: '50%', width: 26, height: 26,
-                                cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                padding: 0,
-                                opacity: exp.recurring ? 1 : (hoveredRowId === exp.id ? 1 : 0),
-                                transition: 'opacity 0.15s',
-                              }}
-                            ><RecurringIcon active={exp.recurring} /></button>
+                          <td style={recurringColStyle} onClick={e => e.stopPropagation()}>
+                            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
+                              <button
+                                onClick={() => toggleRecurring(exp.id)}
+                                title={exp.recurring ? 'Mark non-recurring' : 'Mark recurring'}
+                                style={{
+                                  background: exp.recurring ? '#ebf4fb' : 'none',
+                                  border: 'none', borderRadius: '50%', width: 26, height: 26,
+                                  cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                  padding: 0,
+                                  opacity: exp.recurring ? 1 : (hoveredRowId === exp.id ? 1 : 0),
+                                  transition: 'opacity 0.15s',
+                                }}
+                              ><RecurringIcon active={exp.recurring} /></button>
+                            </div>
                           </td>
                           <td style={{ padding: '6px 8px' }} onClick={e => e.stopPropagation()}>
                             <DelBtn onClick={() => deleteExp(exp.id)} />

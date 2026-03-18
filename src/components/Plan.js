@@ -249,7 +249,7 @@ export default function Plan({ state, set, f, currency, baseIncome, allocByCat, 
               </colgroup>
               <thead>
                 <tr>{['Label', 'Category', '% of Income', 'Monthly Amount', '', ''].map((h, i) => (
-                  <th key={i} style={{ padding: '8px 10px', paddingLeft: i === 0 ? 16 : 10, color: '#b0aa9f', fontSize: 10, letterSpacing: '0.08em', textAlign: 'left', borderBottom: '1px solid #f0ece4', fontWeight: 500 }}>{h}</th>
+                  <th key={i} style={{ padding: '8px 10px', paddingLeft: i === 0 ? 19 : 10, color: '#b0aa9f', fontSize: 10, letterSpacing: '0.08em', textAlign: 'left', borderBottom: '1px solid #f0ece4', fontWeight: 500 }}>{h}</th>
                 ))}</tr>
               </thead>
               <tbody>
@@ -345,7 +345,7 @@ export default function Plan({ state, set, f, currency, baseIncome, allocByCat, 
               </colgroup>
               <tbody>
                 <tr>
-                  <td style={{ padding: '6px 10px', paddingLeft: 16, color: '#9e9890' }}>Total allocated</td>
+                  <td style={{ padding: '6px 10px', paddingLeft: 19, color: '#9e9890' }}>Total allocated</td>
                   <td />
                   <td style={{ padding: '6px 10px', fontWeight: 700, color: totalAllocPct > 100 ? '#c94040' : '#1a1714' }}>
                     {totalAllocPct.toFixed(1)}%
