@@ -1,10 +1,38 @@
 import { useState, useEffect, useRef } from 'react';
 import {
-  s, Lbl, Inp, Divider, EditableCell, blockNonNumeric,
+  s, Lbl, Inp, Divider, EditableCell, blockNonNumeric, pasteNumericOnly,
   CAT_COLORS, CATEGORIES, ACCOUNT_GROUPS, GROUP_HEADER_STYLES,
-  getCurrency, getCurrencyFlag, getCurrentMonthAbbr, CURRENCIES,
+  getCurrency, getCurrencyFlag, getCurrentMonthAbbr, CURRENCIES, ALL_MONTHS,
 } from '../shared';
 import ExpenseTracker from './ExpenseTracker';
+
+const MONTH_FULL_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+
+// ── Future Month Cell (renders full <td>) ─────────────────────────────────────
+function FutureCell({ monthName }) {
+  const [hovered, setHovered] = useState(false);
+  const fullName = MONTH_FULL_NAMES[ALL_MONTHS.indexOf(monthName)] || monthName;
+  return (
+    <td
+      style={{ padding: '9px 12px', position: 'relative', overflow: 'visible' }}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+    >
+      <span style={{ color: '#b0aa9f', cursor: 'default' }}>—</span>
+      {hovered && (
+        <div style={{
+          position: 'absolute', bottom: '100%', left: '0', zIndex: 50,
+          background: '#2d2a26', color: '#fff',
+          fontSize: 11, padding: '4px 8px', borderRadius: 5,
+          whiteSpace: 'nowrap', pointerEvents: 'none',
+          marginBottom: 6, boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+        }}>
+          Available from {fullName}
+        </div>
+      )}
+    </td>
+  );
+}
 
 // ── Balance Cell (Balances table only) ────────────────────────────────────────
 // All three states: display:block, width:100%, padding:'3px 0' — row never shifts
@@ -29,6 +57,7 @@ function BalanceCell({ value, onChange, prefix = '', balanceIndex }) {
       <input
         ref={inputRef}
         type="number"
+        min={0}
         value={value || ''}
         onChange={e => onChange(e.target.value === '' ? '' : (parseFloat(e.target.value) || 0))}
         onBlur={() => setEditing(false)}
@@ -44,6 +73,7 @@ function BalanceCell({ value, onChange, prefix = '', balanceIndex }) {
           }
           blockNonNumeric(e);
         }}
+        onPaste={pasteNumericOnly}
         style={{
           display: 'block', width: '100%', boxSizing: 'border-box',
           background: 'transparent', border: 'none',
@@ -61,9 +91,9 @@ function BalanceCell({ value, onChange, prefix = '', balanceIndex }) {
       <span
         data-balance-index={balanceIndex}
         onClick={() => setEditing(true)}
-        style={{ display: 'block', width: '100%', color: '#b0aa9f', fontSize: 14, cursor: 'text', padding: '3px 0', userSelect: 'none' }}
+        style={{ display: 'block', width: '100%', color: '#b0aa9f', fontSize: 14, cursor: 'text', padding: '3px 0', userSelect: 'none', borderBottom: '1px solid transparent', transition: 'border-color 0.15s' }}
         onMouseEnter={e => { e.currentTarget.style.borderBottom = '1px solid #d5d0c8'; }}
-        onMouseLeave={e => { e.currentTarget.style.borderBottom = 'none'; }}
+        onMouseLeave={e => { e.currentTarget.style.borderBottom = '1px solid transparent'; }}
       >—</span>
     );
   }
@@ -72,7 +102,9 @@ function BalanceCell({ value, onChange, prefix = '', balanceIndex }) {
     <span
       data-balance-index={balanceIndex}
       onClick={() => setEditing(true)}
-      style={{ display: 'block', width: '100%', color: '#1a1714', fontWeight: 500, fontSize: 14, cursor: 'text', padding: '3px 0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
+      style={{ display: 'block', width: '100%', color: '#1a1714', fontWeight: 500, fontSize: 14, cursor: 'text', padding: '3px 0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', borderBottom: '1px solid transparent', transition: 'border-color 0.15s' }}
+      onMouseEnter={e => { e.currentTarget.style.borderBottom = '1px solid #d5d0c8'; }}
+      onMouseLeave={e => { e.currentTarget.style.borderBottom = '1px solid transparent'; }}
     >
       {formatted}
     </span>
@@ -150,6 +182,17 @@ export default function ActualsMonth({
   const currentMonth  = getCurrentMonthAbbr();
   const monthIdx      = MONTHS.indexOf(selectedMonth);
   const prevMonth     = monthIdx > 0 ? MONTHS[monthIdx - 1] : null;
+
+  // Determine if selectedMonth (in selectedYear context) is a future month
+  const isSelectedMonthFuture = (() => {
+    const today        = new Date();
+    const yearStartMonth = state.yearStartMonth ?? 0;
+    const mIdx         = ALL_MONTHS.indexOf(selectedMonth); // calendar 0-indexed
+    // calendar year for this month: months >= yearStartMonth → selectedYear, else selectedYear+1
+    const calYear      = mIdx >= yearStartMonth ? selectedYear : selectedYear + 1;
+    return calYear > today.getFullYear() ||
+      (calYear === today.getFullYear() && mIdx > today.getMonth());
+  })();
 
   // Account groups for Balances sub-tab
   const accountGroups = ACCOUNT_GROUPS.map(group => {
@@ -268,14 +311,17 @@ export default function ActualsMonth({
                           return (
                             <tr key={acc.id} style={{ borderBottom: '1px solid #f9f7f3' }}>
                               <td style={{ padding: '9px 12px', fontWeight: 600, color: '#1a1714', overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>{acc.name}</td>
-                              <td style={{ padding: '9px 12px', overflow: 'hidden' }}>
-                                <BalanceCell
-                                  value={localVal}
-                                  onChange={v => setSnap(selectedMonth, acc.id, v)}
-                                  prefix={accCur.symbol}
-                                  balanceIndex={balIdx}
-                                />
-                              </td>
+                              {isSelectedMonthFuture
+                                ? <FutureCell monthName={selectedMonth} />
+                                : <td style={{ padding: '9px 12px', overflow: 'hidden' }}>
+                                    <BalanceCell
+                                      value={localVal}
+                                      onChange={v => setSnap(selectedMonth, acc.id, v)}
+                                      prefix={accCur.symbol}
+                                      balanceIndex={balIdx}
+                                    />
+                                  </td>
+                              }
                               <td style={{ padding: '9px 12px', fontSize: 13, color: '#6b6660', whiteSpace: 'nowrap', overflow: 'hidden' }}>
                                 {flag} {accCur.code}
                               </td>

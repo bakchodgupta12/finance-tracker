@@ -1,9 +1,22 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, Fragment, useRef } from 'react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+  LineChart, Line,
   PieChart, Pie, Cell,
 } from 'recharts';
-import { s, Lbl, DelBtn, Select, CURRENCIES, getCurrency, getCurrencyFlag, ALL_MONTHS, blockNonNumeric, fmtChart } from '../shared';
+import { s, Lbl, DelBtn, Select, CURRENCIES, getCurrency, getCurrencyFlag, ALL_MONTHS, blockNonNumeric, pasteNumericOnly, fmtChart } from '../shared';
+
+// ── Recurring icon ────────────────────────────────────────────────────────────
+const RecurringIcon = ({ active }) => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+    stroke={active ? '#5B9BD5' : '#d0ccc5'}
+    strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M17 1l4 4-4 4"/>
+    <path d="M3 11V9a4 4 0 0 1 4-4h14"/>
+    <path d="M7 23l-4-4 4-4"/>
+    <path d="M21 13v2a4 4 0 0 1-4 4H3"/>
+  </svg>
+);
 
 // ── Auto-suggest helper ───────────────────────────────────────────────────────
 function getAutoSuggest(description, expenses) {
@@ -30,6 +43,48 @@ function getAutoSuggest(description, expenses) {
     }
   }
   return null;
+}
+
+const formatDisplayDate = (isoDate) => {
+  if (!isoDate) return '';
+  const [year, month, day] = isoDate.split('-');
+  return `${day}-${month}-${year}`;
+};
+
+function DateInput({ value, onChange }) {
+  const hiddenRef = useRef(null);
+  const displayValue = value && /^\d{4}-\d{2}-\d{2}$/.test(value)
+    ? formatDisplayDate(value)
+    : (value || '');
+  const handleTextChange = (e) => {
+    const raw = e.target.value;
+    const parts = raw.split('-');
+    if (parts.length === 3 && parts[2].length === 4) {
+      onChange(`${parts[2]}-${parts[1]}-${parts[0]}`);
+    } else { onChange(raw); }
+  };
+  const handlePickerChange = (e) => { onChange(e.target.value); };
+  return (
+    <div style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', gap: 1 }}>
+      <input type="text" value={displayValue} onChange={handleTextChange}
+        placeholder="DD-MM-YYYY"
+        style={{ width: 95, background: 'transparent', border: 'none',
+          borderBottom: '1px solid #e8e4dc', outline: 'none', fontSize: 13,
+          color: '#1a1714', padding: '3px 0', fontFamily: 'inherit' }} />
+      <button type="button" onClick={() => hiddenRef.current?.showPicker?.()}
+        style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0,
+          color: '#b0aa9f', display: 'flex', alignItems: 'center', flexShrink: 0 }}>
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+          strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+          <line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/>
+          <line x1="3" y1="10" x2="21" y2="10"/>
+        </svg>
+      </button>
+      <input ref={hiddenRef} type="date" value={value || ''} onChange={handlePickerChange}
+        style={{ position: 'absolute', opacity: 0, width: 0, height: 0, pointerEvents: 'none' }} />
+    </div>
+  );
 }
 
 const PAGE_SIZE = 20;
@@ -64,6 +119,12 @@ export default function ExpenseTracker({
   // track which fields were auto-filled (reset on editingId change)
   const [autoFilled,    setAutoFilled]    = useState({ category: false, paidBy: false });
   const [searchQuery,   setSearchQuery]   = useState('');
+  // recurring: id of expense awaiting "remove from subscriptions?" prompt
+  const [removeSubPrompt,    setRemoveSubPrompt]    = useState(null);
+  // recurring: id of expense showing frequency prompt (monthly/yearly)
+  const [showFrequencyPrompt, setShowFrequencyPrompt] = useState(null);
+  // hover tracking for view-mode rows (to show inactive recurring icon)
+  const [hoveredRowId, setHoveredRowId] = useState(null);
 
   const expenses       = state.expenses        || [];
   const categories     = state.expenseCategories || [];
@@ -109,17 +170,35 @@ export default function ExpenseTracker({
   const analyticsStats = useMemo(() => {
     const catTotals = {};
     let total = 0;
+    let recurringTotal = 0;
+    let recurringCount = 0;
     filteredExpenses.forEach(e => {
       const amt = toHomeAmt(e);
       total += amt;
       const cat = e.category || 'Other';
       catTotals[cat] = (catTotals[cat] || 0) + amt;
+      if (e.recurring) {
+        recurringTotal += amt;
+        recurringCount++;
+      }
     });
     const topCat = Object.entries(catTotals).sort((a, b) => b[1] - a[1])[0]?.[0] || '—';
-    return { total, catTotals, count: filteredExpenses.length, topCat };
+    return { total, catTotals, count: filteredExpenses.length, topCat, recurringTotal, recurringCount };
   }, [filteredExpenses]); // eslint-disable-line
 
   const barChartData = useMemo(() => {
+    if (dateFilter === 'this-month') {
+      const year = today.getFullYear();
+      const month = today.getMonth();
+      const daysUpToToday = today.getDate();
+      const result = [];
+      for (let day = 1; day <= daysUpToToday; day++) {
+        const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+        const total = expenses.filter(e => e.date === dateStr).reduce((sum, e) => sum + toHomeAmt(e), 0);
+        result.push({ day: String(day), total: Math.round(total) });
+      }
+      return result;
+    }
     const { from, to } = getFilterRange();
     const monthTotals = {};
     MONTHS.forEach(m => { monthTotals[m] = 0; });
@@ -188,6 +267,40 @@ export default function ExpenseTracker({
     return Object.entries(totals).sort((a, b) => b[1] - a[1]);
   }, [monthExpenses]); // eslint-disable-line
 
+  const isSelectedMonthFuture = (() => {
+    const yearStartMonth = state.yearStartMonth ?? 0;
+    const mIdx = ALL_MONTHS.indexOf(selectedMonth);
+    const calYear = mIdx >= yearStartMonth ? selectedYear : selectedYear + 1;
+    return calYear > today.getFullYear() ||
+      (calYear === today.getFullYear() && mIdx > today.getMonth());
+  })();
+
+  const recurringPlaceholders = useMemo(() => {
+    if (!isSelectedMonthFuture) return [];
+    const yearStartMonth = state.yearStartMonth ?? 0;
+    const mIdx = ALL_MONTHS.indexOf(selectedMonth);
+    const calYear = mIdx >= yearStartMonth ? selectedYear : selectedYear + 1;
+    const monthKey = `${calYear}-${String(mIdx + 1).padStart(2, '0')}`;
+    const seen = new Set();
+    return expenses.filter(exp => {
+      if (!exp.recurring) return false;
+      if ((exp.skippedMonths || []).includes(monthKey)) return false;
+      if (seen.has(exp.id)) return false;
+      seen.add(exp.id);
+      if (exp.recurringFrequency === 'yearly') {
+        const origDate = new Date(exp.date);
+        return origDate.getMonth() === mIdx;
+      }
+      return true;
+    }).map(exp => {
+      const origDate = new Date(exp.date);
+      const maxDay = new Date(calYear, mIdx + 1, 0).getDate();
+      const day = Math.min(origDate.getDate(), maxDay);
+      const expectedDate = `${calYear}-${String(mIdx + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+      return { ...exp, _isPlaceholder: true, _expectedDate: expectedDate, _monthKey: monthKey };
+    });
+  }, [expenses, selectedMonth, selectedYear, isSelectedMonthFuture, state.yearStartMonth]); // eslint-disable-line
+
   // ── Auto-populate expenseAutoActuals ─────────────────────────────────────
   useEffect(() => {
     const autoActuals = {};
@@ -239,6 +352,10 @@ export default function ExpenseTracker({
       currency: homeCurrency,
       category: categories[0]?.name || '',
       paidBy: '',
+      recurring: false,
+      recurringFrequency: null,
+      skippedMonths: [],
+      confirmedMonths: [],
     };
     set('expenses', prev => [newExp, ...(prev || [])]);
     setEditingId(id);
@@ -266,6 +383,75 @@ export default function ExpenseTracker({
     if (exp && !exp.description && !exp.amount) deleteExp(id);
     setEditingId(null);
     setShowSugg(false);
+    setShowFrequencyPrompt(null);
+  };
+
+  // Sync one expense to subscriptions based on its frequency
+  const syncToSubscriptions = (exp, frequency) => {
+    const desc = exp.description || '';
+    const amt  = Number(exp.amount) || 0;
+    const isYearly  = frequency === 'yearly';
+    const subLabel  = isYearly ? `${desc} (yearly)` : desc;
+    const subAmount = isYearly ? amt / 12 : amt;
+    set('subscriptions', prev => {
+      const subs     = prev || [];
+      // Remove both variants then add the correct one
+      const filtered = subs.filter(s => s.label !== desc && s.label !== `${desc} (yearly)`);
+      return [...filtered, { id: Date.now(), label: subLabel, amount: subAmount }];
+    });
+  };
+
+  const toggleRecurring = (id) => {
+    const exp = (state.expenses || []).find(e => e.id === id);
+    if (!exp) return;
+    if (!exp.recurring) {
+      // Mark recurring, default frequency monthly, show frequency prompt
+      updateExp(id, 'recurring', true);
+      updateExp(id, 'recurringFrequency', 'monthly');
+      setShowFrequencyPrompt(id);
+      syncToSubscriptions(exp, 'monthly');
+    } else {
+      // Show "remove from subscriptions?" prompt
+      setRemoveSubPrompt(id);
+    }
+  };
+
+  const setFrequency = (id, freq) => {
+    const exp = (state.expenses || []).find(e => e.id === id);
+    if (!exp) return;
+    updateExp(id, 'recurringFrequency', freq);
+    syncToSubscriptions(exp, freq);
+    setShowFrequencyPrompt(null);
+  };
+
+  const confirmRemoveSub = (id, remove) => {
+    updateExp(id, 'recurring', false);
+    if (remove) {
+      const exp = (state.expenses || []).find(e => e.id === id);
+      if (exp) {
+        const desc = exp.description || '';
+        set('subscriptions', prev => (prev || []).filter(
+          s => s.label !== desc && s.label !== `${desc} (yearly)`
+        ));
+      }
+    }
+    setRemoveSubPrompt(null);
+  };
+
+  const confirmPlaceholder = (ph) => {
+    set('expenses', prev => (prev || []).map(e =>
+      e.id === ph.id
+        ? { ...e, confirmedMonths: [...(e.confirmedMonths || []), ph._monthKey] }
+        : e
+    ));
+  };
+
+  const skipPlaceholder = (exp) => {
+    set('expenses', prev => (prev || []).map(e =>
+      e.id === exp.id
+        ? { ...e, skippedMonths: [...(e.skippedMonths || []), exp._monthKey] }
+        : e
+    ));
   };
 
   // ── Description auto-suggest ─────────────────────────────────────────────
@@ -318,11 +504,18 @@ export default function ExpenseTracker({
     textAlign: 'left', borderBottom: '1px solid #f0ece4', fontWeight: 500, whiteSpace: 'nowrap',
   };
   const tdSt  = { padding: '6px 8px', fontSize: 13, color: '#2d2a26', verticalAlign: 'middle' };
+  const recurringColStyle = {
+    width: 32, minWidth: 32, maxWidth: 32,
+    padding: '0 4px',
+    textAlign: 'center', verticalAlign: 'middle',
+    boxSizing: 'border-box',
+  };
   const inpSt = { ...s.input, padding: '4px 8px', fontSize: 13 };
   const autoFillBg = '#fffbeb';
 
   return (
     <div>
+      <style>{`input[type="date"]::-webkit-calendar-picker-indicator { opacity: 0; width: 0; padding: 0; }`}</style>
       {/* ── Analytics Section ─────────────────────────────────────────────── */}
       <div style={{ ...s.card, marginBottom: 14 }}>
         {/* Date filter pills — always visible so summary bar always reflects active filter */}
@@ -378,23 +571,30 @@ export default function ExpenseTracker({
 
         {analyticsOpen && (
           <div style={{ marginTop: 20 }}>
-            {/* Monthly bar chart */}
+            {/* Recurring summary line */}
+            {analyticsStats.recurringCount > 0 && (
+              <p style={{ fontSize: 12, color: '#6b6660', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 5 }}>
+                <RecurringIcon active={true} />
+                Recurring this period: <strong>{f(analyticsStats.recurringTotal)}</strong> across {analyticsStats.recurringCount} item{analyticsStats.recurringCount !== 1 ? 's' : ''}
+              </p>
+            )}
+            {/* Monthly spend chart */}
             {barChartData.length > 0 ? (
               <div style={{ marginBottom: 20 }}>
                 <Lbl>MONTHLY SPEND</Lbl>
                 <div style={{ marginTop: 10 }}>
                   <ResponsiveContainer width="100%" height={140}>
-                    <BarChart data={barChartData} barSize={24}>
+                    <LineChart data={barChartData}>
                       <CartesianGrid strokeDasharray="3 3" stroke="#f0ece4" />
-                      <XAxis dataKey="month" stroke="#e8e4dc" tick={{ fill: '#b0aa9f', fontSize: 11 }} />
+                      <XAxis dataKey={dateFilter === 'this-month' ? 'day' : 'month'} stroke="#e8e4dc" tick={{ fill: '#b0aa9f', fontSize: 11 }} />
                       <YAxis stroke="#e8e4dc" tick={{ fill: '#b0aa9f', fontSize: 11 }} tickFormatter={v => fmtChart(v, currency.symbol)} />
                       <Tooltip
                         formatter={val => [fmtChart(val, currency.symbol), 'Spend']}
                         labelStyle={{ color: '#2d2a26', fontSize: 12 }}
                         contentStyle={{ border: '1px solid #e8e4dc', borderRadius: 8, fontSize: 12 }}
                       />
-                      <Bar dataKey="total" fill="#e8a598" radius={[4, 4, 0, 0]} />
-                    </BarChart>
+                      <Line type="monotone" dataKey="total" stroke="#e8a598" strokeWidth={2} dot={false} activeDot={{ r: 4, fill: '#e8a598' }} />
+                    </LineChart>
                   </ResponsiveContainer>
                 </div>
               </div>
@@ -406,63 +606,32 @@ export default function ExpenseTracker({
             {catChartData.length > 0 && (
               <div style={{ marginBottom: 20 }}>
               <Lbl>SPEND BY CATEGORY</Lbl>
-              <div style={{ display: 'grid', gridTemplateColumns: '148px 1fr', gap: 20, alignItems: 'start', marginTop: 10 }}>
-                <PieChart width={140} height={140}>
-                  <Pie data={catChartData} cx={65} cy={65} innerRadius={36} outerRadius={60} paddingAngle={2} dataKey="value">
-                    {catChartData.map((entry, i) => <Cell key={i} fill={entry.color} />)}
-                  </Pie>
-                </PieChart>
-                <table style={{ fontSize: 12, borderCollapse: 'collapse', width: '100%' }}>
-                  <thead>
-                    <tr>
-                      {['Category', 'Total', '%'].map(h => (
-                        <th key={h} style={thSt}>{h.toUpperCase()}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {catChartData.map((row, i) => (
-                      <tr key={i} style={{ borderBottom: '1px solid #f9f7f3' }}>
-                        <td style={tdSt}>
-                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                            <span style={{ width: 8, height: 8, borderRadius: 2, background: row.color, display: 'inline-block', flexShrink: 0 }} />
-                            {row.name}
-                          </span>
-                        </td>
-                        <td style={tdSt}>{f(row.value)}</td>
-                        <td style={{ ...tdSt, color: '#9e9890' }}>{row.pct}%</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-              </div>
-            )}
-
-            {/* Payment method breakdown */}
-            <div style={{ marginTop: 4 }}>
-              <Lbl>SPEND BY PAYMENT METHOD</Lbl>
-              {pmChartData.length === 0 || (pmChartData.length === 1 && pmChartData[0].name === 'Unassigned') ? (
-                <p style={{ fontSize: 12, color: '#b0aa9f', marginTop: 8 }}>
-                  Add payment methods in Settings to see this breakdown.
-                </p>
-              ) : (
-                <div style={{ display: 'grid', gridTemplateColumns: '148px 1fr', gap: 20, alignItems: 'start', marginTop: 10 }}>
-                  <PieChart width={140} height={140}>
-                    <Pie data={pmChartData} cx={65} cy={65} innerRadius={36} outerRadius={60} paddingAngle={2} dataKey="value">
-                      {pmChartData.map((entry, i) => <Cell key={i} fill={entry.color} />)}
-                    </Pie>
-                  </PieChart>
+              <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'flex-start', gap: 20, marginTop: 10 }}>
+                <ResponsiveContainer width="50%" height={Math.max(160, catChartData.length * 26)}>
+                  <BarChart data={catChartData} layout="vertical" maxBarSize={16}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#f0ece4" horizontal={false} />
+                    <XAxis type="number" stroke="#e8e4dc" tick={{ fill: '#b0aa9f', fontSize: 11 }} tickFormatter={v => fmtChart(v, currency.symbol)} />
+                    <YAxis type="category" dataKey="name" stroke="#e8e4dc" tick={{ fill: '#b0aa9f', fontSize: 11 }} width={80} />
+                    <Tooltip
+                      formatter={val => [fmtChart(val, currency.symbol), 'Total']}
+                      contentStyle={{ border: '1px solid #e8e4dc', borderRadius: 8, fontSize: 12 }}
+                    />
+                    <Bar dataKey="value" radius={[0, 4, 4, 0]} maxBarSize={16}>
+                      {catChartData.map((entry, i) => <Cell key={i} fill={entry.color} />)}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+                <div style={{ alignSelf: 'flex-start', marginTop: 0, flex: 1 }}>
                   <table style={{ fontSize: 12, borderCollapse: 'collapse', width: '100%' }}>
                     <thead>
                       <tr>
-                        {['Payment Method', 'Total', '%'].map(h => (
+                        {['Category', 'Total', '%'].map(h => (
                           <th key={h} style={thSt}>{h.toUpperCase()}</th>
                         ))}
                       </tr>
                     </thead>
                     <tbody>
-                      {pmChartData.map((row, i) => (
+                      {catChartData.map((row, i) => (
                         <tr key={i} style={{ borderBottom: '1px solid #f9f7f3' }}>
                           <td style={tdSt}>
                             <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
@@ -476,6 +645,50 @@ export default function ExpenseTracker({
                       ))}
                     </tbody>
                   </table>
+                </div>
+              </div>
+              </div>
+            )}
+
+            {/* Payment method breakdown */}
+            <div style={{ marginTop: 4 }}>
+              <Lbl>SPEND BY PAYMENT METHOD</Lbl>
+              {pmChartData.length === 0 || (pmChartData.length === 1 && pmChartData[0].name === 'Unassigned') ? (
+                <p style={{ fontSize: 12, color: '#b0aa9f', marginTop: 8 }}>
+                  Add payment methods in Settings to see this breakdown.
+                </p>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'flex-start', gap: 20, marginTop: 10 }}>
+                  <PieChart width={168} height={168}>
+                    <Pie data={pmChartData} cx={78} cy={78} innerRadius={42} outerRadius={72} paddingAngle={2} dataKey="value">
+                      {pmChartData.map((entry, i) => <Cell key={i} fill={entry.color} />)}
+                    </Pie>
+                  </PieChart>
+                  <div style={{ alignSelf: 'flex-start', marginTop: 0, flex: 1 }}>
+                    <table style={{ fontSize: 12, borderCollapse: 'collapse', width: '100%' }}>
+                      <thead>
+                        <tr>
+                          {['Payment Method', 'Total', '%'].map(h => (
+                            <th key={h} style={thSt}>{h.toUpperCase()}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {pmChartData.map((row, i) => (
+                          <tr key={i} style={{ borderBottom: '1px solid #f9f7f3' }}>
+                            <td style={tdSt}>
+                              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                                <span style={{ width: 8, height: 8, borderRadius: 2, background: row.color, display: 'inline-block', flexShrink: 0 }} />
+                                {row.name}
+                              </span>
+                            </td>
+                            <td style={tdSt}>{f(row.value)}</td>
+                            <td style={{ ...tdSt, color: '#9e9890' }}>{row.pct}%</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
               )}
             </div>
@@ -553,7 +766,7 @@ export default function ExpenseTracker({
                       const catColor = categories.find(c => c.name === exp.category)?.color || '#b0aa9f';
                       return (
                         <tr key={exp.id} style={{ borderBottom: '1px solid #f9f7f3' }}>
-                          <td style={tdSt}>{exp.date}</td>
+                          <td style={tdSt}>{formatDisplayDate(exp.date)}</td>
                           <td style={{ ...tdSt, fontWeight: 500 }}>{exp.description || <span style={{ color: '#d5d0c8' }}>—</span>}</td>
                           <td style={{ ...tdSt, fontWeight: 600, textAlign: 'right' }}>
                             {exp.amount ? `${accCur.symbol}${Number(exp.amount).toLocaleString()}` : <span style={{ color: '#d5d0c8' }}>—</span>}
@@ -582,7 +795,7 @@ export default function ExpenseTracker({
           </div>
         )}
 
-        {!isSearching && (monthExpenses.length === 0 ? (
+        {!isSearching && (monthExpenses.length === 0 && recurringPlaceholders.length === 0 ? (
           <div style={{
             textAlign: 'center', padding: '28px 20px', color: '#b0aa9f', fontSize: 13,
             background: '#fdfcfa', borderRadius: 10, border: '1px dashed #e8e4dc',
@@ -591,32 +804,99 @@ export default function ExpenseTracker({
           </div>
         ) : (
           <>
-            <div style={{ overflowX: 'auto' }}>
+            <div>
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, tableLayout: 'fixed' }}>
                 <colgroup>
-                  <col style={{ width: 100 }} />
-                  <col style={{ width: 200 }} />
-                  <col style={{ width: 120 }} />
+                  <col style={{ width: 110 }} />
+                  <col style={{ width: 16 }} />
+                  <col />
+                  <col style={{ width: 80 }} />
+                  <col style={{ width: 16 }} />
                   <col style={{ width: 90 }} />
                   <col style={{ width: 130 }} />
                   <col style={{ width: 120 }} />
                   <col style={{ width: 32 }} />
+                  <col style={{ width: 110 }} />
                 </colgroup>
                 <thead>
                   <tr>
-                    {['Date', 'Description', 'Amount', 'Currency', 'Category', 'Paid By', ''].map(h => (
-                      <th key={h} style={{ ...thSt, textAlign: h === 'Amount' ? 'right' : 'left' }}>{h.toUpperCase()}</th>
-                    ))}
+                    <th style={{ ...thSt, paddingLeft: 4 }}>DATE</th>
+                    <th style={{ width: 16, padding: 0, border: 'none' }} />
+                    <th style={{ ...thSt, paddingLeft: 0 }}>DESCRIPTION</th>
+                    <th style={{ ...thSt, paddingLeft: 0, textAlign: 'right' }}>AMOUNT</th>
+                    <th style={{ width: 16, padding: 0, border: 'none' }} />
+                    <th style={{ ...thSt, paddingLeft: 0 }}>CURRENCY</th>
+                    <th style={{ ...thSt, paddingLeft: 0 }}>CATEGORY</th>
+                    <th style={{ ...thSt, paddingLeft: 0 }}>PAID BY</th>
+                    <th style={{ ...thSt, ...recurringColStyle, borderBottom: '1px solid #f0ece4' }}>
+                      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
+                        <RecurringIcon active={false} />
+                      </div>
+                    </th>
+                    <th style={{ ...thSt, paddingLeft: 0 }} />
                   </tr>
                 </thead>
                 <tbody>
+                  {recurringPlaceholders.map(ph => {
+                    const isConfirmed = (ph.confirmedMonths || []).includes(ph._monthKey);
+                    const phFlag = getCurrencyFlag(ph.currency);
+                    const catColor = categories.find(c => c.name === ph.category)?.color || '#b0aa9f';
+                    return (
+                      <tr key={`ph-${ph.id}`} style={{ borderBottom: '1px solid #f0ece4', opacity: isConfirmed ? 1 : 0.5, background: isConfirmed ? '' : '#f9f7f3' }}>
+                        <td style={tdSt}>{formatDisplayDate(ph._expectedDate)}</td>
+                        <td style={{ width: 16, padding: 0, border: 'none' }} />
+                        <td style={{ ...tdSt, paddingLeft: 0, fontWeight: 500, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis', maxWidth: 0 }}>
+                          {ph.description || <span style={{ color: '#d5d0c8' }}>—</span>}
+                        </td>
+                        <td style={{ ...tdSt, paddingLeft: 0, fontWeight: 600, textAlign: 'right' }}>
+                          {ph.amount ? Number(ph.amount).toLocaleString() : <span style={{ color: '#d5d0c8' }}>—</span>}
+                        </td>
+                        <td style={{ width: 16, padding: 0, border: 'none' }} />
+                        <td style={{ ...tdSt, paddingLeft: 0, color: '#9e9890' }}>
+                          {phFlag && <span style={{ marginRight: 3 }}>{phFlag}</span>}{ph.currency}
+                        </td>
+                        <td style={{ ...tdSt, paddingLeft: 0 }}>
+                          {ph.category
+                            ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+                                <span style={{ width: 7, height: 7, borderRadius: 2, background: catColor, display: 'inline-block', flexShrink: 0 }} />
+                                {ph.category}
+                              </span>
+                            : <span style={{ color: '#d5d0c8' }}>—</span>}
+                        </td>
+                        <td style={{ ...tdSt, paddingLeft: 0, color: '#9e9890' }}>
+                          {ph.paidBy || <span style={{ color: '#d5d0c8' }}>—</span>}
+                        </td>
+                        <td style={recurringColStyle}>
+                          <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
+                            <RecurringIcon active={true} />
+                          </div>
+                        </td>
+                        <td style={{ padding: '6px 8px', width: 110 }}>
+                          {isConfirmed ? (
+                            <DelBtn onClick={() => skipPlaceholder(ph)} />
+                          ) : (
+                            <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+                              <button
+                                onClick={() => confirmPlaceholder(ph)}
+                                style={{ padding: '2px 8px', borderRadius: 5, border: '1px solid #6dbb8a', background: 'transparent', color: '#6dbb8a', fontSize: 11, cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap' }}
+                              >✓</button>
+                              <button
+                                onClick={() => skipPlaceholder(ph)}
+                                style={{ padding: '2px 8px', borderRadius: 5, border: '1px solid #e8e4dc', background: 'transparent', color: '#9e9890', fontSize: 11, cursor: 'pointer', fontFamily: 'inherit' }}
+                              >✕</button>
+                            </div>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
                   {visibleExpenses.map(exp => {
                     const isEditing = editingId === exp.id;
 
                     if (isEditing) {
                       return (
+                        <Fragment key={exp.id}>
                         <tr
-                          key={exp.id}
                           style={{ background: '#fdfcfa', borderBottom: '1px solid #f0ece4' }}
                           onBlur={e => {
                             if (!e.currentTarget.contains(e.relatedTarget)) saveRow(exp.id);
@@ -624,14 +904,12 @@ export default function ExpenseTracker({
                         >
                           {/* Date */}
                           <td style={{ padding: '5px 8px' }}>
-                            <input
-                              type="date" value={exp.date}
-                              onChange={e => updateExp(exp.id, 'date', e.target.value)}
-                              style={{ ...inpSt, width: '100%' }}
-                            />
+                            <DateInput value={exp.date} onChange={v => updateExp(exp.id, 'date', v)} />
                           </td>
+                          {/* Spacer */}
+                          <td style={{ width: 16, padding: 0, border: 'none' }} />
                           {/* Description + dropdown */}
-                          <td style={{ padding: '5px 8px', position: 'relative' }}>
+                          <td style={{ padding: '5px 0 5px 0', position: 'relative' }}>
                             <input
                               type="text" value={exp.description}
                               autoFocus
@@ -666,16 +944,19 @@ export default function ExpenseTracker({
                             )}
                           </td>
                           {/* Amount */}
-                          <td style={{ padding: '5px 8px' }}>
+                          <td style={{ padding: '5px 0' }}>
                             <input
-                              type="number" value={exp.amount} placeholder="0"
+                              type="number" min={0} value={exp.amount} placeholder="0"
                               onChange={e => updateExp(exp.id, 'amount', e.target.value === '' ? '' : parseFloat(e.target.value) || 0)}
                               onKeyDown={blockNonNumeric}
+                              onPaste={pasteNumericOnly}
                               style={{ ...inpSt, width: '100%', textAlign: 'right' }}
                             />
                           </td>
+                          {/* Amount-Currency spacer */}
+                          <td style={{ width: 16, padding: 0, border: 'none' }} />
                           {/* Currency */}
-                          <td style={{ padding: '5px 8px' }}>
+                          <td style={{ padding: '5px 0' }}>
                             <Select
                               value={exp.currency}
                               onChange={e => updateExp(exp.id, 'currency', e.target.value)}
@@ -685,7 +966,7 @@ export default function ExpenseTracker({
                             </Select>
                           </td>
                           {/* Category */}
-                          <td style={{ padding: '5px 8px' }}>
+                          <td style={{ padding: '5px 0' }}>
                             <Select
                               value={exp.category}
                               onChange={e => { updateExp(exp.id, 'category', e.target.value); setAutoFilled(p => ({ ...p, category: false })); }}
@@ -718,7 +999,7 @@ export default function ExpenseTracker({
                             })()}
                           </td>
                           {/* Paid By */}
-                          <td style={{ padding: '5px 8px' }}>
+                          <td style={{ padding: '5px 0' }}>
                             <Select
                               value={exp.paidBy}
                               onChange={e => { updateExp(exp.id, 'paidBy', e.target.value); setAutoFilled(p => ({ ...p, paidBy: false })); }}
@@ -728,10 +1009,61 @@ export default function ExpenseTracker({
                               {paymentMethods.map(pm => <option key={pm.id} value={pm.name}>{pm.name}</option>)}
                             </Select>
                           </td>
+                          {/* Recurring toggle (edit mode) */}
+                          <td style={recurringColStyle}>
+                            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
+                              <button
+                                onMouseDown={e => { e.preventDefault(); toggleRecurring(exp.id); }}
+                                title={exp.recurring ? 'Mark non-recurring' : 'Mark recurring'}
+                                style={{
+                                  background: exp.recurring ? '#ebf4fb' : 'none',
+                                  border: 'none',
+                                  borderRadius: '50%', width: 26, height: 26,
+                                  cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                  padding: 0,
+                                }}
+                              ><RecurringIcon active={exp.recurring} /></button>
+                            </div>
+                          </td>
                           <td style={{ padding: '5px 8px' }}>
                             <DelBtn onClick={() => deleteExp(exp.id)} />
                           </td>
                         </tr>
+                        {/* Frequency prompt row */}
+                        {showFrequencyPrompt === exp.id && (
+                          <tr style={{ background: '#fdfcfa', borderBottom: '1px solid #f0ece4' }}>
+                            <td colSpan={10} style={{ padding: '4px 8px 10px 8px' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: '#6b6660' }}>
+                                <span>How often?</span>
+                                {['monthly', 'yearly'].map(freq => (
+                                  <button
+                                    key={freq}
+                                    onMouseDown={e => { e.preventDefault(); setFrequency(exp.id, freq); }}
+                                    style={{
+                                      padding: '3px 10px', borderRadius: 6, border: '1px solid #e8e4dc',
+                                      background: (exp.recurringFrequency || 'monthly') === freq ? '#5B9BD5' : 'transparent',
+                                      color: (exp.recurringFrequency || 'monthly') === freq ? '#fff' : '#6b6660',
+                                      fontSize: 12, cursor: 'pointer', fontFamily: 'inherit',
+                                    }}
+                                  >{freq.charAt(0).toUpperCase() + freq.slice(1)}</button>
+                                ))}
+                              </div>
+                            </td>
+                          </tr>
+                        )}
+                        {/* Remove sub prompt row */}
+                        {removeSubPrompt === exp.id && (
+                          <tr style={{ background: '#f9f7f3', borderBottom: '1px solid #f0ece4' }}>
+                            <td colSpan={10} style={{ padding: '6px 12px 10px' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 12, color: '#6b6660' }}>
+                                <span>Remove from Subscriptions too?</span>
+                                <button onMouseDown={e => { e.preventDefault(); confirmRemoveSub(exp.id, true); }} style={{ padding: '3px 10px', borderRadius: 6, border: '1px solid #e8e4dc', background: 'transparent', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit', color: '#c94040' }}>Yes, remove</button>
+                                <button onMouseDown={e => { e.preventDefault(); confirmRemoveSub(exp.id, false); }} style={{ padding: '3px 10px', borderRadius: 6, border: '1px solid #e8e4dc', background: 'transparent', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit', color: '#6b6660' }}>Keep it</button>
+                              </div>
+                            </td>
+                          </tr>
+                        )}
+                        </Fragment>
                       );
                     }
 
@@ -740,45 +1072,106 @@ export default function ExpenseTracker({
                     const flag     = getCurrencyFlag(exp.currency);
                     const catColor = categories.find(c => c.name === exp.category)?.color || '#b0aa9f';
                     return (
-                      <tr
-                        key={exp.id}
-                        onClick={() => startEdit(exp.id)}
-                        style={{ borderBottom: '1px solid #f9f7f3', cursor: 'pointer' }}
-                        onMouseEnter={e => { e.currentTarget.style.background = '#fdfcfa'; }}
-                        onMouseLeave={e => { e.currentTarget.style.background = ''; }}
-                      >
-                        <td style={tdSt}>{exp.date}</td>
-                        <td style={{ ...tdSt, fontWeight: 500, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis', maxWidth: 0 }}>
-                          {exp.description || <span style={{ color: '#d5d0c8' }}>—</span>}
-                        </td>
-                        <td style={{ ...tdSt, fontWeight: 600, textAlign: 'right' }}>
-                          {exp.amount
-                            ? `${accCur.symbol}${Number(exp.amount).toLocaleString()}`
-                            : <span style={{ color: '#d5d0c8' }}>—</span>}
-                        </td>
-                        <td style={{ ...tdSt, color: '#9e9890' }}>
-                          {flag && <span style={{ marginRight: 3 }}>{flag}</span>}{exp.currency}
-                        </td>
-                        <td style={tdSt}>
-                          {exp.category
-                            ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
-                                <span style={{ width: 7, height: 7, borderRadius: 2, background: catColor, display: 'inline-block', flexShrink: 0 }} />
-                                {exp.category}
-                              </span>
-                            : <span style={{ color: '#d5d0c8' }}>—</span>}
-                        </td>
-                        <td style={{ ...tdSt, color: '#9e9890' }}>
-                          {exp.paidBy || <span style={{ color: '#d5d0c8' }}>—</span>}
-                        </td>
-                        <td style={{ padding: '6px 8px' }} onClick={e => e.stopPropagation()}>
-                          <DelBtn onClick={() => deleteExp(exp.id)} />
-                        </td>
-                      </tr>
+                      <Fragment key={exp.id}>
+                        <tr
+                          onClick={() => startEdit(exp.id)}
+                          style={{ borderBottom: '1px solid #f9f7f3', cursor: 'pointer' }}
+                          onMouseEnter={e => { e.currentTarget.style.background = '#fdfcfa'; setHoveredRowId(exp.id); }}
+                          onMouseLeave={e => { e.currentTarget.style.background = ''; setHoveredRowId(null); }}
+                        >
+                          <td style={tdSt}>{formatDisplayDate(exp.date)}</td>
+                          <td style={{ width: 16, padding: 0, border: 'none' }} />
+                          <td style={{ ...tdSt, paddingLeft: 0, fontWeight: 500, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis', maxWidth: 0 }}>
+                            {exp.description || <span style={{ color: '#d5d0c8' }}>—</span>}
+                          </td>
+                          <td style={{ ...tdSt, paddingLeft: 0, fontWeight: 600, textAlign: 'right' }}>
+                            {exp.amount
+                              ? Number(exp.amount).toLocaleString()
+                              : <span style={{ color: '#d5d0c8' }}>—</span>}
+                          </td>
+                          <td style={{ width: 16, padding: 0, border: 'none' }} />
+                          <td style={{ ...tdSt, paddingLeft: 0, color: '#9e9890' }}>
+                            {flag && <span style={{ marginRight: 3 }}>{flag}</span>}{exp.currency}
+                          </td>
+                          <td style={{ ...tdSt, paddingLeft: 0 }}>
+                            {exp.category
+                              ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+                                  <span style={{ width: 7, height: 7, borderRadius: 2, background: catColor, display: 'inline-block', flexShrink: 0 }} />
+                                  {exp.category}
+                                </span>
+                              : <span style={{ color: '#d5d0c8' }}>—</span>}
+                          </td>
+                          <td style={{ ...tdSt, paddingLeft: 0, color: '#9e9890' }}>
+                            {exp.paidBy || <span style={{ color: '#d5d0c8' }}>—</span>}
+                          </td>
+                          {/* Recurring toggle (view mode) */}
+                          <td style={recurringColStyle} onClick={e => e.stopPropagation()}>
+                            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
+                              <button
+                                onClick={() => toggleRecurring(exp.id)}
+                                title={exp.recurring ? 'Mark non-recurring' : 'Mark recurring'}
+                                style={{
+                                  background: exp.recurring ? '#ebf4fb' : 'none',
+                                  border: 'none', borderRadius: '50%', width: 26, height: 26,
+                                  cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                  padding: 0,
+                                  opacity: exp.recurring ? 1 : (hoveredRowId === exp.id ? 1 : 0),
+                                  transition: 'opacity 0.15s',
+                                }}
+                              ><RecurringIcon active={exp.recurring} /></button>
+                            </div>
+                          </td>
+                          <td style={{ padding: '6px 8px' }} onClick={e => e.stopPropagation()}>
+                            <DelBtn onClick={() => deleteExp(exp.id)} />
+                          </td>
+                        </tr>
+                        {/* Remove sub prompt row */}
+                        {removeSubPrompt === exp.id && (
+                          <tr style={{ background: '#f9f7f3', borderBottom: '1px solid #f0ece4' }}>
+                            <td colSpan={10} style={{ padding: '6px 12px 10px' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 12, color: '#6b6660' }}>
+                                <span>Remove from Subscriptions too?</span>
+                                <button onClick={() => confirmRemoveSub(exp.id, true)} style={{ padding: '3px 10px', borderRadius: 6, border: '1px solid #e8e4dc', background: 'transparent', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit', color: '#c94040' }}>Yes, remove</button>
+                                <button onClick={() => confirmRemoveSub(exp.id, false)} style={{ padding: '3px 10px', borderRadius: 6, border: '1px solid #e8e4dc', background: 'transparent', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit', color: '#6b6660' }}>Keep it</button>
+                              </div>
+                            </td>
+                          </tr>
+                        )}
+                        {/* Frequency prompt row */}
+                        {showFrequencyPrompt === exp.id && (
+                          <tr style={{ background: '#fdfcfa', borderBottom: '1px solid #f0ece4' }}>
+                            <td colSpan={10} style={{ padding: '4px 8px 10px 8px' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: '#6b6660' }}>
+                                <span>How often?</span>
+                                {['monthly', 'yearly'].map(freq => (
+                                  <button
+                                    key={freq}
+                                    onClick={() => setFrequency(exp.id, freq)}
+                                    style={{
+                                      padding: '3px 10px', borderRadius: 6, border: '1px solid #e8e4dc',
+                                      background: (exp.recurringFrequency || 'monthly') === freq ? '#5B9BD5' : 'transparent',
+                                      color: (exp.recurringFrequency || 'monthly') === freq ? '#fff' : '#6b6660',
+                                      fontSize: 12, cursor: 'pointer', fontFamily: 'inherit',
+                                    }}
+                                  >{freq.charAt(0).toUpperCase() + freq.slice(1)}</button>
+                                ))}
+                              </div>
+                            </td>
+                          </tr>
+                        )}
+                      </Fragment>
                     );
                   })}
                 </tbody>
               </table>
             </div>
+
+            {/* Empty state when only placeholders exist */}
+            {monthExpenses.length === 0 && recurringPlaceholders.length > 0 && (
+              <div style={{ textAlign: 'center', padding: '16px 20px', color: '#b0aa9f', fontSize: 13, background: '#fdfcfa', borderRadius: 10, border: '1px dashed #e8e4dc', marginTop: 8 }}>
+                No expenses logged yet. {recurringPlaceholders.length} recurring expense{recurringPlaceholders.length !== 1 ? 's' : ''} expected this month — confirm them above when ready.
+              </div>
+            )}
 
             {/* Pagination */}
             {monthExpenses.length > visibleCount && (
@@ -797,15 +1190,16 @@ export default function ExpenseTracker({
             )}
 
             {/* Monthly summary */}
-            <div style={{ marginTop: 16, padding: '14px 16px', background: '#f9f7f3', borderRadius: 10 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: monthTotal > 0 ? 10 : 0 }}>
-                <span style={{ fontSize: 12, color: '#6b6660', fontWeight: 600 }}>Total spend this month</span>
-                <span style={{ fontSize: 14, fontWeight: 700, color: '#1a1714' }}>{f(monthTotal)}</span>
+            <div style={{ marginTop: 16, padding: '14px 0', background: '#f9f7f3', borderRadius: 10 }}>
+              <div style={{ display: 'flex', alignItems: 'center', marginBottom: monthTotal > 0 ? 10 : 0 }}>
+                <span style={{ fontSize: 12, color: '#6b6660', fontWeight: 600, flex: 1, paddingLeft: 16 }}>Total spend this month</span>
+                <span style={{ fontSize: 14, fontWeight: 700, color: '#1a1714', width: 80, textAlign: 'right', flexShrink: 0 }}>{f(monthTotal)}</span>
+                <span style={{ display: 'inline-block', width: 498, flexShrink: 0 }} />
               </div>
               {monthTotal > 0 && monthCatTotals.length > 0 && (
                 <>
                   {/* Proportional bar */}
-                  <div style={{ height: 10, display: 'flex', borderRadius: 6, overflow: 'hidden', gap: 1, marginBottom: 8 }}>
+                  <div style={{ height: 10, display: 'flex', borderRadius: 6, overflow: 'hidden', gap: 1, marginBottom: 8, marginLeft: 16, marginRight: 16 }}>
                     {monthCatTotals.map(([cat, amt]) => {
                       const color = categories.find(c => c.name === cat)?.color || '#b0aa9f';
                       return (
@@ -818,7 +1212,7 @@ export default function ExpenseTracker({
                     })}
                   </div>
                   {/* Legend */}
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px 12px' }}>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px 12px', paddingLeft: 16 }}>
                     {monthCatTotals.slice(0, 5).map(([cat, amt]) => {
                       const color = categories.find(c => c.name === cat)?.color || '#b0aa9f';
                       return (

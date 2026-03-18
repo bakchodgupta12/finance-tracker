@@ -26,6 +26,10 @@ export default function NetWorth({
     }).filter(d => d.total !== null);
   }, [MONTHS, state.accountSnapshots, state.accounts, toHome, totalLiabilities]);
 
+  const nwIsPositive = chartData.length < 2 || chartData[chartData.length - 1].total >= chartData[0].total;
+  const nwColor = nwIsPositive ? '#6dbb8a' : '#E8A838';
+  const nwGradId = nwIsPositive ? 'nwGradPos' : 'nwGradNeg';
+
   // Detect currencies that need manual rates
   const unsupportedCurrencies = useMemo(() => {
     const homeCurrency = state.currencyCode || 'GBP';
@@ -156,16 +160,16 @@ export default function NetWorth({
             <ResponsiveContainer width="100%" height={180}>
               <AreaChart data={chartData}>
                 <defs>
-                  <linearGradient id="nwGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#7ec8a0" stopOpacity={0.2} />
-                    <stop offset="95%" stopColor="#7ec8a0" stopOpacity={0} />
+                  <linearGradient id={nwGradId} x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor={nwColor} stopOpacity={nwIsPositive ? 0.25 : 0.20} />
+                    <stop offset="95%" stopColor={nwColor} stopOpacity={0} />
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f0ece4" />
                 <XAxis dataKey="month" stroke="#e8e4dc" tick={{ fill: '#b0aa9f', fontSize: 11 }} />
                 <YAxis stroke="#e8e4dc" tick={{ fill: '#b0aa9f', fontSize: 11 }} tickFormatter={v => fmtChart(v, currency.symbol)} />
                 <Tooltip content={<ChartTip symbol={currency.symbol} />} />
-                <Area type="monotone" dataKey="total" name="Net Worth" stroke="#7ec8a0" fill="url(#nwGrad)" strokeWidth={2} dot={{ fill: '#7ec8a0', r: 3 }} />
+                <Area type="monotone" dataKey="total" name="Net Worth" stroke={nwColor} fill={`url(#${nwGradId})`} strokeWidth={2} dot={{ fill: nwColor, r: 3 }} />
               </AreaChart>
             </ResponsiveContainer>
           </div>

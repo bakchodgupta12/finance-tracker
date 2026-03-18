@@ -97,10 +97,9 @@ export default function App() {
       setFxLoading(false);
       if (source === 'exchangerate-api') {
         const month = new Date().toISOString().slice(0, 7);
-        setState(prev => {
-          const p = prev.fxApiCallsThisMonth || { month: '', count: 0 };
-          const next = p.month !== month ? { month, count: 1 } : { ...p, count: p.count + 1 };
-          return { ...prev, fxApiCallsThisMonth: next };
+        set('fxApiCallsThisMonth', prev => {
+          const p = prev || { month: '', count: 0 };
+          return p.month !== month ? { month, count: 1 } : { ...p, count: p.count + 1 };
         });
       }
     });
@@ -143,12 +142,21 @@ export default function App() {
         Rent:'Need', Groceries:'Need', Food:'Want', Transport:'Need', Utilities:'Need',
         Shopping:'Want', Entertainment:'Want', Travel:'Want', Drinks:'Want', Health:'Need',
       };
-      const migratedData = existingData.expenseCategories ? {
-        ...existingData,
-        expenseCategories: existingData.expenseCategories.map(cat =>
-          cat.type !== undefined ? cat : { ...cat, type: DEFAULT_CAT_TYPES[cat.name] || null }
-        ),
-      } : existingData;
+      const migratedData = {
+        ...(existingData.expenseCategories ? {
+          ...existingData,
+          expenseCategories: existingData.expenseCategories.map(cat =>
+            cat.type !== undefined ? cat : { ...cat, type: DEFAULT_CAT_TYPES[cat.name] || null }
+          ),
+        } : existingData),
+        expenses: (existingData.expenses || []).map(e => {
+          let m = 'recurring' in e ? e : { ...e, recurring: false };
+          if (!('recurringFrequency' in m)) m = { ...m, recurringFrequency: m.recurring ? 'monthly' : null };
+          if (!('skippedMonths' in m)) m = { ...m, skippedMonths: [] };
+          if (!('confirmedMonths' in m)) m = { ...m, confirmedMonths: [] };
+          return m;
+        }),
+      };
       const sanitizedData = sanitizeNumericFields(migratedData);
       setState({ ...makeDefaultState(), ...sanitizedData, userId });
       setSelectedYear(year || currentYear);
@@ -351,7 +359,7 @@ export default function App() {
       <div style={{
         borderBottom: '1px solid #e8e4dc', background: '#fff', padding: '0 24px',
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        height: 52, position: 'sticky', top: 0, zIndex: 10
+        height: 52, position: 'sticky', top: 0, zIndex: 21
       }}>
         <p style={{ fontFamily: 'Lora, serif', fontSize: 18, fontWeight: 500, color: '#1a1714' }}>
           {(state.displayName?.trim() || (state.userId ? state.userId.charAt(0).toUpperCase() + state.userId.slice(1).toLowerCase() : ''))}'s Finance Tracker
@@ -388,7 +396,7 @@ export default function App() {
       </div>
 
       {/* Tab bar */}
-      <div style={{ borderBottom: '1px solid #e8e4dc', background: '#fff', padding: '0 24px', display: 'flex' }}>
+      <div style={{ borderBottom: '1px solid #e8e4dc', background: '#fff', padding: '0 24px', display: 'flex', position: 'sticky', top: 52, zIndex: 20 }}>
         {TABS.map(t => (
           <button key={t} onClick={() => setTab(t)} style={{
             background: 'none', border: 'none',
@@ -424,6 +432,9 @@ export default function App() {
             state={state} set={set}
             onDeleteAccount={handleDeleteAccount}
             onLogout={handleLogout}
+            settingsTargetSubTab={settingsTargetSubTab}
+            setSettingsTargetSubTab={setSettingsTargetSubTab}
+            navigate={navigate}
           />
         )}
 

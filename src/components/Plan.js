@@ -3,7 +3,7 @@ import {
   PieChart, Pie, Cell
 } from 'recharts';
 import {
-  s, Lbl, Inp, DelBtn, AddBtn, Divider, Select, EditableCell, blockNonNumeric,
+  s, Lbl, Inp, DelBtn, AddBtn, Divider, Select, EditableCell, blockNonNumeric, pasteNumericOnly,
   CAT_COLORS, CATEGORIES, CURRENCIES
 } from '../shared';
 
@@ -210,9 +210,11 @@ export default function Plan({ state, set, f, currency, baseIncome, allocByCat, 
                         <span style={{ color: '#b0aa9f', fontSize: 10 }}>target:</span>
                         <input
                           type="number"
+                          min={0}
                           value={bench}
                           onChange={e => set(key, parseFloat(e.target.value) || 0)}
                           onKeyDown={blockNonNumeric}
+                          onPaste={pasteNumericOnly}
                           style={{ ...s.input, width: 42, padding: '2px 4px', fontSize: 11, textAlign: 'center' }}
                         />
                         <span style={{ color: '#b0aa9f', fontSize: 10 }}>%</span>
@@ -247,7 +249,7 @@ export default function Plan({ state, set, f, currency, baseIncome, allocByCat, 
               </colgroup>
               <thead>
                 <tr>{['Label', 'Category', '% of Income', 'Monthly Amount', '', ''].map((h, i) => (
-                  <th key={i} style={{ padding: '8px 10px', color: '#b0aa9f', fontSize: 10, letterSpacing: '0.08em', textAlign: 'left', borderBottom: '1px solid #f0ece4', fontWeight: 500 }}>{h}</th>
+                  <th key={i} style={{ padding: '8px 10px', paddingLeft: i === 0 ? 19 : 10, color: '#b0aa9f', fontSize: 10, letterSpacing: '0.08em', textAlign: 'left', borderBottom: '1px solid #f0ece4', fontWeight: 500 }}>{h}</th>
                 ))}</tr>
               </thead>
               <tbody>
@@ -281,13 +283,40 @@ export default function Plan({ state, set, f, currency, baseIncome, allocByCat, 
                       opacity: dragId === row.id ? 0.4 : 1,
                     }}
                   >
-                    <td style={{ padding: '5px 10px' }}>
-                      <Inp value={row.label} onChange={v => set('allocation', prev => prev.map(x => x.id === row.id ? { ...x, label: v } : x))} style={{ width: '100%', overflow: 'hidden', textOverflow: 'ellipsis' }} />
+                    <td style={{ padding: '5px 10px', paddingLeft: 4 }}>
+                      <input
+                        value={row.label}
+                        onChange={e => set('allocation', prev => prev.map(x => x.id === row.id ? { ...x, label: e.target.value } : x))}
+                        onMouseEnter={e => { if (document.activeElement !== e.target) e.target.style.borderBottom = '1px solid #e8e4dc'; }}
+                        onMouseLeave={e => { if (document.activeElement !== e.target) e.target.style.borderBottom = 'none'; }}
+                        onFocus={e => { e.target.style.borderBottom = '1px solid #7eb5d6'; }}
+                        onBlur={e => { e.target.style.borderBottom = e.target.matches(':hover') ? '1px solid #e8e4dc' : 'none'; }}
+                        style={{
+                          background: 'transparent', border: 'none', borderBottom: 'none', outline: 'none',
+                          width: '100%', fontSize: 13, fontFamily: 'inherit', color: '#2d2a26',
+                          padding: '4px 0 4px 12px', overflow: 'hidden', textOverflow: 'ellipsis',
+                        }}
+                      />
                     </td>
                     <td style={{ padding: '5px 10px' }}>
-                      <Select value={row.category} onChange={e => set('allocation', prev => prev.map(x => x.id === row.id ? { ...x, category: e.target.value } : x))}>
-                        {CATEGORIES.map(c => <option key={c}>{c}</option>)}
-                      </Select>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                        <select
+                          value={row.category}
+                          onChange={e => set('allocation', prev => prev.map(x => x.id === row.id ? { ...x, category: e.target.value } : x))}
+                          onMouseEnter={e => { if (document.activeElement !== e.target) e.target.style.borderBottom = '1px solid #e8e4dc'; }}
+                          onMouseLeave={e => { if (document.activeElement !== e.target) e.target.style.borderBottom = 'none'; }}
+                          onFocus={e => { e.target.style.borderBottom = '1px solid #7eb5d6'; }}
+                          onBlur={e => { e.target.style.borderBottom = e.target.matches(':hover') ? '1px solid #e8e4dc' : 'none'; }}
+                          style={{
+                            background: 'transparent', border: 'none', borderBottom: 'none', outline: 'none',
+                            width: 'auto', fontSize: 13, fontFamily: 'inherit', color: '#2d2a26',
+                            padding: '4px 28px 4px 0', cursor: 'pointer', appearance: 'none', WebkitAppearance: 'none',
+                          }}
+                        >
+                          {CATEGORIES.map(c => <option key={c}>{c}</option>)}
+                        </select>
+                        <span style={{ pointerEvents: 'none', color: '#9e9890', fontSize: 11, flexShrink: 0 }}>▾</span>
+                      </span>
                     </td>
                     <td style={{ padding: '5px 10px' }}>
                       <EditableCell
@@ -305,10 +334,26 @@ export default function Plan({ state, set, f, currency, baseIncome, allocByCat, 
               </tbody>
             </table>
             <Divider />
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
-              <span style={{ color: '#9e9890' }}>Total allocated</span>
-              <span style={{ fontWeight: 700, color: totalAllocPct > 100 ? '#c94040' : '#1a1714' }}>{totalAllocPct.toFixed(1)}%</span>
-            </div>
+            <table style={{ width: '100%', tableLayout: 'fixed', borderCollapse: 'collapse', fontSize: 13 }}>
+              <colgroup>
+                <col style={{ width: '28%' }} />
+                <col style={{ width: '24%' }} />
+                <col style={{ width: '17%' }} />
+                <col style={{ width: '18%' }} />
+                <col style={{ width: '7%' }} />
+                <col style={{ width: '6%' }} />
+              </colgroup>
+              <tbody>
+                <tr>
+                  <td style={{ padding: '6px 10px', paddingLeft: 19, color: '#9e9890' }}>Total allocated</td>
+                  <td />
+                  <td style={{ padding: '6px 10px', fontWeight: 700, color: totalAllocPct > 100 ? '#c94040' : '#1a1714' }}>
+                    {totalAllocPct.toFixed(1)}%
+                  </td>
+                  <td /><td /><td />
+                </tr>
+              </tbody>
+            </table>
           </div>
 
           {/* Secondary income allocations (only when >1 source) */}
