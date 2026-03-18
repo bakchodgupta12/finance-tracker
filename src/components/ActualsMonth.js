@@ -91,9 +91,9 @@ function BalanceCell({ value, onChange, prefix = '', balanceIndex }) {
       <span
         data-balance-index={balanceIndex}
         onClick={() => setEditing(true)}
-        style={{ display: 'block', width: '100%', color: '#b0aa9f', fontSize: 14, cursor: 'text', padding: '3px 0', userSelect: 'none' }}
+        style={{ display: 'block', width: '100%', color: '#b0aa9f', fontSize: 14, cursor: 'text', padding: '3px 0', userSelect: 'none', borderBottom: '1px solid transparent', transition: 'border-color 0.15s' }}
         onMouseEnter={e => { e.currentTarget.style.borderBottom = '1px solid #d5d0c8'; }}
-        onMouseLeave={e => { e.currentTarget.style.borderBottom = 'none'; }}
+        onMouseLeave={e => { e.currentTarget.style.borderBottom = '1px solid transparent'; }}
       >—</span>
     );
   }
@@ -102,7 +102,9 @@ function BalanceCell({ value, onChange, prefix = '', balanceIndex }) {
     <span
       data-balance-index={balanceIndex}
       onClick={() => setEditing(true)}
-      style={{ display: 'block', width: '100%', color: '#1a1714', fontWeight: 500, fontSize: 14, cursor: 'text', padding: '3px 0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
+      style={{ display: 'block', width: '100%', color: '#1a1714', fontWeight: 500, fontSize: 14, cursor: 'text', padding: '3px 0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', borderBottom: '1px solid transparent', transition: 'border-color 0.15s' }}
+      onMouseEnter={e => { e.currentTarget.style.borderBottom = '1px solid #d5d0c8'; }}
+      onMouseLeave={e => { e.currentTarget.style.borderBottom = '1px solid transparent'; }}
     >
       {formatted}
     </span>

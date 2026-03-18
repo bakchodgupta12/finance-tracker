@@ -435,7 +435,7 @@ export default function ExpenseTracker({
           ? { ...e, confirmedMonths: [...(e.confirmedMonths || []), _monthKey] }
           : e
       );
-      return [{ ...baseExp, id, date: todayStr, skippedMonths: [], confirmedMonths: [] }, ...updated];
+      return [{ ...baseExp, id, date: _expectedDate, skippedMonths: [], confirmedMonths: [] }, ...updated];
     });
   };
 
@@ -781,10 +781,11 @@ export default function ExpenseTracker({
             <div>
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, tableLayout: 'fixed' }}>
                 <colgroup>
-                  <col style={{ width: 120 }} />
+                  <col style={{ width: 110 }} />
                   <col style={{ width: 16 }} />
                   <col />
-                  <col style={{ width: 90 }} />
+                  <col style={{ width: 80 }} />
+                  <col style={{ width: 16 }} />
                   <col style={{ width: 90 }} />
                   <col style={{ width: 130 }} />
                   <col style={{ width: 120 }} />
@@ -797,10 +798,11 @@ export default function ExpenseTracker({
                     <th style={{ width: 16, padding: 0, border: 'none' }} />
                     <th style={{ ...thSt, paddingLeft: 0 }}>DESCRIPTION</th>
                     <th style={{ ...thSt, paddingLeft: 0, textAlign: 'right' }}>AMOUNT</th>
+                    <th style={{ width: 16, padding: 0, border: 'none' }} />
                     <th style={{ ...thSt, paddingLeft: 0 }}>CURRENCY</th>
                     <th style={{ ...thSt, paddingLeft: 0 }}>CATEGORY</th>
                     <th style={{ ...thSt, paddingLeft: 0 }}>PAID BY</th>
-                    <th style={{ ...thSt, paddingLeft: 0, textAlign: 'center', verticalAlign: 'middle', padding: '8px 8px' }}>
+                    <th style={{ ...thSt, paddingLeft: 0, textAlign: 'center', verticalAlign: 'middle', padding: '8px 4px' }}>
                       <RecurringIcon active={false} />
                     </th>
                     <th style={{ ...thSt, paddingLeft: 0 }} />
@@ -819,8 +821,9 @@ export default function ExpenseTracker({
                           {ph.description || <span style={{ color: '#d5d0c8' }}>—</span>}
                         </td>
                         <td style={{ ...tdSt, paddingLeft: 0, fontWeight: 600, textAlign: 'right' }}>
-                          {ph.amount ? `${phCur.symbol}${Number(ph.amount).toLocaleString()}` : <span style={{ color: '#d5d0c8' }}>—</span>}
+                          {ph.amount ? Number(ph.amount).toLocaleString() : <span style={{ color: '#d5d0c8' }}>—</span>}
                         </td>
+                        <td style={{ width: 16, padding: 0, border: 'none' }} />
                         <td style={{ ...tdSt, paddingLeft: 0, color: '#9e9890' }}>
                           {phFlag && <span style={{ marginRight: 3 }}>{phFlag}</span>}{ph.currency}
                         </td>
@@ -835,7 +838,7 @@ export default function ExpenseTracker({
                         <td style={{ ...tdSt, paddingLeft: 0, color: '#9e9890' }}>
                           {ph.paidBy || <span style={{ color: '#d5d0c8' }}>—</span>}
                         </td>
-                        <td style={{ padding: '8px 8px', textAlign: 'center', verticalAlign: 'middle' }}>
+                        <td style={{ padding: '8px 4px', textAlign: 'center', verticalAlign: 'middle' }}>
                           <RecurringIcon active={true} />
                         </td>
                         <td style={{ padding: '6px 8px', width: 110 }}>
@@ -916,6 +919,8 @@ export default function ExpenseTracker({
                               style={{ ...inpSt, width: '100%', textAlign: 'right' }}
                             />
                           </td>
+                          {/* Amount-Currency spacer */}
+                          <td style={{ width: 16, padding: 0, border: 'none' }} />
                           {/* Currency */}
                           <td style={{ padding: '5px 0' }}>
                             <Select
@@ -971,7 +976,7 @@ export default function ExpenseTracker({
                             </Select>
                           </td>
                           {/* Recurring toggle (edit mode) */}
-                          <td style={{ padding: '8px 8px', textAlign: 'center', verticalAlign: 'middle' }}>
+                          <td style={{ padding: '8px 4px', textAlign: 'center', verticalAlign: 'middle' }}>
                             <button
                               onMouseDown={e => { e.preventDefault(); toggleRecurring(exp.id); }}
                               title={exp.recurring ? 'Mark non-recurring' : 'Mark recurring'}
@@ -991,7 +996,7 @@ export default function ExpenseTracker({
                         {/* Frequency prompt row */}
                         {showFrequencyPrompt === exp.id && (
                           <tr style={{ background: '#fdfcfa', borderBottom: '1px solid #f0ece4' }}>
-                            <td colSpan={9} style={{ padding: '4px 8px 10px 8px' }}>
+                            <td colSpan={10} style={{ padding: '4px 8px 10px 8px' }}>
                               <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: '#6b6660' }}>
                                 <span>How often?</span>
                                 {['monthly', 'yearly'].map(freq => (
@@ -1013,7 +1018,7 @@ export default function ExpenseTracker({
                         {/* Remove sub prompt row */}
                         {removeSubPrompt === exp.id && (
                           <tr style={{ background: '#f9f7f3', borderBottom: '1px solid #f0ece4' }}>
-                            <td colSpan={9} style={{ padding: '6px 12px 10px' }}>
+                            <td colSpan={10} style={{ padding: '6px 12px 10px' }}>
                               <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 12, color: '#6b6660' }}>
                                 <span>Remove from Subscriptions too?</span>
                                 <button onMouseDown={e => { e.preventDefault(); confirmRemoveSub(exp.id, true); }} style={{ padding: '3px 10px', borderRadius: 6, border: '1px solid #e8e4dc', background: 'transparent', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit', color: '#c94040' }}>Yes, remove</button>
@@ -1045,9 +1050,10 @@ export default function ExpenseTracker({
                           </td>
                           <td style={{ ...tdSt, paddingLeft: 0, fontWeight: 600, textAlign: 'right' }}>
                             {exp.amount
-                              ? `${accCur.symbol}${Number(exp.amount).toLocaleString()}`
+                              ? Number(exp.amount).toLocaleString()
                               : <span style={{ color: '#d5d0c8' }}>—</span>}
                           </td>
+                          <td style={{ width: 16, padding: 0, border: 'none' }} />
                           <td style={{ ...tdSt, paddingLeft: 0, color: '#9e9890' }}>
                             {flag && <span style={{ marginRight: 3 }}>{flag}</span>}{exp.currency}
                           </td>
@@ -1063,7 +1069,7 @@ export default function ExpenseTracker({
                             {exp.paidBy || <span style={{ color: '#d5d0c8' }}>—</span>}
                           </td>
                           {/* Recurring toggle (view mode) */}
-                          <td style={{ padding: '8px 8px', textAlign: 'center', verticalAlign: 'middle' }} onClick={e => e.stopPropagation()}>
+                          <td style={{ padding: '8px 4px', textAlign: 'center', verticalAlign: 'middle' }} onClick={e => e.stopPropagation()}>
                             <button
                               onClick={() => toggleRecurring(exp.id)}
                               title={exp.recurring ? 'Mark non-recurring' : 'Mark recurring'}
@@ -1084,7 +1090,7 @@ export default function ExpenseTracker({
                         {/* Remove sub prompt row */}
                         {removeSubPrompt === exp.id && (
                           <tr style={{ background: '#f9f7f3', borderBottom: '1px solid #f0ece4' }}>
-                            <td colSpan={9} style={{ padding: '6px 12px 10px' }}>
+                            <td colSpan={10} style={{ padding: '6px 12px 10px' }}>
                               <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 12, color: '#6b6660' }}>
                                 <span>Remove from Subscriptions too?</span>
                                 <button onClick={() => confirmRemoveSub(exp.id, true)} style={{ padding: '3px 10px', borderRadius: 6, border: '1px solid #e8e4dc', background: 'transparent', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit', color: '#c94040' }}>Yes, remove</button>
@@ -1096,7 +1102,7 @@ export default function ExpenseTracker({
                         {/* Frequency prompt row */}
                         {showFrequencyPrompt === exp.id && (
                           <tr style={{ background: '#fdfcfa', borderBottom: '1px solid #f0ece4' }}>
-                            <td colSpan={9} style={{ padding: '4px 8px 10px 8px' }}>
+                            <td colSpan={10} style={{ padding: '4px 8px 10px 8px' }}>
                               <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: '#6b6660' }}>
                                 <span>How often?</span>
                                 {['monthly', 'yearly'].map(freq => (
@@ -1146,15 +1152,16 @@ export default function ExpenseTracker({
             )}
 
             {/* Monthly summary */}
-            <div style={{ marginTop: 16, padding: '14px 16px', background: '#f9f7f3', borderRadius: 10 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: monthTotal > 0 ? 10 : 0 }}>
-                <span style={{ fontSize: 12, color: '#6b6660', fontWeight: 600 }}>Total spend this month</span>
-                <span style={{ fontSize: 14, fontWeight: 700, color: '#1a1714' }}>{f(monthTotal)}</span>
+            <div style={{ marginTop: 16, padding: '14px 0', background: '#f9f7f3', borderRadius: 10 }}>
+              <div style={{ display: 'flex', alignItems: 'center', marginBottom: monthTotal > 0 ? 10 : 0 }}>
+                <span style={{ fontSize: 12, color: '#6b6660', fontWeight: 600, flex: 1, paddingLeft: 16 }}>Total spend this month</span>
+                <span style={{ fontSize: 14, fontWeight: 700, color: '#1a1714', width: 80, textAlign: 'right', flexShrink: 0 }}>{f(monthTotal)}</span>
+                <span style={{ display: 'inline-block', width: 498, flexShrink: 0 }} />
               </div>
               {monthTotal > 0 && monthCatTotals.length > 0 && (
                 <>
                   {/* Proportional bar */}
-                  <div style={{ height: 10, display: 'flex', borderRadius: 6, overflow: 'hidden', gap: 1, marginBottom: 8 }}>
+                  <div style={{ height: 10, display: 'flex', borderRadius: 6, overflow: 'hidden', gap: 1, marginBottom: 8, marginLeft: 16, marginRight: 16 }}>
                     {monthCatTotals.map(([cat, amt]) => {
                       const color = categories.find(c => c.name === cat)?.color || '#b0aa9f';
                       return (
@@ -1167,7 +1174,7 @@ export default function ExpenseTracker({
                     })}
                   </div>
                   {/* Legend */}
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px 12px' }}>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px 12px', paddingLeft: 16 }}>
                     {monthCatTotals.slice(0, 5).map(([cat, amt]) => {
                       const color = categories.find(c => c.name === cat)?.color || '#b0aa9f';
                       return (

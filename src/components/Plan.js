@@ -334,9 +334,12 @@ export default function Plan({ state, set, f, currency, baseIncome, allocByCat, 
               </tbody>
             </table>
             <Divider />
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
-              <span style={{ color: '#9e9890' }}>Total allocated</span>
-              <span style={{ fontWeight: 700, color: totalAllocPct > 100 ? '#c94040' : '#1a1714' }}>{totalAllocPct.toFixed(1)}%</span>
+            <div style={{ display: 'flex', alignItems: 'center', fontSize: 13 }}>
+              <div style={{ flex: '0 0 28%', color: '#9e9890', paddingLeft: 20 }}>Total allocated</div>
+              <div style={{ flex: '0 0 24%' }} />
+              <div style={{ flex: '0 0 17%', fontWeight: 700, color: totalAllocPct > 100 ? '#c94040' : '#1a1714' }}>
+                {totalAllocPct.toFixed(1)}%
+              </div>
             </div>
           </div>
 
