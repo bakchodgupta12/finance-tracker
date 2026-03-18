@@ -56,8 +56,23 @@ function sanitizeNumericFields(data) {
 }
 
 // ─────────────────────────────────────────────
-// Main App
+// Remove snapshot data for months after current month (runs once at login)
 // ─────────────────────────────────────────────
+function sanitiseFutureSnapshots(data) {
+  if (!data?.accountSnapshots) return data;
+  const now = new Date();
+  const currentMonthIndex = now.getMonth(); // 0 = Jan, 11 = Dec
+  const ALL_MONTHS_LOCAL = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const cleanedSnapshots = { ...data.accountSnapshots };
+  ALL_MONTHS_LOCAL.forEach((month, index) => {
+    if (index > currentMonthIndex && cleanedSnapshots[month]) {
+      delete cleanedSnapshots[month];
+    }
+  });
+  return { ...data, accountSnapshots: cleanedSnapshots };
+}
+
+
 export default function App() {
   const [state, setState]             = useState(makeDefaultState());
   const [tab, setTab]                 = useState('dashboard');
@@ -158,7 +173,8 @@ export default function App() {
         }),
       };
       const sanitizedData = sanitizeNumericFields(migratedData);
-      setState({ ...makeDefaultState(), ...sanitizedData, userId });
+      const cleanedData = sanitiseFutureSnapshots(sanitizedData);
+      setState({ ...makeDefaultState(), ...cleanedData, userId });
       setSelectedYear(year || currentYear);
     } else {
       // New user — show onboarding before entering the app
