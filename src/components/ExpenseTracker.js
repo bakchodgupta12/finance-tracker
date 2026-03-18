@@ -8,7 +8,7 @@ import { s, Lbl, DelBtn, Select, CURRENCIES, getCurrency, getCurrencyFlag, ALL_M
 // ── Recurring icon ────────────────────────────────────────────────────────────
 const RecurringIcon = ({ active }) => (
   <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
-    stroke={active ? '#5B9BD5' : '#b0aa9f'}
+    stroke={active ? '#5B9BD5' : '#d0ccc5'}
     strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <path d="M17 1l4 4-4 4"/>
     <path d="M3 11V9a4 4 0 0 1 4-4h14"/>
@@ -226,9 +226,12 @@ export default function ExpenseTracker({
     const mIdx = ALL_MONTHS.indexOf(selectedMonth);
     const calYear = mIdx >= yearStartMonth ? selectedYear : selectedYear + 1;
     const monthKey = `${calYear}-${String(mIdx + 1).padStart(2, '0')}`;
+    const seen = new Set();
     return expenses.filter(exp => {
       if (!exp.recurring) return false;
       if ((exp.skippedMonths || []).includes(monthKey)) return false;
+      if (seen.has(exp.id)) return false;
+      seen.add(exp.id);
       if (exp.recurringFrequency === 'yearly') {
         const origDate = new Date(exp.date);
         return origDate.getMonth() === mIdx;
@@ -379,10 +382,17 @@ export default function ExpenseTracker({
     setRemoveSubPrompt(null);
   };
 
-  const confirmPlaceholder = (exp) => {
-    const { _isPlaceholder, _expectedDate, _monthKey, ...baseExp } = exp;
+  const confirmPlaceholder = (ph) => {
+    const { _isPlaceholder, _expectedDate, _monthKey, ...baseExp } = ph;
     const id = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-    set('expenses', prev => [{ ...baseExp, id, date: _expectedDate }, ...(prev || [])]);
+    set('expenses', prev => {
+      const updated = (prev || []).map(e =>
+        e.id === ph.id
+          ? { ...e, skippedMonths: [...(e.skippedMonths || []), _monthKey] }
+          : e
+      );
+      return [{ ...baseExp, id, date: _expectedDate, skippedMonths: [] }, ...updated];
+    });
   };
 
   const skipPlaceholder = (exp) => {
@@ -448,6 +458,7 @@ export default function ExpenseTracker({
 
   return (
     <div>
+      <style>{`input[type="date"]::-webkit-calendar-picker-indicator { opacity: 0; width: 0; padding: 0; }`}</style>
       {/* ── Analytics Section ─────────────────────────────────────────────── */}
       <div style={{ ...s.card, marginBottom: 14 }}>
         {/* Date filter pills — always visible so summary bar always reflects active filter */}
@@ -733,12 +744,17 @@ export default function ExpenseTracker({
                   <col style={{ width: 130 }} />
                   <col style={{ width: 120 }} />
                   <col style={{ width: 32 }} />
-                  <col style={{ width: 32 }} />
+                  <col style={{ width: 110 }} />
                 </colgroup>
                 <thead>
                   <tr>
                     {['Date', 'Description', 'Amount', 'Currency', 'Category', 'Paid By', 'REC', ''].map(h => (
-                      <th key={h} style={{ ...thSt, textAlign: h === 'Amount' ? 'right' : 'left' }}>
+                      <th key={h} style={{
+                        ...thSt,
+                        textAlign: h === 'Amount' ? 'right' : h === 'REC' ? 'center' : 'left',
+                        verticalAlign: h === 'REC' ? 'middle' : undefined,
+                        padding: h === 'REC' ? '8px 8px' : undefined,
+                      }}>
                         {h === 'REC' ? <RecurringIcon active={false} /> : h}
                       </th>
                     ))}
@@ -772,18 +788,20 @@ export default function ExpenseTracker({
                         <td style={{ ...tdSt, color: '#9e9890' }}>
                           {ph.paidBy || <span style={{ color: '#d5d0c8' }}>—</span>}
                         </td>
-                        <td style={{ padding: '6px 4px', textAlign: 'center' }}>
+                        <td style={{ padding: '8px 8px', textAlign: 'center', verticalAlign: 'middle' }}>
                           <RecurringIcon active={true} />
                         </td>
-                        <td style={{ padding: '6px 8px', whiteSpace: 'nowrap' }}>
-                          <button
-                            onClick={() => confirmPlaceholder(ph)}
-                            style={{ padding: '2px 7px', borderRadius: 5, border: '1px solid #6dbb8a', background: 'transparent', color: '#2d9e6b', fontSize: 11, cursor: 'pointer', fontFamily: 'inherit', marginRight: 4 }}
-                          >✓ Confirm</button>
-                          <button
-                            onClick={() => skipPlaceholder(ph)}
-                            style={{ padding: '2px 7px', borderRadius: 5, border: '1px solid #d8d4cc', background: 'transparent', color: '#9e9890', fontSize: 11, cursor: 'pointer', fontFamily: 'inherit' }}
-                          >Skip</button>
+                        <td style={{ padding: '6px 8px', width: 110 }}>
+                          <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+                            <button
+                              onClick={() => confirmPlaceholder(ph)}
+                              style={{ padding: '2px 8px', borderRadius: 5, border: '1px solid #6dbb8a', background: 'transparent', color: '#6dbb8a', fontSize: 11, cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap' }}
+                            >✓</button>
+                            <button
+                              onClick={() => skipPlaceholder(ph)}
+                              style={{ padding: '2px 8px', borderRadius: 5, border: '1px solid #e8e4dc', background: 'transparent', color: '#9e9890', fontSize: 11, cursor: 'pointer', fontFamily: 'inherit' }}
+                            >✕</button>
+                          </div>
                         </td>
                       </tr>
                     );
@@ -801,12 +819,26 @@ export default function ExpenseTracker({
                           }}
                         >
                           {/* Date */}
-                          <td style={{ padding: '5px 8px' }}>
+                          <td style={{ padding: '5px 8px', position: 'relative' }}>
                             <input
                               type="date" value={exp.date}
                               onChange={e => updateExp(exp.id, 'date', e.target.value)}
-                              style={{ ...inpSt, width: '100%' }}
+                              onFocus={e => { e.target.style.borderBottom = '1px solid #7eb5d6'; }}
+                              onBlur={e => { e.target.style.borderBottom = 'none'; }}
+                              style={{
+                                background: 'transparent', border: 'none', borderBottom: 'none', outline: 'none',
+                                width: '100%', fontSize: 13, fontFamily: 'inherit', color: '#2d2a26',
+                                padding: '4px 20px 4px 0', cursor: 'pointer',
+                              }}
                             />
+                            <span style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', color: '#b0aa9f' }}>
+                              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+                                <line x1="16" y1="2" x2="16" y2="6"/>
+                                <line x1="8" y1="2" x2="8" y2="6"/>
+                                <line x1="3" y1="10" x2="21" y2="10"/>
+                              </svg>
+                            </span>
                           </td>
                           {/* Description + dropdown */}
                           <td style={{ padding: '5px 8px', position: 'relative' }}>
@@ -908,7 +940,7 @@ export default function ExpenseTracker({
                             </Select>
                           </td>
                           {/* Recurring toggle (edit mode) */}
-                          <td style={{ padding: '5px 4px', verticalAlign: 'middle' }}>
+                          <td style={{ padding: '8px 8px', textAlign: 'center', verticalAlign: 'middle' }}>
                             <button
                               onMouseDown={e => { e.preventDefault(); toggleRecurring(exp.id); }}
                               title={exp.recurring ? 'Mark non-recurring' : 'Mark recurring'}
@@ -999,7 +1031,7 @@ export default function ExpenseTracker({
                             {exp.paidBy || <span style={{ color: '#d5d0c8' }}>—</span>}
                           </td>
                           {/* Recurring toggle (view mode) */}
-                          <td style={{ padding: '6px 4px', textAlign: 'center' }} onClick={e => e.stopPropagation()}>
+                          <td style={{ padding: '8px 8px', textAlign: 'center', verticalAlign: 'middle' }} onClick={e => e.stopPropagation()}>
                             <button
                               onClick={() => toggleRecurring(exp.id)}
                               title={exp.recurring ? 'Mark non-recurring' : 'Mark recurring'}
@@ -1007,7 +1039,9 @@ export default function ExpenseTracker({
                                 background: exp.recurring ? '#ebf4fb' : 'none',
                                 border: 'none', borderRadius: '50%', width: 26, height: 26,
                                 cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                padding: 0, opacity: (exp.recurring || hoveredRowId === exp.id) ? 1 : 0,
+                                padding: 0,
+                                opacity: exp.recurring ? 1 : (hoveredRowId === exp.id ? 1 : 0),
+                                transition: 'opacity 0.15s',
                               }}
                             ><RecurringIcon active={exp.recurring} /></button>
                           </td>

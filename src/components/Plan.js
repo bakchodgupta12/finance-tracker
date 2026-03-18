@@ -249,7 +249,7 @@ export default function Plan({ state, set, f, currency, baseIncome, allocByCat, 
               </colgroup>
               <thead>
                 <tr>{['Label', 'Category', '% of Income', 'Monthly Amount', '', ''].map((h, i) => (
-                  <th key={i} style={{ padding: '8px 10px', paddingLeft: i === 0 ? 16 : 10, color: '#b0aa9f', fontSize: 10, letterSpacing: '0.08em', textAlign: 'left', borderBottom: '1px solid #f0ece4', fontWeight: 500 }}>{h}</th>
+                  <th key={i} style={{ padding: '8px 10px', paddingLeft: i === 0 ? 20 : 10, color: '#b0aa9f', fontSize: 10, letterSpacing: '0.08em', textAlign: 'left', borderBottom: '1px solid #f0ece4', fontWeight: 500 }}>{h}</th>
                 ))}</tr>
               </thead>
               <tbody>
