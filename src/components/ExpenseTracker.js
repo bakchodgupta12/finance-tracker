@@ -573,128 +573,131 @@ export default function ExpenseTracker({
 
         {analyticsOpen && (
           <div style={{ marginTop: 20 }}>
-            {/* Recurring summary line */}
-            {analyticsStats.recurringCount > 0 && (
-              <p style={{ fontSize: 12, color: '#6b6660', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 5 }}>
-                <RecurringIcon active={true} />
-                Recurring this period: <strong>{f(analyticsStats.recurringTotal)}</strong> across {analyticsStats.recurringCount} item{analyticsStats.recurringCount !== 1 ? 's' : ''}
-              </p>
-            )}
-            {/* Monthly spend chart */}
-            {barChartData.length > 0 ? (
-              <div style={{ marginBottom: 20 }}>
-                <Lbl>MONTHLY SPEND</Lbl>
-                <div style={{ marginTop: 10 }}>
-                  <ResponsiveContainer width="100%" height={140}>
-                    <LineChart data={barChartData}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#f0ece4" />
-                      <XAxis dataKey={dateFilter === 'this-month' ? 'day' : 'month'} stroke="#e8e4dc" tick={{ fill: '#b0aa9f', fontSize: 11 }} />
-                      <YAxis stroke="#e8e4dc" tick={{ fill: '#b0aa9f', fontSize: 11 }} tickFormatter={v => fmtChart(v, currency.symbol)} />
-                      <Tooltip
-                        formatter={val => [fmtChart(val, currency.symbol), 'Spend']}
-                        labelStyle={{ color: '#2d2a26', fontSize: 12 }}
-                        contentStyle={{ border: '1px solid #e8e4dc', borderRadius: 8, fontSize: 12 }}
-                      />
-                      <Line type="monotone" dataKey="total" stroke="#e8a598" strokeWidth={2} dot={false} activeDot={{ r: 4, fill: '#e8a598' }} />
-                    </LineChart>
-                  </ResponsiveContainer>
+            {(() => {
+              const hasExpenses = filteredExpenses.length > 0;
+              if (!hasExpenses) return (
+                <div style={{ textAlign: 'center', padding: '32px 0', color: '#9e9890', fontSize: 13 }}>
+                  No spend data for the selected period. Start recording expenses to see your breakdown.
                 </div>
-              </div>
-            ) : (
-              <p style={{ fontSize: 13, color: '#9e9890', textAlign: 'center', padding: '20px 0' }}>No spend data for the selected period. Start recording expenses to see your breakdown.</p>
-            )}
-
-            {/* Category breakdown */}
-            {catChartData.length === 0 && (
-              <p style={{ fontSize: 13, color: '#9e9890', textAlign: 'center', padding: '20px 0' }}>No spend data for the selected period. Start recording expenses to see your breakdown.</p>
-            )}
-            {catChartData.length > 0 && (
-              <div style={{ marginBottom: 20 }}>
-              <Lbl>SPEND BY CATEGORY</Lbl>
-              <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'flex-start', gap: 20, marginTop: 10 }}>
-                <ResponsiveContainer width="50%" height={Math.max(160, catChartData.length * 26)}>
-                  <BarChart data={catChartData} layout="vertical" maxBarSize={16}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#f0ece4" horizontal={false} />
-                    <XAxis type="number" stroke="#e8e4dc" tick={{ fill: '#b0aa9f', fontSize: 11 }} tickFormatter={v => fmtChart(v, currency.symbol)} />
-                    <YAxis type="category" dataKey="name" stroke="#e8e4dc" tick={{ fill: '#b0aa9f', fontSize: 11 }} width={80} />
-                    <Tooltip
-                      formatter={val => [fmtChart(val, currency.symbol), 'Total']}
-                      contentStyle={{ border: '1px solid #e8e4dc', borderRadius: 8, fontSize: 12 }}
-                    />
-                    <Bar dataKey="value" radius={[0, 4, 4, 0]} maxBarSize={16}>
-                      {catChartData.map((entry, i) => <Cell key={i} fill={entry.color} />)}
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
-                <div style={{ alignSelf: 'flex-start', marginTop: 0, flex: 1 }}>
-                  <table style={{ fontSize: 12, borderCollapse: 'collapse', width: '100%' }}>
-                    <thead>
-                      <tr>
-                        {['Category', 'Total', '%'].map(h => (
-                          <th key={h} style={thSt}>{h.toUpperCase()}</th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {catChartData.map((row, i) => (
-                        <tr key={i} style={{ borderBottom: '1px solid #f9f7f3' }}>
-                          <td style={tdSt}>
-                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                              <span style={{ width: 8, height: 8, borderRadius: 2, background: row.color, display: 'inline-block', flexShrink: 0 }} />
-                              {row.name}
-                            </span>
-                          </td>
-                          <td style={tdSt}>{f(row.value)}</td>
-                          <td style={{ ...tdSt, color: '#9e9890' }}>{row.pct}%</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-              </div>
-            )}
-
-            {/* Payment method breakdown */}
-            <div style={{ marginTop: 4 }}>
-              <Lbl>SPEND BY PAYMENT METHOD</Lbl>
-              {pmChartData.length === 0 || (pmChartData.length === 1 && pmChartData[0].name === 'Unassigned') ? (
-                <p style={{ fontSize: 13, color: '#9e9890', textAlign: 'center', padding: '20px 0' }}>No spend data for the selected period. Start recording expenses to see your breakdown.</p>
-              ) : (
-                <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'flex-start', gap: 20, marginTop: 10 }}>
-                  <PieChart width={168} height={168}>
-                    <Pie data={pmChartData} cx={78} cy={78} innerRadius={42} outerRadius={72} paddingAngle={2} dataKey="value">
-                      {pmChartData.map((entry, i) => <Cell key={i} fill={entry.color} />)}
-                    </Pie>
-                  </PieChart>
-                  <div style={{ alignSelf: 'flex-start', marginTop: 0, flex: 1 }}>
-                    <table style={{ fontSize: 12, borderCollapse: 'collapse', width: '100%' }}>
-                      <thead>
-                        <tr>
-                          {['Payment Method', 'Total', '%'].map(h => (
-                            <th key={h} style={thSt}>{h.toUpperCase()}</th>
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {pmChartData.map((row, i) => (
-                          <tr key={i} style={{ borderBottom: '1px solid #f9f7f3' }}>
-                            <td style={tdSt}>
-                              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                                <span style={{ width: 8, height: 8, borderRadius: 2, background: row.color, display: 'inline-block', flexShrink: 0 }} />
-                                {row.name}
-                              </span>
-                            </td>
-                            <td style={tdSt}>{f(row.value)}</td>
-                            <td style={{ ...tdSt, color: '#9e9890' }}>{row.pct}%</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+              );
+              return (
+                <>
+                  {/* Recurring summary line */}
+                  {analyticsStats.recurringCount > 0 && (
+                    <p style={{ fontSize: 12, color: '#6b6660', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 5 }}>
+                      <RecurringIcon active={true} />
+                      Recurring this period: <strong>{f(analyticsStats.recurringTotal)}</strong> across {analyticsStats.recurringCount} item{analyticsStats.recurringCount !== 1 ? 's' : ''}
+                    </p>
+                  )}
+                  {/* Monthly spend chart */}
+                  <div style={{ marginBottom: 20 }}>
+                    <Lbl>MONTHLY SPEND</Lbl>
+                    <div style={{ marginTop: 10 }}>
+                      <ResponsiveContainer width="100%" height={140}>
+                        <LineChart data={barChartData}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="#f0ece4" />
+                          <XAxis dataKey={dateFilter === 'this-month' ? 'day' : 'month'} stroke="#e8e4dc" tick={{ fill: '#b0aa9f', fontSize: 11 }} />
+                          <YAxis stroke="#e8e4dc" tick={{ fill: '#b0aa9f', fontSize: 11 }} tickFormatter={v => fmtChart(v, currency.symbol)} />
+                          <Tooltip
+                            formatter={val => [fmtChart(val, currency.symbol), 'Spend']}
+                            labelStyle={{ color: '#2d2a26', fontSize: 12 }}
+                            contentStyle={{ border: '1px solid #e8e4dc', borderRadius: 8, fontSize: 12 }}
+                          />
+                          <Line type="monotone" dataKey="total" stroke="#e8a598" strokeWidth={2} dot={false} activeDot={{ r: 4, fill: '#e8a598' }} />
+                        </LineChart>
+                      </ResponsiveContainer>
+                    </div>
                   </div>
-                </div>
-              )}
-            </div>
+
+                  {/* Category breakdown */}
+                  {catChartData.length > 0 && (
+                    <div style={{ marginBottom: 20 }}>
+                      <Lbl>SPEND BY CATEGORY</Lbl>
+                      <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'flex-start', gap: 20, marginTop: 10 }}>
+                        <ResponsiveContainer width="50%" height={Math.max(160, catChartData.length * 26)}>
+                          <BarChart data={catChartData} layout="vertical" maxBarSize={16}>
+                            <CartesianGrid strokeDasharray="3 3" stroke="#f0ece4" horizontal={false} />
+                            <XAxis type="number" stroke="#e8e4dc" tick={{ fill: '#b0aa9f', fontSize: 11 }} tickFormatter={v => fmtChart(v, currency.symbol)} />
+                            <YAxis type="category" dataKey="name" stroke="#e8e4dc" tick={{ fill: '#b0aa9f', fontSize: 11 }} width={80} />
+                            <Tooltip
+                              formatter={val => [fmtChart(val, currency.symbol), 'Total']}
+                              contentStyle={{ border: '1px solid #e8e4dc', borderRadius: 8, fontSize: 12 }}
+                            />
+                            <Bar dataKey="value" radius={[0, 4, 4, 0]} maxBarSize={16}>
+                              {catChartData.map((entry, i) => <Cell key={i} fill={entry.color} />)}
+                            </Bar>
+                          </BarChart>
+                        </ResponsiveContainer>
+                        <div style={{ alignSelf: 'flex-start', marginTop: 0, flex: 1 }}>
+                          <table style={{ fontSize: 12, borderCollapse: 'collapse', width: '100%' }}>
+                            <thead>
+                              <tr>
+                                {['Category', 'Total', '%'].map(h => (
+                                  <th key={h} style={thSt}>{h.toUpperCase()}</th>
+                                ))}
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {catChartData.map((row, i) => (
+                                <tr key={i} style={{ borderBottom: '1px solid #f9f7f3' }}>
+                                  <td style={tdSt}>
+                                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                                      <span style={{ width: 8, height: 8, borderRadius: 2, background: row.color, display: 'inline-block', flexShrink: 0 }} />
+                                      {row.name}
+                                    </span>
+                                  </td>
+                                  <td style={tdSt}>{f(row.value)}</td>
+                                  <td style={{ ...tdSt, color: '#9e9890' }}>{row.pct}%</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Payment method breakdown */}
+                  {pmChartData.length > 0 && !(pmChartData.length === 1 && pmChartData[0].name === 'Unassigned') && (
+                    <div style={{ marginTop: 4 }}>
+                      <Lbl>SPEND BY PAYMENT METHOD</Lbl>
+                      <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'flex-start', gap: 20, marginTop: 10 }}>
+                        <PieChart width={168} height={168}>
+                          <Pie data={pmChartData} cx={78} cy={78} innerRadius={42} outerRadius={72} paddingAngle={2} dataKey="value">
+                            {pmChartData.map((entry, i) => <Cell key={i} fill={entry.color} />)}
+                          </Pie>
+                        </PieChart>
+                        <div style={{ alignSelf: 'flex-start', marginTop: 0, flex: 1 }}>
+                          <table style={{ fontSize: 12, borderCollapse: 'collapse', width: '100%' }}>
+                            <thead>
+                              <tr>
+                                {['Payment Method', 'Total', '%'].map(h => (
+                                  <th key={h} style={thSt}>{h.toUpperCase()}</th>
+                                ))}
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {pmChartData.map((row, i) => (
+                                <tr key={i} style={{ borderBottom: '1px solid #f9f7f3' }}>
+                                  <td style={tdSt}>
+                                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                                      <span style={{ width: 8, height: 8, borderRadius: 2, background: row.color, display: 'inline-block', flexShrink: 0 }} />
+                                      {row.name}
+                                    </span>
+                                  </td>
+                                  <td style={tdSt}>{f(row.value)}</td>
+                                  <td style={{ ...tdSt, color: '#9e9890' }}>{row.pct}%</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </>
+              );
+            })()}
           </div>
         )}
       </div>
