@@ -65,7 +65,7 @@ function DateInput({ value, onChange }) {
   };
   const handlePickerChange = (e) => { onChange(e.target.value); };
   return (
-    <div style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', gap: 2 }}>
+    <div style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', gap: 1 }}>
       <input type="text" value={displayValue} onChange={handleTextChange}
         placeholder="DD-MM-YYYY"
         style={{ width: 95, background: 'transparent', border: 'none',
@@ -584,31 +584,17 @@ export default function ExpenseTracker({
                 <Lbl>MONTHLY SPEND</Lbl>
                 <div style={{ marginTop: 10 }}>
                   <ResponsiveContainer width="100%" height={140}>
-                    {dateFilter === 'this-month' ? (
-                      <LineChart data={barChartData}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="#f0ece4" />
-                        <XAxis dataKey="day" stroke="#e8e4dc" tick={{ fill: '#b0aa9f', fontSize: 11 }} />
-                        <YAxis stroke="#e8e4dc" tick={{ fill: '#b0aa9f', fontSize: 11 }} tickFormatter={v => fmtChart(v, currency.symbol)} />
-                        <Tooltip
-                          formatter={val => [fmtChart(val, currency.symbol), 'Spend']}
-                          labelStyle={{ color: '#2d2a26', fontSize: 12 }}
-                          contentStyle={{ border: '1px solid #e8e4dc', borderRadius: 8, fontSize: 12 }}
-                        />
-                        <Line type="monotone" dataKey="total" stroke="#e8a598" dot={false} activeDot={{ r: 4, fill: '#e8a598' }} />
-                      </LineChart>
-                    ) : (
-                      <BarChart data={barChartData} barSize={24}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="#f0ece4" />
-                        <XAxis dataKey="month" stroke="#e8e4dc" tick={{ fill: '#b0aa9f', fontSize: 11 }} />
-                        <YAxis stroke="#e8e4dc" tick={{ fill: '#b0aa9f', fontSize: 11 }} tickFormatter={v => fmtChart(v, currency.symbol)} />
-                        <Tooltip
-                          formatter={val => [fmtChart(val, currency.symbol), 'Spend']}
-                          labelStyle={{ color: '#2d2a26', fontSize: 12 }}
-                          contentStyle={{ border: '1px solid #e8e4dc', borderRadius: 8, fontSize: 12 }}
-                        />
-                        <Bar dataKey="total" fill="#e8a598" radius={[4, 4, 0, 0]} />
-                      </BarChart>
-                    )}
+                    <LineChart data={barChartData}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#f0ece4" />
+                      <XAxis dataKey={dateFilter === 'this-month' ? 'day' : 'month'} stroke="#e8e4dc" tick={{ fill: '#b0aa9f', fontSize: 11 }} />
+                      <YAxis stroke="#e8e4dc" tick={{ fill: '#b0aa9f', fontSize: 11 }} tickFormatter={v => fmtChart(v, currency.symbol)} />
+                      <Tooltip
+                        formatter={val => [fmtChart(val, currency.symbol), 'Spend']}
+                        labelStyle={{ color: '#2d2a26', fontSize: 12 }}
+                        contentStyle={{ border: '1px solid #e8e4dc', borderRadius: 8, fontSize: 12 }}
+                      />
+                      <Line type="monotone" dataKey="total" stroke="#e8a598" strokeWidth={2} dot={false} activeDot={{ r: 4, fill: '#e8a598' }} />
+                    </LineChart>
                   </ResponsiveContainer>
                 </div>
               </div>
@@ -620,9 +606,9 @@ export default function ExpenseTracker({
             {catChartData.length > 0 && (
               <div style={{ marginBottom: 20 }}>
               <Lbl>SPEND BY CATEGORY</Lbl>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, alignItems: 'start', marginTop: 10 }}>
-                <ResponsiveContainer width="100%" height={Math.max(200, catChartData.length * 32)}>
-                  <BarChart data={catChartData} layout="vertical">
+              <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'flex-start', gap: 20, marginTop: 10 }}>
+                <ResponsiveContainer width="50%" height={Math.max(160, catChartData.length * 26)}>
+                  <BarChart data={catChartData} layout="vertical" maxBarSize={16}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#f0ece4" horizontal={false} />
                     <XAxis type="number" stroke="#e8e4dc" tick={{ fill: '#b0aa9f', fontSize: 11 }} tickFormatter={v => fmtChart(v, currency.symbol)} />
                     <YAxis type="category" dataKey="name" stroke="#e8e4dc" tick={{ fill: '#b0aa9f', fontSize: 11 }} width={80} />
@@ -630,62 +616,22 @@ export default function ExpenseTracker({
                       formatter={val => [fmtChart(val, currency.symbol), 'Total']}
                       contentStyle={{ border: '1px solid #e8e4dc', borderRadius: 8, fontSize: 12 }}
                     />
-                    <Bar dataKey="value" radius={[0, 4, 4, 0]}>
+                    <Bar dataKey="value" radius={[0, 4, 4, 0]} maxBarSize={16}>
                       {catChartData.map((entry, i) => <Cell key={i} fill={entry.color} />)}
                     </Bar>
                   </BarChart>
                 </ResponsiveContainer>
-                <table style={{ fontSize: 12, borderCollapse: 'collapse', width: '100%' }}>
-                  <thead>
-                    <tr>
-                      {['Category', 'Total', '%'].map(h => (
-                        <th key={h} style={thSt}>{h.toUpperCase()}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {catChartData.map((row, i) => (
-                      <tr key={i} style={{ borderBottom: '1px solid #f9f7f3' }}>
-                        <td style={tdSt}>
-                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                            <span style={{ width: 8, height: 8, borderRadius: 2, background: row.color, display: 'inline-block', flexShrink: 0 }} />
-                            {row.name}
-                          </span>
-                        </td>
-                        <td style={tdSt}>{f(row.value)}</td>
-                        <td style={{ ...tdSt, color: '#9e9890' }}>{row.pct}%</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-              </div>
-            )}
-
-            {/* Payment method breakdown */}
-            <div style={{ marginTop: 4 }}>
-              <Lbl>SPEND BY PAYMENT METHOD</Lbl>
-              {pmChartData.length === 0 || (pmChartData.length === 1 && pmChartData[0].name === 'Unassigned') ? (
-                <p style={{ fontSize: 12, color: '#b0aa9f', marginTop: 8 }}>
-                  Add payment methods in Settings to see this breakdown.
-                </p>
-              ) : (
-                <div style={{ display: 'grid', gridTemplateColumns: '148px 1fr', gap: 20, alignItems: 'start', marginTop: 10 }}>
-                  <PieChart width={140} height={140}>
-                    <Pie data={pmChartData} cx={65} cy={65} innerRadius={36} outerRadius={60} paddingAngle={2} dataKey="value">
-                      {pmChartData.map((entry, i) => <Cell key={i} fill={entry.color} />)}
-                    </Pie>
-                  </PieChart>
+                <div style={{ alignSelf: 'flex-start', marginTop: 0, flex: 1 }}>
                   <table style={{ fontSize: 12, borderCollapse: 'collapse', width: '100%' }}>
                     <thead>
                       <tr>
-                        {['Payment Method', 'Total', '%'].map(h => (
+                        {['Category', 'Total', '%'].map(h => (
                           <th key={h} style={thSt}>{h.toUpperCase()}</th>
                         ))}
                       </tr>
                     </thead>
                     <tbody>
-                      {pmChartData.map((row, i) => (
+                      {catChartData.map((row, i) => (
                         <tr key={i} style={{ borderBottom: '1px solid #f9f7f3' }}>
                           <td style={tdSt}>
                             <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
@@ -699,6 +645,50 @@ export default function ExpenseTracker({
                       ))}
                     </tbody>
                   </table>
+                </div>
+              </div>
+              </div>
+            )}
+
+            {/* Payment method breakdown */}
+            <div style={{ marginTop: 4 }}>
+              <Lbl>SPEND BY PAYMENT METHOD</Lbl>
+              {pmChartData.length === 0 || (pmChartData.length === 1 && pmChartData[0].name === 'Unassigned') ? (
+                <p style={{ fontSize: 12, color: '#b0aa9f', marginTop: 8 }}>
+                  Add payment methods in Settings to see this breakdown.
+                </p>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'flex-start', gap: 20, marginTop: 10 }}>
+                  <PieChart width={168} height={168}>
+                    <Pie data={pmChartData} cx={78} cy={78} innerRadius={42} outerRadius={72} paddingAngle={2} dataKey="value">
+                      {pmChartData.map((entry, i) => <Cell key={i} fill={entry.color} />)}
+                    </Pie>
+                  </PieChart>
+                  <div style={{ alignSelf: 'flex-start', marginTop: 0, flex: 1 }}>
+                    <table style={{ fontSize: 12, borderCollapse: 'collapse', width: '100%' }}>
+                      <thead>
+                        <tr>
+                          {['Payment Method', 'Total', '%'].map(h => (
+                            <th key={h} style={thSt}>{h.toUpperCase()}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {pmChartData.map((row, i) => (
+                          <tr key={i} style={{ borderBottom: '1px solid #f9f7f3' }}>
+                            <td style={tdSt}>
+                              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                                <span style={{ width: 8, height: 8, borderRadius: 2, background: row.color, display: 'inline-block', flexShrink: 0 }} />
+                                {row.name}
+                              </span>
+                            </td>
+                            <td style={tdSt}>{f(row.value)}</td>
+                            <td style={{ ...tdSt, color: '#9e9890' }}>{row.pct}%</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
               )}
             </div>
@@ -782,7 +772,7 @@ export default function ExpenseTracker({
                             {exp.amount ? `${accCur.symbol}${Number(exp.amount).toLocaleString()}` : <span style={{ color: '#d5d0c8' }}>—</span>}
                           </td>
                           <td style={{ ...tdSt, color: '#9e9890' }}>
-                            {exp.currency}{flag && <span style={{ marginLeft: 4 }}>{flag}</span>}
+                            {flag && <span style={{ marginRight: 4 }}>{flag}</span>}{exp.currency}
                           </td>
                           <td style={tdSt}>
                             {exp.category
@@ -863,7 +853,7 @@ export default function ExpenseTracker({
                         </td>
                         <td style={{ width: 16, padding: 0, border: 'none' }} />
                         <td style={{ ...tdSt, paddingLeft: 0, color: '#9e9890' }}>
-                          {ph.currency}{phFlag && <span style={{ marginLeft: 3 }}>{phFlag}</span>}
+                          {phFlag && <span style={{ marginRight: 3 }}>{phFlag}</span>}{ph.currency}
                         </td>
                         <td style={{ ...tdSt, paddingLeft: 0 }}>
                           {ph.category
@@ -1101,7 +1091,7 @@ export default function ExpenseTracker({
                           </td>
                           <td style={{ width: 16, padding: 0, border: 'none' }} />
                           <td style={{ ...tdSt, paddingLeft: 0, color: '#9e9890' }}>
-                            {exp.currency}{flag && <span style={{ marginLeft: 3 }}>{flag}</span>}
+                            {flag && <span style={{ marginRight: 3 }}>{flag}</span>}{exp.currency}
                           </td>
                           <td style={{ ...tdSt, paddingLeft: 0 }}>
                             {exp.category
