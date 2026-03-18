@@ -7,13 +7,14 @@ import {
 } from '../shared';
 
 const SUB_TABS = [
-  { id: 'profile',    label: 'Profile' },
-  { id: 'modules',    label: 'Modules' },
-  { id: 'accounts',   label: 'Accounts' },
-  { id: 'categories', label: 'Categories' },
-  { id: 'payment',    label: 'Payment' },
-  { id: 'security',   label: 'Security' },
-  { id: 'danger',     label: 'Danger' },
+  { id: 'profile',       label: 'Profile' },
+  { id: 'modules',       label: 'Modules' },
+  { id: 'accounts',      label: 'Accounts' },
+  { id: 'categories',    label: 'Categories' },
+  { id: 'payment',       label: 'Payment' },
+  { id: 'subscriptions', label: 'Subscriptions' },
+  { id: 'security',      label: 'Security' },
+  { id: 'danger',        label: 'Danger' },
 ];
 
 // ── Toggle switch ─────────────────────────────────────────────────────────────
@@ -310,10 +311,14 @@ export default function Settings({ state, set, onDeleteAccount, onLogout, settin
             <AddBtn onClick={() => set('paymentMethods', prev => [...(prev || []), { id: Date.now(), name: '' }])}
               label="+ Add payment method" />
           </div>
+        </div>
+      )}
 
-          {/* ── Recurring From Expenses ── */}
-          <div style={{ ...s.card, marginTop: 14 }}>
-            <Lbl>RECURRING FROM EXPENSES</Lbl>
+      {/* ── Subscriptions ── */}
+      {subTab === 'subscriptions' && (
+        <div style={{ maxWidth: 680 }}>
+          <div style={s.card}>
+            <Lbl>SUBSCRIPTIONS</Lbl>
             <p style={{ fontSize: 12, color: '#b0aa9f', marginBottom: 16 }}>
               Automatically tracked from expenses you've marked as recurring.
             </p>
@@ -359,7 +364,7 @@ export default function Settings({ state, set, onDeleteAccount, onLogout, settin
                           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                             <span style={{ fontSize: 13, color: '#1a1714', fontWeight: 500 }}>
                               {f(Number(e.amount) || 0)} / year
-                              <span style={{ fontSize: 11, color: '#b0aa9f', marginLeft: 4 }}>({f((Number(e.amount) || 0) / 12)} / mo)</span>
+                              <span style={{ fontSize: 11, color: '#b0aa9f', marginLeft: 4 }}>({cur.symbol}{((Number(e.amount) || 0) / 12).toFixed(2)} / mo)</span>
                             </span>
                             <button onClick={() => navigate?.('tracker', 'expenses')} style={viewBtn}>View in Expenses →</button>
                           </div>

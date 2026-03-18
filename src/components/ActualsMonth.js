@@ -8,11 +8,36 @@ import ExpenseTracker from './ExpenseTracker';
 
 const MONTH_FULL_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 
+// ── Future Month Cell (renders full <td>) ─────────────────────────────────────
+function FutureCell({ monthName }) {
+  const [hovered, setHovered] = useState(false);
+  const fullName = MONTH_FULL_NAMES[ALL_MONTHS.indexOf(monthName)] || monthName;
+  return (
+    <td
+      style={{ padding: '9px 12px', position: 'relative', overflow: 'visible' }}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+    >
+      <span style={{ color: '#b0aa9f', cursor: 'default' }}>—</span>
+      {hovered && (
+        <div style={{
+          position: 'absolute', bottom: '100%', left: '0', zIndex: 50,
+          background: '#2d2a26', color: '#fff',
+          fontSize: 11, padding: '4px 8px', borderRadius: 5,
+          whiteSpace: 'nowrap', pointerEvents: 'none',
+          marginBottom: 6, boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+        }}>
+          Available from {fullName}
+        </div>
+      )}
+    </td>
+  );
+}
+
 // ── Balance Cell (Balances table only) ────────────────────────────────────────
 // All three states: display:block, width:100%, padding:'3px 0' — row never shifts
-function BalanceCell({ value, onChange, prefix = '', balanceIndex, isFuture, monthName }) {
+function BalanceCell({ value, onChange, prefix = '', balanceIndex }) {
   const [editing, setEditing] = useState(false);
-  const [tipVisible, setTipVisible] = useState(false);
   const inputRef = useRef(null);
 
   useEffect(() => {
@@ -26,32 +51,6 @@ function BalanceCell({ value, onChange, prefix = '', balanceIndex, isFuture, mon
   const formatted = hasValue
     ? `${prefix}${new Intl.NumberFormat('en-GB', { maximumFractionDigits: 0 }).format(Number(value))}`
     : null;
-
-  // Future month: disabled, no interaction
-  if (isFuture) {
-    const fullName = MONTH_FULL_NAMES[ALL_MONTHS.indexOf(monthName)] || monthName;
-    return (
-      <div
-        style={{ position: 'relative', display: 'inline-block', width: '100%' }}
-        onMouseEnter={() => setTipVisible(true)}
-        onMouseLeave={() => setTipVisible(false)}
-      >
-        <span style={{ display: 'block', width: '100%', color: '#d5d0c8', fontSize: 14, cursor: 'default', padding: '3px 0', userSelect: 'none' }}>—</span>
-        {tipVisible && (
-          <div style={{
-            position: 'absolute', bottom: '100%', left: '50%',
-            transform: 'translateX(-50%)',
-            background: '#2d2a26', color: '#fff',
-            fontSize: 11, padding: '4px 8px', borderRadius: 5,
-            whiteSpace: 'nowrap', pointerEvents: 'none',
-            marginBottom: 4, zIndex: 10,
-          }}>
-            Available from {fullName}
-          </div>
-        )}
-      </div>
-    );
-  }
 
   if (editing) {
     return (
@@ -310,16 +309,17 @@ export default function ActualsMonth({
                           return (
                             <tr key={acc.id} style={{ borderBottom: '1px solid #f9f7f3' }}>
                               <td style={{ padding: '9px 12px', fontWeight: 600, color: '#1a1714', overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>{acc.name}</td>
-                              <td style={{ padding: '9px 12px', overflow: 'hidden' }}>
-                                <BalanceCell
-                                  value={localVal}
-                                  onChange={v => setSnap(selectedMonth, acc.id, v)}
-                                  prefix={accCur.symbol}
-                                  balanceIndex={balIdx}
-                                  isFuture={isSelectedMonthFuture}
-                                  monthName={selectedMonth}
-                                />
-                              </td>
+                              {isSelectedMonthFuture
+                                ? <FutureCell monthName={selectedMonth} />
+                                : <td style={{ padding: '9px 12px', overflow: 'hidden' }}>
+                                    <BalanceCell
+                                      value={localVal}
+                                      onChange={v => setSnap(selectedMonth, acc.id, v)}
+                                      prefix={accCur.symbol}
+                                      balanceIndex={balIdx}
+                                    />
+                                  </td>
+                              }
                               <td style={{ padding: '9px 12px', fontSize: 13, color: '#6b6660', whiteSpace: 'nowrap', overflow: 'hidden' }}>
                                 {flag} {accCur.code}
                               </td>

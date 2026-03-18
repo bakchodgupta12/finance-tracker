@@ -249,7 +249,7 @@ export default function Plan({ state, set, f, currency, baseIncome, allocByCat, 
               </colgroup>
               <thead>
                 <tr>{['Label', 'Category', '% of Income', 'Monthly Amount', '', ''].map((h, i) => (
-                  <th key={i} style={{ padding: '8px 10px', paddingLeft: i === 0 ? 4 : 10, color: '#b0aa9f', fontSize: 10, letterSpacing: '0.08em', textAlign: 'left', borderBottom: '1px solid #f0ece4', fontWeight: 500 }}>{h}</th>
+                  <th key={i} style={{ padding: '8px 10px', paddingLeft: i === 0 ? 12 : 10, color: '#b0aa9f', fontSize: 10, letterSpacing: '0.08em', textAlign: 'left', borderBottom: '1px solid #f0ece4', fontWeight: 500 }}>{h}</th>
                 ))}</tr>
               </thead>
               <tbody>
@@ -287,12 +287,14 @@ export default function Plan({ state, set, f, currency, baseIncome, allocByCat, 
                       <input
                         value={row.label}
                         onChange={e => set('allocation', prev => prev.map(x => x.id === row.id ? { ...x, label: e.target.value } : x))}
+                        onMouseEnter={e => { if (document.activeElement !== e.target) e.target.style.borderBottom = '1px solid #e8e4dc'; }}
+                        onMouseLeave={e => { if (document.activeElement !== e.target) e.target.style.borderBottom = 'none'; }}
                         onFocus={e => { e.target.style.borderBottom = '1px solid #7eb5d6'; }}
-                        onBlur={e => { e.target.style.borderBottom = '1px solid #e8e4dc'; }}
+                        onBlur={e => { e.target.style.borderBottom = e.target.matches(':hover') ? '1px solid #e8e4dc' : 'none'; }}
                         style={{
-                          background: 'transparent', border: 'none', borderBottom: '1px solid #e8e4dc', outline: 'none',
+                          background: 'transparent', border: 'none', borderBottom: 'none', outline: 'none',
                           width: '100%', fontSize: 13, fontFamily: 'inherit', color: '#2d2a26',
-                          padding: '4px 0', overflow: 'hidden', textOverflow: 'ellipsis',
+                          padding: '4px 0 4px 12px', overflow: 'hidden', textOverflow: 'ellipsis',
                         }}
                       />
                     </td>
@@ -301,10 +303,12 @@ export default function Plan({ state, set, f, currency, baseIncome, allocByCat, 
                         <select
                           value={row.category}
                           onChange={e => set('allocation', prev => prev.map(x => x.id === row.id ? { ...x, category: e.target.value } : x))}
+                          onMouseEnter={e => { if (document.activeElement !== e.target) e.target.style.borderBottom = '1px solid #e8e4dc'; }}
+                          onMouseLeave={e => { if (document.activeElement !== e.target) e.target.style.borderBottom = 'none'; }}
                           onFocus={e => { e.target.style.borderBottom = '1px solid #7eb5d6'; }}
-                          onBlur={e => { e.target.style.borderBottom = '1px solid #e8e4dc'; }}
+                          onBlur={e => { e.target.style.borderBottom = e.target.matches(':hover') ? '1px solid #e8e4dc' : 'none'; }}
                           style={{
-                            background: 'transparent', border: 'none', borderBottom: '1px solid #e8e4dc', outline: 'none',
+                            background: 'transparent', border: 'none', borderBottom: 'none', outline: 'none',
                             width: 'auto', fontSize: 13, fontFamily: 'inherit', color: '#2d2a26',
                             padding: '4px 0', cursor: 'pointer', appearance: 'none', WebkitAppearance: 'none',
                           }}

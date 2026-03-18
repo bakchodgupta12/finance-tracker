@@ -80,6 +80,8 @@ export default function ExpenseTracker({
   const [removeSubPrompt,    setRemoveSubPrompt]    = useState(null);
   // recurring: id of expense showing frequency prompt (monthly/yearly)
   const [showFrequencyPrompt, setShowFrequencyPrompt] = useState(null);
+  // hover tracking for view-mode rows (to show inactive recurring icon)
+  const [hoveredRowId, setHoveredRowId] = useState(null);
 
   const expenses       = state.expenses        || [];
   const categories     = state.expenseCategories || [];
@@ -817,26 +819,18 @@ export default function ExpenseTracker({
                             </Select>
                           </td>
                           {/* Recurring toggle (edit mode) */}
-                          <td style={{ padding: '5px 4px', verticalAlign: 'middle', position: 'relative' }}>
-                            {removeSubPrompt === exp.id ? (
-                              <div style={{ position: 'absolute', zIndex: 20, background: '#fff', border: '1px solid #e8e4dc', borderRadius: 8, padding: '8px 10px', boxShadow: '0 4px 12px rgba(0,0,0,0.08)', whiteSpace: 'nowrap', fontSize: 11, color: '#4a4643' }}>
-                                Remove from fixed expenses?
-                                <button onMouseDown={e => { e.preventDefault(); confirmRemoveSub(exp.id, true); }} style={{ marginLeft: 6, fontSize: 11, padding: '2px 6px', borderRadius: 4, background: '#2d2a26', color: '#fff', border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}>Yes</button>
-                                <button onMouseDown={e => { e.preventDefault(); confirmRemoveSub(exp.id, false); }} style={{ marginLeft: 4, fontSize: 11, padding: '2px 6px', borderRadius: 4, background: 'none', border: '1px solid #e8e4dc', color: '#6b6660', cursor: 'pointer', fontFamily: 'inherit' }}>Keep</button>
-                              </div>
-                            ) : (
-                              <button
-                                onMouseDown={e => { e.preventDefault(); toggleRecurring(exp.id); }}
-                                title={exp.recurring ? 'Mark non-recurring' : 'Mark recurring'}
-                                style={{
-                                  background: exp.recurring ? '#ebf4fb' : 'none',
-                                  border: 'none',
-                                  borderRadius: '50%', width: 26, height: 26,
-                                  cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                  padding: 0,
-                                }}
-                              ><RecurringIcon active={exp.recurring} /></button>
-                            )}
+                          <td style={{ padding: '5px 4px', verticalAlign: 'middle' }}>
+                            <button
+                              onMouseDown={e => { e.preventDefault(); toggleRecurring(exp.id); }}
+                              title={exp.recurring ? 'Mark non-recurring' : 'Mark recurring'}
+                              style={{
+                                background: exp.recurring ? '#ebf4fb' : 'none',
+                                border: 'none',
+                                borderRadius: '50%', width: 26, height: 26,
+                                cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                padding: 0,
+                              }}
+                            ><RecurringIcon active={exp.recurring} /></button>
                           </td>
                           <td style={{ padding: '5px 8px' }}>
                             <DelBtn onClick={() => deleteExp(exp.id)} />
@@ -864,6 +858,18 @@ export default function ExpenseTracker({
                             </td>
                           </tr>
                         )}
+                        {/* Remove sub prompt row */}
+                        {removeSubPrompt === exp.id && (
+                          <tr style={{ background: '#f9f7f3', borderBottom: '1px solid #f0ece4' }}>
+                            <td colSpan={8} style={{ padding: '6px 12px 10px' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 12, color: '#6b6660' }}>
+                                <span>Remove from Subscriptions too?</span>
+                                <button onMouseDown={e => { e.preventDefault(); confirmRemoveSub(exp.id, true); }} style={{ padding: '3px 10px', borderRadius: 6, border: '1px solid #e8e4dc', background: 'transparent', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit', color: '#c94040' }}>Yes, remove</button>
+                                <button onMouseDown={e => { e.preventDefault(); confirmRemoveSub(exp.id, false); }} style={{ padding: '3px 10px', borderRadius: 6, border: '1px solid #e8e4dc', background: 'transparent', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit', color: '#6b6660' }}>Keep it</button>
+                              </div>
+                            </td>
+                          </tr>
+                        )}
                         </Fragment>
                       );
                     }
@@ -873,44 +879,88 @@ export default function ExpenseTracker({
                     const flag     = getCurrencyFlag(exp.currency);
                     const catColor = categories.find(c => c.name === exp.category)?.color || '#b0aa9f';
                     return (
-                      <tr
-                        key={exp.id}
-                        onClick={() => startEdit(exp.id)}
-                        style={{ borderBottom: '1px solid #f9f7f3', cursor: 'pointer' }}
-                        onMouseEnter={e => { e.currentTarget.style.background = '#fdfcfa'; }}
-                        onMouseLeave={e => { e.currentTarget.style.background = ''; }}
-                      >
-                        <td style={tdSt}>{exp.date}</td>
-                        <td style={{ ...tdSt, fontWeight: 500, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis', maxWidth: 0 }}>
-                          {exp.description || <span style={{ color: '#d5d0c8' }}>—</span>}
-                        </td>
-                        <td style={{ ...tdSt, fontWeight: 600, textAlign: 'right' }}>
-                          {exp.amount
-                            ? `${accCur.symbol}${Number(exp.amount).toLocaleString()}`
-                            : <span style={{ color: '#d5d0c8' }}>—</span>}
-                        </td>
-                        <td style={{ ...tdSt, color: '#9e9890' }}>
-                          {flag && <span style={{ marginRight: 3 }}>{flag}</span>}{exp.currency}
-                        </td>
-                        <td style={tdSt}>
-                          {exp.category
-                            ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
-                                <span style={{ width: 7, height: 7, borderRadius: 2, background: catColor, display: 'inline-block', flexShrink: 0 }} />
-                                {exp.category}
-                              </span>
-                            : <span style={{ color: '#d5d0c8' }}>—</span>}
-                        </td>
-                        <td style={{ ...tdSt, color: '#9e9890' }}>
-                          {exp.paidBy || <span style={{ color: '#d5d0c8' }}>—</span>}
-                        </td>
-                        {/* Recurring indicator (view mode) */}
-                        <td style={{ padding: '6px 4px', textAlign: 'center' }} onClick={e => e.stopPropagation()}>
-                          {exp.recurring && <RecurringIcon active={true} />}
-                        </td>
-                        <td style={{ padding: '6px 8px' }} onClick={e => e.stopPropagation()}>
-                          <DelBtn onClick={() => deleteExp(exp.id)} />
-                        </td>
-                      </tr>
+                      <Fragment key={exp.id}>
+                        <tr
+                          onClick={() => startEdit(exp.id)}
+                          style={{ borderBottom: '1px solid #f9f7f3', cursor: 'pointer' }}
+                          onMouseEnter={e => { e.currentTarget.style.background = '#fdfcfa'; setHoveredRowId(exp.id); }}
+                          onMouseLeave={e => { e.currentTarget.style.background = ''; setHoveredRowId(null); }}
+                        >
+                          <td style={tdSt}>{exp.date}</td>
+                          <td style={{ ...tdSt, fontWeight: 500, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis', maxWidth: 0 }}>
+                            {exp.description || <span style={{ color: '#d5d0c8' }}>—</span>}
+                          </td>
+                          <td style={{ ...tdSt, fontWeight: 600, textAlign: 'right' }}>
+                            {exp.amount
+                              ? `${accCur.symbol}${Number(exp.amount).toLocaleString()}`
+                              : <span style={{ color: '#d5d0c8' }}>—</span>}
+                          </td>
+                          <td style={{ ...tdSt, color: '#9e9890' }}>
+                            {flag && <span style={{ marginRight: 3 }}>{flag}</span>}{exp.currency}
+                          </td>
+                          <td style={tdSt}>
+                            {exp.category
+                              ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+                                  <span style={{ width: 7, height: 7, borderRadius: 2, background: catColor, display: 'inline-block', flexShrink: 0 }} />
+                                  {exp.category}
+                                </span>
+                              : <span style={{ color: '#d5d0c8' }}>—</span>}
+                          </td>
+                          <td style={{ ...tdSt, color: '#9e9890' }}>
+                            {exp.paidBy || <span style={{ color: '#d5d0c8' }}>—</span>}
+                          </td>
+                          {/* Recurring toggle (view mode) */}
+                          <td style={{ padding: '6px 4px', textAlign: 'center' }} onClick={e => e.stopPropagation()}>
+                            <button
+                              onClick={() => toggleRecurring(exp.id)}
+                              title={exp.recurring ? 'Mark non-recurring' : 'Mark recurring'}
+                              style={{
+                                background: exp.recurring ? '#ebf4fb' : 'none',
+                                border: 'none', borderRadius: '50%', width: 26, height: 26,
+                                cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                padding: 0, opacity: (exp.recurring || hoveredRowId === exp.id) ? 1 : 0,
+                              }}
+                            ><RecurringIcon active={exp.recurring} /></button>
+                          </td>
+                          <td style={{ padding: '6px 8px' }} onClick={e => e.stopPropagation()}>
+                            <DelBtn onClick={() => deleteExp(exp.id)} />
+                          </td>
+                        </tr>
+                        {/* Remove sub prompt row */}
+                        {removeSubPrompt === exp.id && (
+                          <tr style={{ background: '#f9f7f3', borderBottom: '1px solid #f0ece4' }}>
+                            <td colSpan={8} style={{ padding: '6px 12px 10px' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 12, color: '#6b6660' }}>
+                                <span>Remove from Subscriptions too?</span>
+                                <button onClick={() => confirmRemoveSub(exp.id, true)} style={{ padding: '3px 10px', borderRadius: 6, border: '1px solid #e8e4dc', background: 'transparent', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit', color: '#c94040' }}>Yes, remove</button>
+                                <button onClick={() => confirmRemoveSub(exp.id, false)} style={{ padding: '3px 10px', borderRadius: 6, border: '1px solid #e8e4dc', background: 'transparent', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit', color: '#6b6660' }}>Keep it</button>
+                              </div>
+                            </td>
+                          </tr>
+                        )}
+                        {/* Frequency prompt row */}
+                        {showFrequencyPrompt === exp.id && (
+                          <tr style={{ background: '#fdfcfa', borderBottom: '1px solid #f0ece4' }}>
+                            <td colSpan={8} style={{ padding: '4px 8px 10px 8px' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: '#6b6660' }}>
+                                <span>How often?</span>
+                                {['monthly', 'yearly'].map(freq => (
+                                  <button
+                                    key={freq}
+                                    onClick={() => setFrequency(exp.id, freq)}
+                                    style={{
+                                      padding: '3px 10px', borderRadius: 6, border: '1px solid #e8e4dc',
+                                      background: (exp.recurringFrequency || 'monthly') === freq ? '#5B9BD5' : 'transparent',
+                                      color: (exp.recurringFrequency || 'monthly') === freq ? '#fff' : '#6b6660',
+                                      fontSize: 12, cursor: 'pointer', fontFamily: 'inherit',
+                                    }}
+                                  >{freq.charAt(0).toUpperCase() + freq.slice(1)}</button>
+                                ))}
+                              </div>
+                            </td>
+                          </tr>
+                        )}
+                      </Fragment>
                     );
                   })}
                 </tbody>
