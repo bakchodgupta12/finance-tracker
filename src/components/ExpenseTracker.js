@@ -3,7 +3,7 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell,
 } from 'recharts';
-import { s, Lbl, DelBtn, Select, CURRENCIES, getCurrency, getCurrencyFlag, ALL_MONTHS, blockNonNumeric, fmtChart } from '../shared';
+import { s, Lbl, DelBtn, Select, CURRENCIES, getCurrency, getCurrencyFlag, ALL_MONTHS, blockNonNumeric, pasteNumericOnly, fmtChart } from '../shared';
 
 // ── Auto-suggest helper ───────────────────────────────────────────────────────
 function getAutoSuggest(description, expenses) {
@@ -64,6 +64,8 @@ export default function ExpenseTracker({
   // track which fields were auto-filled (reset on editingId change)
   const [autoFilled,    setAutoFilled]    = useState({ category: false, paidBy: false });
   const [searchQuery,   setSearchQuery]   = useState('');
+  // recurring: id of expense awaiting "remove from subscriptions?" prompt
+  const [removeSubPrompt, setRemoveSubPrompt] = useState(null);
 
   const expenses       = state.expenses        || [];
   const categories     = state.expenseCategories || [];
@@ -109,14 +111,20 @@ export default function ExpenseTracker({
   const analyticsStats = useMemo(() => {
     const catTotals = {};
     let total = 0;
+    let recurringTotal = 0;
+    let recurringCount = 0;
     filteredExpenses.forEach(e => {
       const amt = toHomeAmt(e);
       total += amt;
       const cat = e.category || 'Other';
       catTotals[cat] = (catTotals[cat] || 0) + amt;
+      if (e.recurring) {
+        recurringTotal += amt;
+        recurringCount++;
+      }
     });
     const topCat = Object.entries(catTotals).sort((a, b) => b[1] - a[1])[0]?.[0] || '—';
-    return { total, catTotals, count: filteredExpenses.length, topCat };
+    return { total, catTotals, count: filteredExpenses.length, topCat, recurringTotal, recurringCount };
   }, [filteredExpenses]); // eslint-disable-line
 
   const barChartData = useMemo(() => {
@@ -239,6 +247,7 @@ export default function ExpenseTracker({
       currency: homeCurrency,
       category: categories[0]?.name || '',
       paidBy: '',
+      recurring: false,
     };
     set('expenses', prev => [newExp, ...(prev || [])]);
     setEditingId(id);
@@ -266,6 +275,40 @@ export default function ExpenseTracker({
     if (exp && !exp.description && !exp.amount) deleteExp(id);
     setEditingId(null);
     setShowSugg(false);
+  };
+
+  const toggleRecurring = (id) => {
+    const exp = (state.expenses || []).find(e => e.id === id);
+    if (!exp) return;
+    const newVal = !exp.recurring;
+    if (newVal) {
+      // Mark recurring and sync to subscriptions
+      updateExp(id, 'recurring', true);
+      set('subscriptions', prev => {
+        const existing = (prev || []).find(s => s.label === exp.description);
+        if (existing) {
+          return prev.map(s => s.label === exp.description
+            ? { ...s, amount: Number(exp.amount) || 0 }
+            : s
+          );
+        }
+        return [...(prev || []), { id: Date.now(), label: exp.description || '', amount: Number(exp.amount) || 0 }];
+      });
+    } else {
+      // Show inline prompt before removing
+      setRemoveSubPrompt(id);
+    }
+  };
+
+  const confirmRemoveSub = (id, remove) => {
+    updateExp(id, 'recurring', false);
+    if (remove) {
+      const exp = (state.expenses || []).find(e => e.id === id);
+      if (exp) {
+        set('subscriptions', prev => (prev || []).filter(s => s.label !== exp.description));
+      }
+    }
+    setRemoveSubPrompt(null);
   };
 
   // ── Description auto-suggest ─────────────────────────────────────────────
@@ -378,6 +421,13 @@ export default function ExpenseTracker({
 
         {analyticsOpen && (
           <div style={{ marginTop: 20 }}>
+            {/* Recurring summary line */}
+            {analyticsStats.recurringCount > 0 && (
+              <p style={{ fontSize: 12, color: '#6b6660', marginBottom: 16 }}>
+                <span style={{ color: '#7eb5d6', marginRight: 4 }}>🔄</span>
+                Recurring this period: <strong>{f(analyticsStats.recurringTotal)}</strong> across {analyticsStats.recurringCount} item{analyticsStats.recurringCount !== 1 ? 's' : ''}
+              </p>
+            )}
             {/* Monthly bar chart */}
             {barChartData.length > 0 ? (
               <div style={{ marginBottom: 20 }}>
@@ -601,11 +651,12 @@ export default function ExpenseTracker({
                   <col style={{ width: 130 }} />
                   <col style={{ width: 120 }} />
                   <col style={{ width: 32 }} />
+                  <col style={{ width: 32 }} />
                 </colgroup>
                 <thead>
                   <tr>
-                    {['Date', 'Description', 'Amount', 'Currency', 'Category', 'Paid By', ''].map(h => (
-                      <th key={h} style={{ ...thSt, textAlign: h === 'Amount' ? 'right' : 'left' }}>{h.toUpperCase()}</th>
+                    {['Date', 'Description', 'Amount', 'Currency', 'Category', 'Paid By', '🔄', ''].map(h => (
+                      <th key={h} style={{ ...thSt, textAlign: h === 'Amount' ? 'right' : 'left' }}>{h}</th>
                     ))}
                   </tr>
                 </thead>
@@ -668,9 +719,10 @@ export default function ExpenseTracker({
                           {/* Amount */}
                           <td style={{ padding: '5px 8px' }}>
                             <input
-                              type="number" value={exp.amount} placeholder="0"
+                              type="number" min={0} value={exp.amount} placeholder="0"
                               onChange={e => updateExp(exp.id, 'amount', e.target.value === '' ? '' : parseFloat(e.target.value) || 0)}
                               onKeyDown={blockNonNumeric}
+                              onPaste={pasteNumericOnly}
                               style={{ ...inpSt, width: '100%', textAlign: 'right' }}
                             />
                           </td>
@@ -728,6 +780,27 @@ export default function ExpenseTracker({
                               {paymentMethods.map(pm => <option key={pm.id} value={pm.name}>{pm.name}</option>)}
                             </Select>
                           </td>
+                          {/* Recurring toggle (edit mode) */}
+                          <td style={{ padding: '5px 4px', verticalAlign: 'middle', position: 'relative' }}>
+                            {removeSubPrompt === exp.id ? (
+                              <div style={{ position: 'absolute', zIndex: 20, background: '#fff', border: '1px solid #e8e4dc', borderRadius: 8, padding: '8px 10px', boxShadow: '0 4px 12px rgba(0,0,0,0.08)', whiteSpace: 'nowrap', fontSize: 11, color: '#4a4643' }}>
+                                Remove from fixed expenses?
+                                <button onMouseDown={e => { e.preventDefault(); confirmRemoveSub(exp.id, true); }} style={{ marginLeft: 6, fontSize: 11, padding: '2px 6px', borderRadius: 4, background: '#2d2a26', color: '#fff', border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}>Yes</button>
+                                <button onMouseDown={e => { e.preventDefault(); confirmRemoveSub(exp.id, false); }} style={{ marginLeft: 4, fontSize: 11, padding: '2px 6px', borderRadius: 4, background: 'none', border: '1px solid #e8e4dc', color: '#6b6660', cursor: 'pointer', fontFamily: 'inherit' }}>Keep</button>
+                              </div>
+                            ) : (
+                              <button
+                                onMouseDown={e => { e.preventDefault(); toggleRecurring(exp.id); }}
+                                title={exp.recurring ? 'Mark non-recurring' : 'Mark recurring'}
+                                style={{
+                                  background: exp.recurring ? '#7eb5d6' : 'none',
+                                  border: exp.recurring ? 'none' : '1px solid #d5d0c8',
+                                  borderRadius: 5, width: 24, height: 24,
+                                  cursor: 'pointer', fontSize: 13, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                }}
+                              >🔄</button>
+                            )}
+                          </td>
                           <td style={{ padding: '5px 8px' }}>
                             <DelBtn onClick={() => deleteExp(exp.id)} />
                           </td>
@@ -769,6 +842,12 @@ export default function ExpenseTracker({
                         </td>
                         <td style={{ ...tdSt, color: '#9e9890' }}>
                           {exp.paidBy || <span style={{ color: '#d5d0c8' }}>—</span>}
+                        </td>
+                        {/* Recurring indicator (view mode) */}
+                        <td style={{ padding: '6px 4px', textAlign: 'center' }} onClick={e => e.stopPropagation()}>
+                          {exp.recurring && (
+                            <span style={{ color: '#7eb5d6', fontSize: 13 }} title="Recurring">🔄</span>
+                          )}
                         </td>
                         <td style={{ padding: '6px 8px' }} onClick={e => e.stopPropagation()}>
                           <DelBtn onClick={() => deleteExp(exp.id)} />

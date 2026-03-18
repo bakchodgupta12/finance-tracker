@@ -143,12 +143,17 @@ export default function App() {
         Rent:'Need', Groceries:'Need', Food:'Want', Transport:'Need', Utilities:'Need',
         Shopping:'Want', Entertainment:'Want', Travel:'Want', Drinks:'Want', Health:'Need',
       };
-      const migratedData = existingData.expenseCategories ? {
-        ...existingData,
-        expenseCategories: existingData.expenseCategories.map(cat =>
-          cat.type !== undefined ? cat : { ...cat, type: DEFAULT_CAT_TYPES[cat.name] || null }
+      const migratedData = {
+        ...(existingData.expenseCategories ? {
+          ...existingData,
+          expenseCategories: existingData.expenseCategories.map(cat =>
+            cat.type !== undefined ? cat : { ...cat, type: DEFAULT_CAT_TYPES[cat.name] || null }
+          ),
+        } : existingData),
+        expenses: (existingData.expenses || []).map(e =>
+          'recurring' in e ? e : { ...e, recurring: false }
         ),
-      } : existingData;
+      };
       const sanitizedData = sanitizeNumericFields(migratedData);
       setState({ ...makeDefaultState(), ...sanitizedData, userId });
       setSelectedYear(year || currentYear);

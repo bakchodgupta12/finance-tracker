@@ -3,7 +3,7 @@ import {
   PieChart, Pie, Cell
 } from 'recharts';
 import {
-  s, Lbl, Inp, DelBtn, AddBtn, Divider, Select, EditableCell, blockNonNumeric,
+  s, Lbl, Inp, DelBtn, AddBtn, Divider, Select, EditableCell, blockNonNumeric, pasteNumericOnly,
   CAT_COLORS, CATEGORIES, CURRENCIES
 } from '../shared';
 
@@ -210,9 +210,11 @@ export default function Plan({ state, set, f, currency, baseIncome, allocByCat, 
                         <span style={{ color: '#b0aa9f', fontSize: 10 }}>target:</span>
                         <input
                           type="number"
+                          min={0}
                           value={bench}
                           onChange={e => set(key, parseFloat(e.target.value) || 0)}
                           onKeyDown={blockNonNumeric}
+                          onPaste={pasteNumericOnly}
                           style={{ ...s.input, width: 42, padding: '2px 4px', fontSize: 11, textAlign: 'center' }}
                         />
                         <span style={{ color: '#b0aa9f', fontSize: 10 }}>%</span>
@@ -282,12 +284,36 @@ export default function Plan({ state, set, f, currency, baseIncome, allocByCat, 
                     }}
                   >
                     <td style={{ padding: '5px 10px' }}>
-                      <Inp value={row.label} onChange={v => set('allocation', prev => prev.map(x => x.id === row.id ? { ...x, label: v } : x))} style={{ width: '100%', overflow: 'hidden', textOverflow: 'ellipsis' }} />
+                      <input
+                        value={row.label}
+                        onChange={e => set('allocation', prev => prev.map(x => x.id === row.id ? { ...x, label: e.target.value } : x))}
+                        onFocus={e => { e.target.style.borderBottom = '1px solid #7eb5d6'; }}
+                        onBlur={e => { e.target.style.borderBottom = 'none'; }}
+                        style={{
+                          background: 'transparent', border: 'none', borderBottom: 'none', outline: 'none',
+                          width: '100%', fontSize: 13, fontFamily: 'inherit', color: '#2d2a26',
+                          padding: '4px 0', overflow: 'hidden', textOverflow: 'ellipsis',
+                        }}
+                      />
                     </td>
                     <td style={{ padding: '5px 10px' }}>
-                      <Select value={row.category} onChange={e => set('allocation', prev => prev.map(x => x.id === row.id ? { ...x, category: e.target.value } : x))}>
-                        {CATEGORIES.map(c => <option key={c}>{c}</option>)}
-                      </Select>
+                      <div style={{ position: 'relative', width: '100%' }}>
+                        <select
+                          value={row.category}
+                          onChange={e => set('allocation', prev => prev.map(x => x.id === row.id ? { ...x, category: e.target.value } : x))}
+                          onFocus={e => { e.target.style.borderBottom = '1px solid #7eb5d6'; }}
+                          onBlur={e => { e.target.style.borderBottom = 'none'; }}
+                          style={{
+                            background: 'transparent', border: 'none', borderBottom: 'none', outline: 'none',
+                            width: '100%', fontSize: 13, fontFamily: 'inherit', color: '#2d2a26',
+                            padding: '4px 0', cursor: 'pointer', appearance: 'none', WebkitAppearance: 'none',
+                            paddingRight: 16,
+                          }}
+                        >
+                          {CATEGORIES.map(c => <option key={c}>{c}</option>)}
+                        </select>
+                        <div style={{ position: 'absolute', right: 0, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', color: '#9e9890', fontSize: 11 }}>▾</div>
+                      </div>
                     </td>
                     <td style={{ padding: '5px 10px' }}>
                       <EditableCell

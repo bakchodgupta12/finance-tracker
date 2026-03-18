@@ -4,18 +4,35 @@ import React, { useState, useEffect, useRef } from 'react';
 // Input handlers
 // ─────────────────────────────────────────────
 export const blockNonNumeric = (e) => {
+  if (e.metaKey || e.ctrlKey) return;
   const allowed = [
     'Backspace', 'Delete', 'Tab', 'Enter', 'Escape',
     'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown',
-    'Home', 'End', 'a', 'A', 'c', 'C', 'v', 'V',
-    'x', 'X', 'z', 'Z',
+    'Home', 'End',
   ];
-  // Allow Cmd/Ctrl combinations (select all, copy, paste, undo)
-  if (e.metaKey || e.ctrlKey) return;
   const isDigit = e.key >= '0' && e.key <= '9';
   const isDecimal = e.key === '.' && !e.currentTarget.value.includes('.');
+  if (e.key === '-' || e.key === 'Subtract') {
+    e.preventDefault();
+    return;
+  }
   if (!isDigit && !isDecimal && !allowed.includes(e.key)) {
     e.preventDefault();
+  }
+};
+
+export const pasteNumericOnly = (e) => {
+  e.preventDefault();
+  const text = e.clipboardData.getData('text');
+  const numeric = text.replace(/[^0-9.]/g, '');
+  const val = parseFloat(numeric);
+  if (!isNaN(val) && val >= 0) {
+    const nativeInput = e.target;
+    const nativeSetter = Object.getOwnPropertyDescriptor(
+      window.HTMLInputElement.prototype, 'value'
+    ).set;
+    nativeSetter.call(nativeInput, String(val));
+    nativeInput.dispatchEvent(new Event('input', { bubbles: true }));
   }
 };
 
@@ -228,10 +245,12 @@ export const Inp = ({ value, onChange, type='text', style={}, placeholder='', on
   const handleKeyDown = type === 'number'
     ? (e) => { blockNonNumeric(e); onKeyDown?.(e); }
     : onKeyDown;
+  const extraProps = type === 'number' ? { min: 0, onPaste: pasteNumericOnly } : {};
   return (
     <input type={type} value={value} placeholder={placeholder} onKeyDown={handleKeyDown} disabled={disabled}
       onChange={e => onChange(type==='number' ? (e.target.value === '' ? '' : (parseFloat(e.target.value) || 0)) : e.target.value)}
-      style={{ ...s.input, ...style, opacity: disabled ? 0.5 : 1 }} />
+      style={{ ...s.input, ...style, opacity: disabled ? 0.5 : 1 }}
+      {...extraProps} />
   );
 };
 
@@ -359,6 +378,7 @@ export function EditableCell({
     <input
       ref={inputRef}
       type="number"
+      min={0}
       value={value || ''}
       onChange={e => onChange(e.target.value === '' ? '' : (parseFloat(e.target.value) || 0))}
       onBlur={() => setEditing(false)}
@@ -367,6 +387,7 @@ export function EditableCell({
         if (e.key === 'Escape') setEditing(false);
         blockNonNumeric(e);
       }}
+      onPaste={pasteNumericOnly}
       style={{
         width: width,
         background: '#f9f7f3',

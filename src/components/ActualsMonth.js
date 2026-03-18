@@ -1,14 +1,16 @@
 import { useState, useEffect, useRef } from 'react';
 import {
-  s, Lbl, Inp, Divider, EditableCell, blockNonNumeric,
+  s, Lbl, Inp, Divider, EditableCell, blockNonNumeric, pasteNumericOnly,
   CAT_COLORS, CATEGORIES, ACCOUNT_GROUPS, GROUP_HEADER_STYLES,
-  getCurrency, getCurrencyFlag, getCurrentMonthAbbr, CURRENCIES,
+  getCurrency, getCurrencyFlag, getCurrentMonthAbbr, CURRENCIES, ALL_MONTHS,
 } from '../shared';
 import ExpenseTracker from './ExpenseTracker';
 
+const MONTH_FULL_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+
 // ── Balance Cell (Balances table only) ────────────────────────────────────────
 // All three states: display:block, width:100%, padding:'3px 0' — row never shifts
-function BalanceCell({ value, onChange, prefix = '', balanceIndex }) {
+function BalanceCell({ value, onChange, prefix = '', balanceIndex, isFuture, monthName }) {
   const [editing, setEditing] = useState(false);
   const inputRef = useRef(null);
 
@@ -24,11 +26,23 @@ function BalanceCell({ value, onChange, prefix = '', balanceIndex }) {
     ? `${prefix}${new Intl.NumberFormat('en-GB', { maximumFractionDigits: 0 }).format(Number(value))}`
     : null;
 
+  // Future month: disabled, no interaction
+  if (isFuture) {
+    const fullName = MONTH_FULL_NAMES[ALL_MONTHS.indexOf(monthName)] || monthName;
+    return (
+      <span
+        title={`Available from ${fullName}`}
+        style={{ display: 'block', width: '100%', color: '#d5d0c8', fontSize: 14, cursor: 'default', padding: '3px 0', userSelect: 'none' }}
+      >—</span>
+    );
+  }
+
   if (editing) {
     return (
       <input
         ref={inputRef}
         type="number"
+        min={0}
         value={value || ''}
         onChange={e => onChange(e.target.value === '' ? '' : (parseFloat(e.target.value) || 0))}
         onBlur={() => setEditing(false)}
@@ -44,6 +58,7 @@ function BalanceCell({ value, onChange, prefix = '', balanceIndex }) {
           }
           blockNonNumeric(e);
         }}
+        onPaste={pasteNumericOnly}
         style={{
           display: 'block', width: '100%', boxSizing: 'border-box',
           background: 'transparent', border: 'none',
@@ -150,6 +165,17 @@ export default function ActualsMonth({
   const currentMonth  = getCurrentMonthAbbr();
   const monthIdx      = MONTHS.indexOf(selectedMonth);
   const prevMonth     = monthIdx > 0 ? MONTHS[monthIdx - 1] : null;
+
+  // Determine if selectedMonth (in selectedYear context) is a future month
+  const isSelectedMonthFuture = (() => {
+    const today        = new Date();
+    const yearStartMonth = state.yearStartMonth ?? 0;
+    const mIdx         = ALL_MONTHS.indexOf(selectedMonth); // calendar 0-indexed
+    // calendar year for this month: months >= yearStartMonth → selectedYear, else selectedYear+1
+    const calYear      = mIdx >= yearStartMonth ? selectedYear : selectedYear + 1;
+    return calYear > today.getFullYear() ||
+      (calYear === today.getFullYear() && mIdx > today.getMonth());
+  })();
 
   // Account groups for Balances sub-tab
   const accountGroups = ACCOUNT_GROUPS.map(group => {
@@ -274,6 +300,8 @@ export default function ActualsMonth({
                                   onChange={v => setSnap(selectedMonth, acc.id, v)}
                                   prefix={accCur.symbol}
                                   balanceIndex={balIdx}
+                                  isFuture={isSelectedMonthFuture}
+                                  monthName={selectedMonth}
                                 />
                               </td>
                               <td style={{ padding: '9px 12px', fontSize: 13, color: '#6b6660', whiteSpace: 'nowrap', overflow: 'hidden' }}>
