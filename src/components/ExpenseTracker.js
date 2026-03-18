@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect, Fragment, useRef } from 'react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+  LineChart, Line,
   PieChart, Pie, Cell,
 } from 'recharts';
 import { s, Lbl, DelBtn, Select, CURRENCIES, getCurrency, getCurrencyFlag, ALL_MONTHS, blockNonNumeric, pasteNumericOnly, fmtChart } from '../shared';
@@ -64,7 +65,7 @@ function DateInput({ value, onChange }) {
   };
   const handlePickerChange = (e) => { onChange(e.target.value); };
   return (
-    <div style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+    <div style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', gap: 2 }}>
       <input type="text" value={displayValue} onChange={handleTextChange}
         placeholder="DD-MM-YYYY"
         style={{ width: 95, background: 'transparent', border: 'none',
@@ -186,6 +187,18 @@ export default function ExpenseTracker({
   }, [filteredExpenses]); // eslint-disable-line
 
   const barChartData = useMemo(() => {
+    if (dateFilter === 'this-month') {
+      const year = today.getFullYear();
+      const month = today.getMonth();
+      const daysUpToToday = today.getDate();
+      const result = [];
+      for (let day = 1; day <= daysUpToToday; day++) {
+        const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+        const total = expenses.filter(e => e.date === dateStr).reduce((sum, e) => sum + toHomeAmt(e), 0);
+        result.push({ day: String(day), total: Math.round(total) });
+      }
+      return result;
+    }
     const { from, to } = getFilterRange();
     const monthTotals = {};
     MONTHS.forEach(m => { monthTotals[m] = 0; });
@@ -272,7 +285,6 @@ export default function ExpenseTracker({
     return expenses.filter(exp => {
       if (!exp.recurring) return false;
       if ((exp.skippedMonths || []).includes(monthKey)) return false;
-      if ((exp.confirmedMonths || []).includes(monthKey)) return false;
       if (seen.has(exp.id)) return false;
       seen.add(exp.id);
       if (exp.recurringFrequency === 'yearly') {
@@ -427,16 +439,11 @@ export default function ExpenseTracker({
   };
 
   const confirmPlaceholder = (ph) => {
-    const { _isPlaceholder, _expectedDate, _monthKey, ...baseExp } = ph;
-    const id = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-    set('expenses', prev => {
-      const updated = (prev || []).map(e =>
-        e.id === ph.id
-          ? { ...e, confirmedMonths: [...(e.confirmedMonths || []), _monthKey] }
-          : e
-      );
-      return [{ ...baseExp, id, date: _expectedDate, skippedMonths: [], confirmedMonths: [] }, ...updated];
-    });
+    set('expenses', prev => (prev || []).map(e =>
+      e.id === ph.id
+        ? { ...e, confirmedMonths: [...(e.confirmedMonths || []), ph._monthKey] }
+        : e
+    ));
   };
 
   const skipPlaceholder = (exp) => {
@@ -565,23 +572,37 @@ export default function ExpenseTracker({
                 Recurring this period: <strong>{f(analyticsStats.recurringTotal)}</strong> across {analyticsStats.recurringCount} item{analyticsStats.recurringCount !== 1 ? 's' : ''}
               </p>
             )}
-            {/* Monthly bar chart */}
+            {/* Monthly spend chart */}
             {barChartData.length > 0 ? (
               <div style={{ marginBottom: 20 }}>
                 <Lbl>MONTHLY SPEND</Lbl>
                 <div style={{ marginTop: 10 }}>
                   <ResponsiveContainer width="100%" height={140}>
-                    <BarChart data={barChartData} barSize={24}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#f0ece4" />
-                      <XAxis dataKey="month" stroke="#e8e4dc" tick={{ fill: '#b0aa9f', fontSize: 11 }} />
-                      <YAxis stroke="#e8e4dc" tick={{ fill: '#b0aa9f', fontSize: 11 }} tickFormatter={v => fmtChart(v, currency.symbol)} />
-                      <Tooltip
-                        formatter={val => [fmtChart(val, currency.symbol), 'Spend']}
-                        labelStyle={{ color: '#2d2a26', fontSize: 12 }}
-                        contentStyle={{ border: '1px solid #e8e4dc', borderRadius: 8, fontSize: 12 }}
-                      />
-                      <Bar dataKey="total" fill="#e8a598" radius={[4, 4, 0, 0]} />
-                    </BarChart>
+                    {dateFilter === 'this-month' ? (
+                      <LineChart data={barChartData}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#f0ece4" />
+                        <XAxis dataKey="day" stroke="#e8e4dc" tick={{ fill: '#b0aa9f', fontSize: 11 }} />
+                        <YAxis stroke="#e8e4dc" tick={{ fill: '#b0aa9f', fontSize: 11 }} tickFormatter={v => fmtChart(v, currency.symbol)} />
+                        <Tooltip
+                          formatter={val => [fmtChart(val, currency.symbol), 'Spend']}
+                          labelStyle={{ color: '#2d2a26', fontSize: 12 }}
+                          contentStyle={{ border: '1px solid #e8e4dc', borderRadius: 8, fontSize: 12 }}
+                        />
+                        <Line type="monotone" dataKey="total" stroke="#e8a598" dot={false} activeDot={{ r: 4, fill: '#e8a598' }} />
+                      </LineChart>
+                    ) : (
+                      <BarChart data={barChartData} barSize={24}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#f0ece4" />
+                        <XAxis dataKey="month" stroke="#e8e4dc" tick={{ fill: '#b0aa9f', fontSize: 11 }} />
+                        <YAxis stroke="#e8e4dc" tick={{ fill: '#b0aa9f', fontSize: 11 }} tickFormatter={v => fmtChart(v, currency.symbol)} />
+                        <Tooltip
+                          formatter={val => [fmtChart(val, currency.symbol), 'Spend']}
+                          labelStyle={{ color: '#2d2a26', fontSize: 12 }}
+                          contentStyle={{ border: '1px solid #e8e4dc', borderRadius: 8, fontSize: 12 }}
+                        />
+                        <Bar dataKey="total" fill="#e8a598" radius={[4, 4, 0, 0]} />
+                      </BarChart>
+                    )}
                   </ResponsiveContainer>
                 </div>
               </div>
@@ -593,12 +614,21 @@ export default function ExpenseTracker({
             {catChartData.length > 0 && (
               <div style={{ marginBottom: 20 }}>
               <Lbl>SPEND BY CATEGORY</Lbl>
-              <div style={{ display: 'grid', gridTemplateColumns: '148px 1fr', gap: 20, alignItems: 'start', marginTop: 10 }}>
-                <PieChart width={140} height={140}>
-                  <Pie data={catChartData} cx={65} cy={65} innerRadius={36} outerRadius={60} paddingAngle={2} dataKey="value">
-                    {catChartData.map((entry, i) => <Cell key={i} fill={entry.color} />)}
-                  </Pie>
-                </PieChart>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, alignItems: 'start', marginTop: 10 }}>
+                <ResponsiveContainer width="100%" height={Math.max(200, catChartData.length * 32)}>
+                  <BarChart data={catChartData} layout="vertical">
+                    <CartesianGrid strokeDasharray="3 3" stroke="#f0ece4" horizontal={false} />
+                    <XAxis type="number" stroke="#e8e4dc" tick={{ fill: '#b0aa9f', fontSize: 11 }} tickFormatter={v => fmtChart(v, currency.symbol)} />
+                    <YAxis type="category" dataKey="name" stroke="#e8e4dc" tick={{ fill: '#b0aa9f', fontSize: 11 }} width={80} />
+                    <Tooltip
+                      formatter={val => [fmtChart(val, currency.symbol), 'Total']}
+                      contentStyle={{ border: '1px solid #e8e4dc', borderRadius: 8, fontSize: 12 }}
+                    />
+                    <Bar dataKey="value" radius={[0, 4, 4, 0]}>
+                      {catChartData.map((entry, i) => <Cell key={i} fill={entry.color} />)}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
                 <table style={{ fontSize: 12, borderCollapse: 'collapse', width: '100%' }}>
                   <thead>
                     <tr>
@@ -810,11 +840,11 @@ export default function ExpenseTracker({
                 </thead>
                 <tbody>
                   {recurringPlaceholders.map(ph => {
-                    const phCur = getCurrency(ph.currency);
+                    const isConfirmed = (ph.confirmedMonths || []).includes(ph._monthKey);
                     const phFlag = getCurrencyFlag(ph.currency);
                     const catColor = categories.find(c => c.name === ph.category)?.color || '#b0aa9f';
                     return (
-                      <tr key={`ph-${ph.id}`} style={{ borderBottom: '1px solid #f0ece4', opacity: 0.5, background: '#f9f7f3' }}>
+                      <tr key={`ph-${ph.id}`} style={{ borderBottom: '1px solid #f0ece4', opacity: isConfirmed ? 1 : 0.5, background: isConfirmed ? '' : '#f9f7f3' }}>
                         <td style={tdSt}>{formatDisplayDate(ph._expectedDate)}</td>
                         <td style={{ width: 16, padding: 0, border: 'none' }} />
                         <td style={{ ...tdSt, paddingLeft: 0, fontWeight: 500, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis', maxWidth: 0 }}>
@@ -842,16 +872,20 @@ export default function ExpenseTracker({
                           <RecurringIcon active={true} />
                         </td>
                         <td style={{ padding: '6px 8px', width: 110 }}>
-                          <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
-                            <button
-                              onClick={() => confirmPlaceholder(ph)}
-                              style={{ padding: '2px 8px', borderRadius: 5, border: '1px solid #6dbb8a', background: 'transparent', color: '#6dbb8a', fontSize: 11, cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap' }}
-                            >✓</button>
-                            <button
-                              onClick={() => skipPlaceholder(ph)}
-                              style={{ padding: '2px 8px', borderRadius: 5, border: '1px solid #e8e4dc', background: 'transparent', color: '#9e9890', fontSize: 11, cursor: 'pointer', fontFamily: 'inherit' }}
-                            >✕</button>
-                          </div>
+                          {isConfirmed ? (
+                            <DelBtn onClick={() => skipPlaceholder(ph)} />
+                          ) : (
+                            <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+                              <button
+                                onClick={() => confirmPlaceholder(ph)}
+                                style={{ padding: '2px 8px', borderRadius: 5, border: '1px solid #6dbb8a', background: 'transparent', color: '#6dbb8a', fontSize: 11, cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap' }}
+                              >✓</button>
+                              <button
+                                onClick={() => skipPlaceholder(ph)}
+                                style={{ padding: '2px 8px', borderRadius: 5, border: '1px solid #e8e4dc', background: 'transparent', color: '#9e9890', fontSize: 11, cursor: 'pointer', fontFamily: 'inherit' }}
+                              >✕</button>
+                            </div>
+                          )}
                         </td>
                       </tr>
                     );

@@ -249,7 +249,7 @@ export default function Plan({ state, set, f, currency, baseIncome, allocByCat, 
               </colgroup>
               <thead>
                 <tr>{['Label', 'Category', '% of Income', 'Monthly Amount', '', ''].map((h, i) => (
-                  <th key={i} style={{ padding: '8px 10px', paddingLeft: i === 0 ? 20 : 10, color: '#b0aa9f', fontSize: 10, letterSpacing: '0.08em', textAlign: 'left', borderBottom: '1px solid #f0ece4', fontWeight: 500 }}>{h}</th>
+                  <th key={i} style={{ padding: '8px 10px', paddingLeft: i === 0 ? 16 : 10, color: '#b0aa9f', fontSize: 10, letterSpacing: '0.08em', textAlign: 'left', borderBottom: '1px solid #f0ece4', fontWeight: 500 }}>{h}</th>
                 ))}</tr>
               </thead>
               <tbody>
@@ -334,13 +334,26 @@ export default function Plan({ state, set, f, currency, baseIncome, allocByCat, 
               </tbody>
             </table>
             <Divider />
-            <div style={{ display: 'flex', alignItems: 'center', fontSize: 13 }}>
-              <div style={{ flex: '0 0 28%', color: '#9e9890', paddingLeft: 20 }}>Total allocated</div>
-              <div style={{ flex: '0 0 24%' }} />
-              <div style={{ flex: '0 0 17%', fontWeight: 700, color: totalAllocPct > 100 ? '#c94040' : '#1a1714' }}>
-                {totalAllocPct.toFixed(1)}%
-              </div>
-            </div>
+            <table style={{ width: '100%', tableLayout: 'fixed', borderCollapse: 'collapse', fontSize: 13 }}>
+              <colgroup>
+                <col style={{ width: '28%' }} />
+                <col style={{ width: '24%' }} />
+                <col style={{ width: '17%' }} />
+                <col style={{ width: '18%' }} />
+                <col style={{ width: '7%' }} />
+                <col style={{ width: '6%' }} />
+              </colgroup>
+              <tbody>
+                <tr>
+                  <td style={{ padding: '6px 10px', paddingLeft: 16, color: '#9e9890' }}>Total allocated</td>
+                  <td />
+                  <td style={{ padding: '6px 10px', fontWeight: 700, color: totalAllocPct > 100 ? '#c94040' : '#1a1714' }}>
+                    {totalAllocPct.toFixed(1)}%
+                  </td>
+                  <td /><td /><td />
+                </tr>
+              </tbody>
+            </table>
           </div>
 
           {/* Secondary income allocations (only when >1 source) */}
