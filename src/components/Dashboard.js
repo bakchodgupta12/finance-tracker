@@ -42,6 +42,10 @@ export default function Dashboard({
     }).filter(Boolean);
   }, [MONTHS, state.accountSnapshots, state.accounts, toHome, totalLiabilities]); // eslint-disable-line
 
+  const dashIsPositive = chartData.length < 2 || chartData[chartData.length - 1].total >= chartData[0].total;
+  const dashColor = dashIsPositive ? '#6dbb8a' : '#E8A838';
+  const dashGradId = dashIsPositive ? 'dashGradPos' : 'dashGradNeg';
+
   // Month-on-month net worth change
   const momChange = useMemo(() => {
     if (chartData.length < 2) return null;
@@ -323,16 +327,16 @@ export default function Dashboard({
             <ResponsiveContainer width="100%" height={160}>
               <AreaChart data={chartData}>
                 <defs>
-                  <linearGradient id="dashGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#7eb5d6" stopOpacity={0.25} />
-                    <stop offset="95%" stopColor="#7eb5d6" stopOpacity={0} />
+                  <linearGradient id={dashGradId} x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor={dashColor} stopOpacity={dashIsPositive ? 0.25 : 0.20} />
+                    <stop offset="95%" stopColor={dashColor} stopOpacity={0} />
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f0ece4" />
                 <XAxis dataKey="month" stroke="#e8e4dc" tick={{ fill: '#b0aa9f', fontSize: 11 }} />
                 <YAxis stroke="#e8e4dc" tick={{ fill: '#b0aa9f', fontSize: 11 }} tickFormatter={v => fmtChart(v, currency.symbol)} />
                 <Tooltip content={<ChartTip symbol={currency.symbol} />} />
-                <Area type="monotone" dataKey="total" name="Net Worth" stroke="#7eb5d6" fill="url(#dashGrad)" strokeWidth={2} dot={{ fill: '#7eb5d6', r: 4, strokeWidth: 0 }} activeDot={{ r: 5 }} />
+                <Area type="monotone" dataKey="total" name="Net Worth" stroke={dashColor} fill={`url(#${dashGradId})`} strokeWidth={2} dot={{ fill: dashColor, r: 4, strokeWidth: 0 }} activeDot={{ r: 5 }} />
               </AreaChart>
             </ResponsiveContainer>
           </div>

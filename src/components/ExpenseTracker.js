@@ -212,6 +212,37 @@ export default function ExpenseTracker({
     return Object.entries(totals).sort((a, b) => b[1] - a[1]);
   }, [monthExpenses]); // eslint-disable-line
 
+  const isSelectedMonthFuture = (() => {
+    const yearStartMonth = state.yearStartMonth ?? 0;
+    const mIdx = ALL_MONTHS.indexOf(selectedMonth);
+    const calYear = mIdx >= yearStartMonth ? selectedYear : selectedYear + 1;
+    return calYear > today.getFullYear() ||
+      (calYear === today.getFullYear() && mIdx > today.getMonth());
+  })();
+
+  const recurringPlaceholders = useMemo(() => {
+    if (!isSelectedMonthFuture) return [];
+    const yearStartMonth = state.yearStartMonth ?? 0;
+    const mIdx = ALL_MONTHS.indexOf(selectedMonth);
+    const calYear = mIdx >= yearStartMonth ? selectedYear : selectedYear + 1;
+    const monthKey = `${calYear}-${String(mIdx + 1).padStart(2, '0')}`;
+    return expenses.filter(exp => {
+      if (!exp.recurring) return false;
+      if ((exp.skippedMonths || []).includes(monthKey)) return false;
+      if (exp.recurringFrequency === 'yearly') {
+        const origDate = new Date(exp.date);
+        return origDate.getMonth() === mIdx;
+      }
+      return true;
+    }).map(exp => {
+      const origDate = new Date(exp.date);
+      const maxDay = new Date(calYear, mIdx + 1, 0).getDate();
+      const day = Math.min(origDate.getDate(), maxDay);
+      const expectedDate = `${calYear}-${String(mIdx + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+      return { ...exp, _isPlaceholder: true, _expectedDate: expectedDate, _monthKey: monthKey };
+    });
+  }, [expenses, selectedMonth, selectedYear, isSelectedMonthFuture, state.yearStartMonth]); // eslint-disable-line
+
   // ── Auto-populate expenseAutoActuals ─────────────────────────────────────
   useEffect(() => {
     const autoActuals = {};
@@ -265,6 +296,7 @@ export default function ExpenseTracker({
       paidBy: '',
       recurring: false,
       recurringFrequency: null,
+      skippedMonths: [],
     };
     set('expenses', prev => [newExp, ...(prev || [])]);
     setEditingId(id);
@@ -345,6 +377,20 @@ export default function ExpenseTracker({
       }
     }
     setRemoveSubPrompt(null);
+  };
+
+  const confirmPlaceholder = (exp) => {
+    const { _isPlaceholder, _expectedDate, _monthKey, ...baseExp } = exp;
+    const id = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    set('expenses', prev => [{ ...baseExp, id, date: _expectedDate }, ...(prev || [])]);
+  };
+
+  const skipPlaceholder = (exp) => {
+    set('expenses', prev => (prev || []).map(e =>
+      e.id === exp.id
+        ? { ...e, skippedMonths: [...(e.skippedMonths || []), exp._monthKey] }
+        : e
+    ));
   };
 
   // ── Description auto-suggest ─────────────────────────────────────────────
@@ -668,7 +714,7 @@ export default function ExpenseTracker({
           </div>
         )}
 
-        {!isSearching && (monthExpenses.length === 0 ? (
+        {!isSearching && (monthExpenses.length === 0 && recurringPlaceholders.length === 0 ? (
           <div style={{
             textAlign: 'center', padding: '28px 20px', color: '#b0aa9f', fontSize: 13,
             background: '#fdfcfa', borderRadius: 10, border: '1px dashed #e8e4dc',
@@ -699,6 +745,49 @@ export default function ExpenseTracker({
                   </tr>
                 </thead>
                 <tbody>
+                  {recurringPlaceholders.map(ph => {
+                    const phCur = getCurrency(ph.currency);
+                    const phFlag = getCurrencyFlag(ph.currency);
+                    const catColor = categories.find(c => c.name === ph.category)?.color || '#b0aa9f';
+                    return (
+                      <tr key={`ph-${ph.id}`} style={{ borderBottom: '1px solid #f0ece4', opacity: 0.5, background: '#f9f7f3' }}>
+                        <td style={tdSt}>{ph._expectedDate}</td>
+                        <td style={{ ...tdSt, fontWeight: 500, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis', maxWidth: 0 }}>
+                          {ph.description || <span style={{ color: '#d5d0c8' }}>—</span>}
+                        </td>
+                        <td style={{ ...tdSt, fontWeight: 600, textAlign: 'right' }}>
+                          {ph.amount ? `${phCur.symbol}${Number(ph.amount).toLocaleString()}` : <span style={{ color: '#d5d0c8' }}>—</span>}
+                        </td>
+                        <td style={{ ...tdSt, color: '#9e9890' }}>
+                          {phFlag && <span style={{ marginRight: 3 }}>{phFlag}</span>}{ph.currency}
+                        </td>
+                        <td style={tdSt}>
+                          {ph.category
+                            ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+                                <span style={{ width: 7, height: 7, borderRadius: 2, background: catColor, display: 'inline-block', flexShrink: 0 }} />
+                                {ph.category}
+                              </span>
+                            : <span style={{ color: '#d5d0c8' }}>—</span>}
+                        </td>
+                        <td style={{ ...tdSt, color: '#9e9890' }}>
+                          {ph.paidBy || <span style={{ color: '#d5d0c8' }}>—</span>}
+                        </td>
+                        <td style={{ padding: '6px 4px', textAlign: 'center' }}>
+                          <RecurringIcon active={true} />
+                        </td>
+                        <td style={{ padding: '6px 8px', whiteSpace: 'nowrap' }}>
+                          <button
+                            onClick={() => confirmPlaceholder(ph)}
+                            style={{ padding: '2px 7px', borderRadius: 5, border: '1px solid #6dbb8a', background: 'transparent', color: '#2d9e6b', fontSize: 11, cursor: 'pointer', fontFamily: 'inherit', marginRight: 4 }}
+                          >✓ Confirm</button>
+                          <button
+                            onClick={() => skipPlaceholder(ph)}
+                            style={{ padding: '2px 7px', borderRadius: 5, border: '1px solid #d8d4cc', background: 'transparent', color: '#9e9890', fontSize: 11, cursor: 'pointer', fontFamily: 'inherit' }}
+                          >Skip</button>
+                        </td>
+                      </tr>
+                    );
+                  })}
                   {visibleExpenses.map(exp => {
                     const isEditing = editingId === exp.id;
 
@@ -966,6 +1055,13 @@ export default function ExpenseTracker({
                 </tbody>
               </table>
             </div>
+
+            {/* Empty state when only placeholders exist */}
+            {monthExpenses.length === 0 && recurringPlaceholders.length > 0 && (
+              <div style={{ textAlign: 'center', padding: '16px 20px', color: '#b0aa9f', fontSize: 13, background: '#fdfcfa', borderRadius: 10, border: '1px dashed #e8e4dc', marginTop: 8 }}>
+                No expenses logged yet. {recurringPlaceholders.length} recurring expense{recurringPlaceholders.length !== 1 ? 's' : ''} expected this month — confirm them above when ready.
+              </div>
+            )}
 
             {/* Pagination */}
             {monthExpenses.length > visibleCount && (

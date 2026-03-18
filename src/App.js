@@ -97,10 +97,9 @@ export default function App() {
       setFxLoading(false);
       if (source === 'exchangerate-api') {
         const month = new Date().toISOString().slice(0, 7);
-        setState(prev => {
-          const p = prev.fxApiCallsThisMonth || { month: '', count: 0 };
-          const next = p.month !== month ? { month, count: 1 } : { ...p, count: p.count + 1 };
-          return { ...prev, fxApiCallsThisMonth: next };
+        set('fxApiCallsThisMonth', prev => {
+          const p = prev || { month: '', count: 0 };
+          return p.month !== month ? { month, count: 1 } : { ...p, count: p.count + 1 };
         });
       }
     });
@@ -153,6 +152,7 @@ export default function App() {
         expenses: (existingData.expenses || []).map(e => {
           let m = 'recurring' in e ? e : { ...e, recurring: false };
           if (!('recurringFrequency' in m)) m = { ...m, recurringFrequency: m.recurring ? 'monthly' : null };
+          if (!('skippedMonths' in m)) m = { ...m, skippedMonths: [] };
           return m;
         }),
       };
