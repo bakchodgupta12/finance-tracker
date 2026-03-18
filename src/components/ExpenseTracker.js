@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, Fragment } from 'react';
+import { useState, useMemo, useEffect, Fragment, useRef } from 'react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell,
@@ -42,6 +42,48 @@ function getAutoSuggest(description, expenses) {
     }
   }
   return null;
+}
+
+const formatDisplayDate = (isoDate) => {
+  if (!isoDate) return '';
+  const [year, month, day] = isoDate.split('-');
+  return `${day}-${month}-${year}`;
+};
+
+function DateInput({ value, onChange }) {
+  const hiddenRef = useRef(null);
+  const displayValue = value && /^\d{4}-\d{2}-\d{2}$/.test(value)
+    ? formatDisplayDate(value)
+    : (value || '');
+  const handleTextChange = (e) => {
+    const raw = e.target.value;
+    const parts = raw.split('-');
+    if (parts.length === 3 && parts[2].length === 4) {
+      onChange(`${parts[2]}-${parts[1]}-${parts[0]}`);
+    } else { onChange(raw); }
+  };
+  const handlePickerChange = (e) => { onChange(e.target.value); };
+  return (
+    <div style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+      <input type="text" value={displayValue} onChange={handleTextChange}
+        placeholder="DD-MM-YYYY"
+        style={{ width: 95, background: 'transparent', border: 'none',
+          borderBottom: '1px solid #e8e4dc', outline: 'none', fontSize: 13,
+          color: '#1a1714', padding: '3px 0', fontFamily: 'inherit' }} />
+      <button type="button" onClick={() => hiddenRef.current?.showPicker?.()}
+        style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0,
+          color: '#b0aa9f', display: 'flex', alignItems: 'center', flexShrink: 0 }}>
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+          strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+          <line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/>
+          <line x1="3" y1="10" x2="21" y2="10"/>
+        </svg>
+      </button>
+      <input ref={hiddenRef} type="date" value={value || ''} onChange={handlePickerChange}
+        style={{ position: 'absolute', opacity: 0, width: 0, height: 0, pointerEvents: 'none' }} />
+    </div>
+  );
 }
 
 const PAGE_SIZE = 20;
@@ -230,6 +272,7 @@ export default function ExpenseTracker({
     return expenses.filter(exp => {
       if (!exp.recurring) return false;
       if ((exp.skippedMonths || []).includes(monthKey)) return false;
+      if ((exp.confirmedMonths || []).includes(monthKey)) return false;
       if (seen.has(exp.id)) return false;
       seen.add(exp.id);
       if (exp.recurringFrequency === 'yearly') {
@@ -300,6 +343,7 @@ export default function ExpenseTracker({
       recurring: false,
       recurringFrequency: null,
       skippedMonths: [],
+      confirmedMonths: [],
     };
     set('expenses', prev => [newExp, ...(prev || [])]);
     setEditingId(id);
@@ -388,10 +432,10 @@ export default function ExpenseTracker({
     set('expenses', prev => {
       const updated = (prev || []).map(e =>
         e.id === ph.id
-          ? { ...e, skippedMonths: [...(e.skippedMonths || []), _monthKey] }
+          ? { ...e, confirmedMonths: [...(e.confirmedMonths || []), _monthKey] }
           : e
       );
-      return [{ ...baseExp, id, date: _expectedDate, skippedMonths: [] }, ...updated];
+      return [{ ...baseExp, id, date: todayStr, skippedMonths: [], confirmedMonths: [] }, ...updated];
     });
   };
 
@@ -696,7 +740,7 @@ export default function ExpenseTracker({
                       const catColor = categories.find(c => c.name === exp.category)?.color || '#b0aa9f';
                       return (
                         <tr key={exp.id} style={{ borderBottom: '1px solid #f9f7f3' }}>
-                          <td style={tdSt}>{exp.date}</td>
+                          <td style={tdSt}>{formatDisplayDate(exp.date)}</td>
                           <td style={{ ...tdSt, fontWeight: 500 }}>{exp.description || <span style={{ color: '#d5d0c8' }}>—</span>}</td>
                           <td style={{ ...tdSt, fontWeight: 600, textAlign: 'right' }}>
                             {exp.amount ? `${accCur.symbol}${Number(exp.amount).toLocaleString()}` : <span style={{ color: '#d5d0c8' }}>—</span>}
@@ -734,12 +778,13 @@ export default function ExpenseTracker({
           </div>
         ) : (
           <>
-            <div style={{ overflowX: 'auto' }}>
+            <div>
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, tableLayout: 'fixed' }}>
                 <colgroup>
-                  <col style={{ width: 100 }} />
-                  <col style={{ width: 200 }} />
                   <col style={{ width: 120 }} />
+                  <col style={{ width: 16 }} />
+                  <col />
+                  <col style={{ width: 90 }} />
                   <col style={{ width: 90 }} />
                   <col style={{ width: 130 }} />
                   <col style={{ width: 120 }} />
@@ -748,16 +793,17 @@ export default function ExpenseTracker({
                 </colgroup>
                 <thead>
                   <tr>
-                    {['Date', 'Description', 'Amount', 'Currency', 'Category', 'Paid By', 'REC', ''].map(h => (
-                      <th key={h} style={{
-                        ...thSt,
-                        textAlign: h === 'Amount' ? 'right' : h === 'REC' ? 'center' : 'left',
-                        verticalAlign: h === 'REC' ? 'middle' : undefined,
-                        padding: h === 'REC' ? '8px 8px' : undefined,
-                      }}>
-                        {h === 'REC' ? <RecurringIcon active={false} /> : h}
-                      </th>
-                    ))}
+                    <th style={{ ...thSt, paddingLeft: 4 }}>DATE</th>
+                    <th style={{ width: 16, padding: 0, border: 'none' }} />
+                    <th style={{ ...thSt, paddingLeft: 0 }}>DESCRIPTION</th>
+                    <th style={{ ...thSt, paddingLeft: 0, textAlign: 'right' }}>AMOUNT</th>
+                    <th style={{ ...thSt, paddingLeft: 0 }}>CURRENCY</th>
+                    <th style={{ ...thSt, paddingLeft: 0 }}>CATEGORY</th>
+                    <th style={{ ...thSt, paddingLeft: 0 }}>PAID BY</th>
+                    <th style={{ ...thSt, paddingLeft: 0, textAlign: 'center', verticalAlign: 'middle', padding: '8px 8px' }}>
+                      <RecurringIcon active={false} />
+                    </th>
+                    <th style={{ ...thSt, paddingLeft: 0 }} />
                   </tr>
                 </thead>
                 <tbody>
@@ -767,17 +813,18 @@ export default function ExpenseTracker({
                     const catColor = categories.find(c => c.name === ph.category)?.color || '#b0aa9f';
                     return (
                       <tr key={`ph-${ph.id}`} style={{ borderBottom: '1px solid #f0ece4', opacity: 0.5, background: '#f9f7f3' }}>
-                        <td style={tdSt}>{ph._expectedDate}</td>
-                        <td style={{ ...tdSt, fontWeight: 500, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis', maxWidth: 0 }}>
+                        <td style={tdSt}>{formatDisplayDate(ph._expectedDate)}</td>
+                        <td style={{ width: 16, padding: 0, border: 'none' }} />
+                        <td style={{ ...tdSt, paddingLeft: 0, fontWeight: 500, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis', maxWidth: 0 }}>
                           {ph.description || <span style={{ color: '#d5d0c8' }}>—</span>}
                         </td>
-                        <td style={{ ...tdSt, fontWeight: 600, textAlign: 'right' }}>
+                        <td style={{ ...tdSt, paddingLeft: 0, fontWeight: 600, textAlign: 'right' }}>
                           {ph.amount ? `${phCur.symbol}${Number(ph.amount).toLocaleString()}` : <span style={{ color: '#d5d0c8' }}>—</span>}
                         </td>
-                        <td style={{ ...tdSt, color: '#9e9890' }}>
+                        <td style={{ ...tdSt, paddingLeft: 0, color: '#9e9890' }}>
                           {phFlag && <span style={{ marginRight: 3 }}>{phFlag}</span>}{ph.currency}
                         </td>
-                        <td style={tdSt}>
+                        <td style={{ ...tdSt, paddingLeft: 0 }}>
                           {ph.category
                             ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
                                 <span style={{ width: 7, height: 7, borderRadius: 2, background: catColor, display: 'inline-block', flexShrink: 0 }} />
@@ -785,7 +832,7 @@ export default function ExpenseTracker({
                               </span>
                             : <span style={{ color: '#d5d0c8' }}>—</span>}
                         </td>
-                        <td style={{ ...tdSt, color: '#9e9890' }}>
+                        <td style={{ ...tdSt, paddingLeft: 0, color: '#9e9890' }}>
                           {ph.paidBy || <span style={{ color: '#d5d0c8' }}>—</span>}
                         </td>
                         <td style={{ padding: '8px 8px', textAlign: 'center', verticalAlign: 'middle' }}>
@@ -819,29 +866,13 @@ export default function ExpenseTracker({
                           }}
                         >
                           {/* Date */}
-                          <td style={{ padding: '5px 8px', position: 'relative' }}>
-                            <input
-                              type="date" value={exp.date}
-                              onChange={e => updateExp(exp.id, 'date', e.target.value)}
-                              onFocus={e => { e.target.style.borderBottom = '1px solid #7eb5d6'; }}
-                              onBlur={e => { e.target.style.borderBottom = 'none'; }}
-                              style={{
-                                background: 'transparent', border: 'none', borderBottom: 'none', outline: 'none',
-                                width: '100%', fontSize: 13, fontFamily: 'inherit', color: '#2d2a26',
-                                padding: '4px 20px 4px 0', cursor: 'pointer',
-                              }}
-                            />
-                            <span style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', color: '#b0aa9f' }}>
-                              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
-                                <line x1="16" y1="2" x2="16" y2="6"/>
-                                <line x1="8" y1="2" x2="8" y2="6"/>
-                                <line x1="3" y1="10" x2="21" y2="10"/>
-                              </svg>
-                            </span>
+                          <td style={{ padding: '5px 8px' }}>
+                            <DateInput value={exp.date} onChange={v => updateExp(exp.id, 'date', v)} />
                           </td>
+                          {/* Spacer */}
+                          <td style={{ width: 16, padding: 0, border: 'none' }} />
                           {/* Description + dropdown */}
-                          <td style={{ padding: '5px 8px', position: 'relative' }}>
+                          <td style={{ padding: '5px 0 5px 0', position: 'relative' }}>
                             <input
                               type="text" value={exp.description}
                               autoFocus
@@ -876,7 +907,7 @@ export default function ExpenseTracker({
                             )}
                           </td>
                           {/* Amount */}
-                          <td style={{ padding: '5px 8px' }}>
+                          <td style={{ padding: '5px 0' }}>
                             <input
                               type="number" min={0} value={exp.amount} placeholder="0"
                               onChange={e => updateExp(exp.id, 'amount', e.target.value === '' ? '' : parseFloat(e.target.value) || 0)}
@@ -886,7 +917,7 @@ export default function ExpenseTracker({
                             />
                           </td>
                           {/* Currency */}
-                          <td style={{ padding: '5px 8px' }}>
+                          <td style={{ padding: '5px 0' }}>
                             <Select
                               value={exp.currency}
                               onChange={e => updateExp(exp.id, 'currency', e.target.value)}
@@ -896,7 +927,7 @@ export default function ExpenseTracker({
                             </Select>
                           </td>
                           {/* Category */}
-                          <td style={{ padding: '5px 8px' }}>
+                          <td style={{ padding: '5px 0' }}>
                             <Select
                               value={exp.category}
                               onChange={e => { updateExp(exp.id, 'category', e.target.value); setAutoFilled(p => ({ ...p, category: false })); }}
@@ -929,7 +960,7 @@ export default function ExpenseTracker({
                             })()}
                           </td>
                           {/* Paid By */}
-                          <td style={{ padding: '5px 8px' }}>
+                          <td style={{ padding: '5px 0' }}>
                             <Select
                               value={exp.paidBy}
                               onChange={e => { updateExp(exp.id, 'paidBy', e.target.value); setAutoFilled(p => ({ ...p, paidBy: false })); }}
@@ -960,7 +991,7 @@ export default function ExpenseTracker({
                         {/* Frequency prompt row */}
                         {showFrequencyPrompt === exp.id && (
                           <tr style={{ background: '#fdfcfa', borderBottom: '1px solid #f0ece4' }}>
-                            <td colSpan={8} style={{ padding: '4px 8px 10px 8px' }}>
+                            <td colSpan={9} style={{ padding: '4px 8px 10px 8px' }}>
                               <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: '#6b6660' }}>
                                 <span>How often?</span>
                                 {['monthly', 'yearly'].map(freq => (
@@ -982,7 +1013,7 @@ export default function ExpenseTracker({
                         {/* Remove sub prompt row */}
                         {removeSubPrompt === exp.id && (
                           <tr style={{ background: '#f9f7f3', borderBottom: '1px solid #f0ece4' }}>
-                            <td colSpan={8} style={{ padding: '6px 12px 10px' }}>
+                            <td colSpan={9} style={{ padding: '6px 12px 10px' }}>
                               <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 12, color: '#6b6660' }}>
                                 <span>Remove from Subscriptions too?</span>
                                 <button onMouseDown={e => { e.preventDefault(); confirmRemoveSub(exp.id, true); }} style={{ padding: '3px 10px', borderRadius: 6, border: '1px solid #e8e4dc', background: 'transparent', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit', color: '#c94040' }}>Yes, remove</button>
@@ -1007,19 +1038,20 @@ export default function ExpenseTracker({
                           onMouseEnter={e => { e.currentTarget.style.background = '#fdfcfa'; setHoveredRowId(exp.id); }}
                           onMouseLeave={e => { e.currentTarget.style.background = ''; setHoveredRowId(null); }}
                         >
-                          <td style={tdSt}>{exp.date}</td>
-                          <td style={{ ...tdSt, fontWeight: 500, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis', maxWidth: 0 }}>
+                          <td style={tdSt}>{formatDisplayDate(exp.date)}</td>
+                          <td style={{ width: 16, padding: 0, border: 'none' }} />
+                          <td style={{ ...tdSt, paddingLeft: 0, fontWeight: 500, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis', maxWidth: 0 }}>
                             {exp.description || <span style={{ color: '#d5d0c8' }}>—</span>}
                           </td>
-                          <td style={{ ...tdSt, fontWeight: 600, textAlign: 'right' }}>
+                          <td style={{ ...tdSt, paddingLeft: 0, fontWeight: 600, textAlign: 'right' }}>
                             {exp.amount
                               ? `${accCur.symbol}${Number(exp.amount).toLocaleString()}`
                               : <span style={{ color: '#d5d0c8' }}>—</span>}
                           </td>
-                          <td style={{ ...tdSt, color: '#9e9890' }}>
+                          <td style={{ ...tdSt, paddingLeft: 0, color: '#9e9890' }}>
                             {flag && <span style={{ marginRight: 3 }}>{flag}</span>}{exp.currency}
                           </td>
-                          <td style={tdSt}>
+                          <td style={{ ...tdSt, paddingLeft: 0 }}>
                             {exp.category
                               ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
                                   <span style={{ width: 7, height: 7, borderRadius: 2, background: catColor, display: 'inline-block', flexShrink: 0 }} />
@@ -1027,7 +1059,7 @@ export default function ExpenseTracker({
                                 </span>
                               : <span style={{ color: '#d5d0c8' }}>—</span>}
                           </td>
-                          <td style={{ ...tdSt, color: '#9e9890' }}>
+                          <td style={{ ...tdSt, paddingLeft: 0, color: '#9e9890' }}>
                             {exp.paidBy || <span style={{ color: '#d5d0c8' }}>—</span>}
                           </td>
                           {/* Recurring toggle (view mode) */}
@@ -1052,7 +1084,7 @@ export default function ExpenseTracker({
                         {/* Remove sub prompt row */}
                         {removeSubPrompt === exp.id && (
                           <tr style={{ background: '#f9f7f3', borderBottom: '1px solid #f0ece4' }}>
-                            <td colSpan={8} style={{ padding: '6px 12px 10px' }}>
+                            <td colSpan={9} style={{ padding: '6px 12px 10px' }}>
                               <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 12, color: '#6b6660' }}>
                                 <span>Remove from Subscriptions too?</span>
                                 <button onClick={() => confirmRemoveSub(exp.id, true)} style={{ padding: '3px 10px', borderRadius: 6, border: '1px solid #e8e4dc', background: 'transparent', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit', color: '#c94040' }}>Yes, remove</button>
@@ -1064,7 +1096,7 @@ export default function ExpenseTracker({
                         {/* Frequency prompt row */}
                         {showFrequencyPrompt === exp.id && (
                           <tr style={{ background: '#fdfcfa', borderBottom: '1px solid #f0ece4' }}>
-                            <td colSpan={8} style={{ padding: '4px 8px 10px 8px' }}>
+                            <td colSpan={9} style={{ padding: '4px 8px 10px 8px' }}>
                               <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: '#6b6660' }}>
                                 <span>How often?</span>
                                 {['monthly', 'yearly'].map(freq => (

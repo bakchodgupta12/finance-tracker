@@ -153,6 +153,7 @@ export default function App() {
           let m = 'recurring' in e ? e : { ...e, recurring: false };
           if (!('recurringFrequency' in m)) m = { ...m, recurringFrequency: m.recurring ? 'monthly' : null };
           if (!('skippedMonths' in m)) m = { ...m, skippedMonths: [] };
+          if (!('confirmedMonths' in m)) m = { ...m, confirmedMonths: [] };
           return m;
         }),
       };
