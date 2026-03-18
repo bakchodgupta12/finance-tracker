@@ -3,7 +3,7 @@ import { hashPassword, verifyPassword } from '../supabase';
 import {
   s, Lbl, Inp, FG, Toast, Divider, DelBtn, AddBtn, TypeBadge, Select,
   CURRENCIES, ACCOUNT_TYPES, ALL_MONTHS, capitalize,
-  EXPENSE_CATEGORY_COLORS,
+  EXPENSE_CATEGORY_COLORS, fmt, getCurrency,
 } from '../shared';
 
 const SUB_TABS = [
@@ -43,7 +43,7 @@ function Toggle({ checked, onChange, label, desc }) {
   );
 }
 
-export default function Settings({ state, set, onDeleteAccount, onLogout, settingsTargetSubTab, setSettingsTargetSubTab }) {
+export default function Settings({ state, set, onDeleteAccount, onLogout, settingsTargetSubTab, setSettingsTargetSubTab, navigate }) {
   const [subTab,     setSubTab]     = useState('profile');
 
   useEffect(() => {
@@ -309,6 +309,71 @@ export default function Settings({ state, set, onDeleteAccount, onLogout, settin
             ))}
             <AddBtn onClick={() => set('paymentMethods', prev => [...(prev || []), { id: Date.now(), name: '' }])}
               label="+ Add payment method" />
+          </div>
+
+          {/* ── Recurring From Expenses ── */}
+          <div style={{ ...s.card, marginTop: 14 }}>
+            <Lbl>RECURRING FROM EXPENSES</Lbl>
+            <p style={{ fontSize: 12, color: '#b0aa9f', marginBottom: 16 }}>
+              Automatically tracked from expenses you've marked as recurring.
+            </p>
+            {(() => {
+              const recurring = expenses.filter(e => e.recurring);
+              if (recurring.length === 0) {
+                return (
+                  <p style={{ fontSize: 13, color: '#b0aa9f' }}>
+                    Mark expenses as recurring in the Tracker to see them here.
+                  </p>
+                );
+              }
+              const cur = getCurrency(state.currencyCode || 'GBP');
+              const f = (v) => fmt(v, cur.symbol, cur.locale);
+              const monthly = recurring.filter(e => !e.recurringFrequency || e.recurringFrequency === 'monthly');
+              const yearly  = recurring.filter(e => e.recurringFrequency === 'yearly');
+              const totalMonthly = monthly.reduce((s, e) => s + (Number(e.amount) || 0), 0)
+                                 + yearly.reduce((s, e) => s + ((Number(e.amount) || 0) / 12), 0);
+              const rowStyle = { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 };
+              const viewBtn  = { fontSize: 11, color: '#7eb5d6', background: 'none', border: 'none', cursor: 'pointer', padding: 0, fontFamily: 'inherit' };
+              return (
+                <>
+                  {monthly.length > 0 && (
+                    <>
+                      <p style={{ fontSize: 10, color: '#b0aa9f', letterSpacing: '0.1em', fontWeight: 600, marginBottom: 8 }}>MONTHLY</p>
+                      {monthly.map((e, i) => (
+                        <div key={i} style={rowStyle}>
+                          <span style={{ fontSize: 13, color: '#4a4643' }}>{e.description || '(unnamed)'}</span>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                            <span style={{ fontSize: 13, color: '#1a1714', fontWeight: 500 }}>{f(Number(e.amount) || 0)} / month</span>
+                            <button onClick={() => navigate?.('tracker', 'expenses')} style={viewBtn}>View in Expenses →</button>
+                          </div>
+                        </div>
+                      ))}
+                    </>
+                  )}
+                  {yearly.length > 0 && (
+                    <>
+                      <p style={{ fontSize: 10, color: '#b0aa9f', letterSpacing: '0.1em', fontWeight: 600, marginBottom: 8, marginTop: monthly.length > 0 ? 14 : 0 }}>YEARLY</p>
+                      {yearly.map((e, i) => (
+                        <div key={i} style={rowStyle}>
+                          <span style={{ fontSize: 13, color: '#4a4643' }}>{e.description || '(unnamed)'}</span>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                            <span style={{ fontSize: 13, color: '#1a1714', fontWeight: 500 }}>
+                              {f(Number(e.amount) || 0)} / year
+                              <span style={{ fontSize: 11, color: '#b0aa9f', marginLeft: 4 }}>({f((Number(e.amount) || 0) / 12)} / mo)</span>
+                            </span>
+                            <button onClick={() => navigate?.('tracker', 'expenses')} style={viewBtn}>View in Expenses →</button>
+                          </div>
+                        </div>
+                      ))}
+                    </>
+                  )}
+                  <div style={{ borderTop: '1px solid #f0ece4', paddingTop: 10, marginTop: 10, display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
+                    <span style={{ color: '#9e9890' }}>Total monthly recurring</span>
+                    <span style={{ fontWeight: 700, color: '#1a1714' }}>{f(totalMonthly)} / month</span>
+                  </div>
+                </>
+              );
+            })()}
           </div>
         </div>
       )}

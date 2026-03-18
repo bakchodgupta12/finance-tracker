@@ -249,7 +249,7 @@ export default function Plan({ state, set, f, currency, baseIncome, allocByCat, 
               </colgroup>
               <thead>
                 <tr>{['Label', 'Category', '% of Income', 'Monthly Amount', '', ''].map((h, i) => (
-                  <th key={i} style={{ padding: '8px 10px', color: '#b0aa9f', fontSize: 10, letterSpacing: '0.08em', textAlign: 'left', borderBottom: '1px solid #f0ece4', fontWeight: 500 }}>{h}</th>
+                  <th key={i} style={{ padding: '8px 10px', paddingLeft: i === 0 ? 4 : 10, color: '#b0aa9f', fontSize: 10, letterSpacing: '0.08em', textAlign: 'left', borderBottom: '1px solid #f0ece4', fontWeight: 500 }}>{h}</th>
                 ))}</tr>
               </thead>
               <tbody>
@@ -283,37 +283,36 @@ export default function Plan({ state, set, f, currency, baseIncome, allocByCat, 
                       opacity: dragId === row.id ? 0.4 : 1,
                     }}
                   >
-                    <td style={{ padding: '5px 10px' }}>
+                    <td style={{ padding: '5px 10px', paddingLeft: 4 }}>
                       <input
                         value={row.label}
                         onChange={e => set('allocation', prev => prev.map(x => x.id === row.id ? { ...x, label: e.target.value } : x))}
                         onFocus={e => { e.target.style.borderBottom = '1px solid #7eb5d6'; }}
-                        onBlur={e => { e.target.style.borderBottom = 'none'; }}
+                        onBlur={e => { e.target.style.borderBottom = '1px solid #e8e4dc'; }}
                         style={{
-                          background: 'transparent', border: 'none', borderBottom: 'none', outline: 'none',
+                          background: 'transparent', border: 'none', borderBottom: '1px solid #e8e4dc', outline: 'none',
                           width: '100%', fontSize: 13, fontFamily: 'inherit', color: '#2d2a26',
                           padding: '4px 0', overflow: 'hidden', textOverflow: 'ellipsis',
                         }}
                       />
                     </td>
                     <td style={{ padding: '5px 10px' }}>
-                      <div style={{ position: 'relative', width: '100%' }}>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
                         <select
                           value={row.category}
                           onChange={e => set('allocation', prev => prev.map(x => x.id === row.id ? { ...x, category: e.target.value } : x))}
                           onFocus={e => { e.target.style.borderBottom = '1px solid #7eb5d6'; }}
-                          onBlur={e => { e.target.style.borderBottom = 'none'; }}
+                          onBlur={e => { e.target.style.borderBottom = '1px solid #e8e4dc'; }}
                           style={{
-                            background: 'transparent', border: 'none', borderBottom: 'none', outline: 'none',
-                            width: '100%', fontSize: 13, fontFamily: 'inherit', color: '#2d2a26',
+                            background: 'transparent', border: 'none', borderBottom: '1px solid #e8e4dc', outline: 'none',
+                            width: 'auto', fontSize: 13, fontFamily: 'inherit', color: '#2d2a26',
                             padding: '4px 0', cursor: 'pointer', appearance: 'none', WebkitAppearance: 'none',
-                            paddingRight: 16,
                           }}
                         >
                           {CATEGORIES.map(c => <option key={c}>{c}</option>)}
                         </select>
-                        <div style={{ position: 'absolute', right: 0, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', color: '#9e9890', fontSize: 11 }}>▾</div>
-                      </div>
+                        <span style={{ pointerEvents: 'none', color: '#9e9890', fontSize: 11, flexShrink: 0 }}>▾</span>
+                      </span>
                     </td>
                     <td style={{ padding: '5px 10px' }}>
                       <EditableCell

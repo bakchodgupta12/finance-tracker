@@ -12,6 +12,7 @@ const MONTH_FULL_NAMES = ['January','February','March','April','May','June','Jul
 // All three states: display:block, width:100%, padding:'3px 0' — row never shifts
 function BalanceCell({ value, onChange, prefix = '', balanceIndex, isFuture, monthName }) {
   const [editing, setEditing] = useState(false);
+  const [tipVisible, setTipVisible] = useState(false);
   const inputRef = useRef(null);
 
   useEffect(() => {
@@ -30,10 +31,25 @@ function BalanceCell({ value, onChange, prefix = '', balanceIndex, isFuture, mon
   if (isFuture) {
     const fullName = MONTH_FULL_NAMES[ALL_MONTHS.indexOf(monthName)] || monthName;
     return (
-      <span
-        title={`Available from ${fullName}`}
-        style={{ display: 'block', width: '100%', color: '#d5d0c8', fontSize: 14, cursor: 'default', padding: '3px 0', userSelect: 'none' }}
-      >—</span>
+      <div
+        style={{ position: 'relative', display: 'inline-block', width: '100%' }}
+        onMouseEnter={() => setTipVisible(true)}
+        onMouseLeave={() => setTipVisible(false)}
+      >
+        <span style={{ display: 'block', width: '100%', color: '#d5d0c8', fontSize: 14, cursor: 'default', padding: '3px 0', userSelect: 'none' }}>—</span>
+        {tipVisible && (
+          <div style={{
+            position: 'absolute', bottom: '100%', left: '50%',
+            transform: 'translateX(-50%)',
+            background: '#2d2a26', color: '#fff',
+            fontSize: 11, padding: '4px 8px', borderRadius: 5,
+            whiteSpace: 'nowrap', pointerEvents: 'none',
+            marginBottom: 4, zIndex: 10,
+          }}>
+            Available from {fullName}
+          </div>
+        )}
+      </div>
     );
   }
 

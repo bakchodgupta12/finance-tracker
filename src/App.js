@@ -150,9 +150,11 @@ export default function App() {
             cat.type !== undefined ? cat : { ...cat, type: DEFAULT_CAT_TYPES[cat.name] || null }
           ),
         } : existingData),
-        expenses: (existingData.expenses || []).map(e =>
-          'recurring' in e ? e : { ...e, recurring: false }
-        ),
+        expenses: (existingData.expenses || []).map(e => {
+          let m = 'recurring' in e ? e : { ...e, recurring: false };
+          if (!('recurringFrequency' in m)) m = { ...m, recurringFrequency: m.recurring ? 'monthly' : null };
+          return m;
+        }),
       };
       const sanitizedData = sanitizeNumericFields(migratedData);
       setState({ ...makeDefaultState(), ...sanitizedData, userId });
@@ -429,6 +431,9 @@ export default function App() {
             state={state} set={set}
             onDeleteAccount={handleDeleteAccount}
             onLogout={handleLogout}
+            settingsTargetSubTab={settingsTargetSubTab}
+            setSettingsTargetSubTab={setSettingsTargetSubTab}
+            navigate={navigate}
           />
         )}
 

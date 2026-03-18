@@ -1,9 +1,21 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, Fragment } from 'react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell,
 } from 'recharts';
 import { s, Lbl, DelBtn, Select, CURRENCIES, getCurrency, getCurrencyFlag, ALL_MONTHS, blockNonNumeric, pasteNumericOnly, fmtChart } from '../shared';
+
+// ── Recurring icon ────────────────────────────────────────────────────────────
+const RecurringIcon = ({ active }) => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+    stroke={active ? '#5B9BD5' : '#b0aa9f'}
+    strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M17 1l4 4-4 4"/>
+    <path d="M3 11V9a4 4 0 0 1 4-4h14"/>
+    <path d="M7 23l-4-4 4-4"/>
+    <path d="M21 13v2a4 4 0 0 1-4 4H3"/>
+  </svg>
+);
 
 // ── Auto-suggest helper ───────────────────────────────────────────────────────
 function getAutoSuggest(description, expenses) {
@@ -65,7 +77,9 @@ export default function ExpenseTracker({
   const [autoFilled,    setAutoFilled]    = useState({ category: false, paidBy: false });
   const [searchQuery,   setSearchQuery]   = useState('');
   // recurring: id of expense awaiting "remove from subscriptions?" prompt
-  const [removeSubPrompt, setRemoveSubPrompt] = useState(null);
+  const [removeSubPrompt,    setRemoveSubPrompt]    = useState(null);
+  // recurring: id of expense showing frequency prompt (monthly/yearly)
+  const [showFrequencyPrompt, setShowFrequencyPrompt] = useState(null);
 
   const expenses       = state.expenses        || [];
   const categories     = state.expenseCategories || [];
@@ -248,6 +262,7 @@ export default function ExpenseTracker({
       category: categories[0]?.name || '',
       paidBy: '',
       recurring: false,
+      recurringFrequency: null,
     };
     set('expenses', prev => [newExp, ...(prev || [])]);
     setEditingId(id);
@@ -275,29 +290,45 @@ export default function ExpenseTracker({
     if (exp && !exp.description && !exp.amount) deleteExp(id);
     setEditingId(null);
     setShowSugg(false);
+    setShowFrequencyPrompt(null);
+  };
+
+  // Sync one expense to subscriptions based on its frequency
+  const syncToSubscriptions = (exp, frequency) => {
+    const desc = exp.description || '';
+    const amt  = Number(exp.amount) || 0;
+    const isYearly  = frequency === 'yearly';
+    const subLabel  = isYearly ? `${desc} (yearly)` : desc;
+    const subAmount = isYearly ? amt / 12 : amt;
+    set('subscriptions', prev => {
+      const subs     = prev || [];
+      // Remove both variants then add the correct one
+      const filtered = subs.filter(s => s.label !== desc && s.label !== `${desc} (yearly)`);
+      return [...filtered, { id: Date.now(), label: subLabel, amount: subAmount }];
+    });
   };
 
   const toggleRecurring = (id) => {
     const exp = (state.expenses || []).find(e => e.id === id);
     if (!exp) return;
-    const newVal = !exp.recurring;
-    if (newVal) {
-      // Mark recurring and sync to subscriptions
+    if (!exp.recurring) {
+      // Mark recurring, default frequency monthly, show frequency prompt
       updateExp(id, 'recurring', true);
-      set('subscriptions', prev => {
-        const existing = (prev || []).find(s => s.label === exp.description);
-        if (existing) {
-          return prev.map(s => s.label === exp.description
-            ? { ...s, amount: Number(exp.amount) || 0 }
-            : s
-          );
-        }
-        return [...(prev || []), { id: Date.now(), label: exp.description || '', amount: Number(exp.amount) || 0 }];
-      });
+      updateExp(id, 'recurringFrequency', 'monthly');
+      setShowFrequencyPrompt(id);
+      syncToSubscriptions(exp, 'monthly');
     } else {
-      // Show inline prompt before removing
+      // Show "remove from subscriptions?" prompt
       setRemoveSubPrompt(id);
     }
+  };
+
+  const setFrequency = (id, freq) => {
+    const exp = (state.expenses || []).find(e => e.id === id);
+    if (!exp) return;
+    updateExp(id, 'recurringFrequency', freq);
+    syncToSubscriptions(exp, freq);
+    setShowFrequencyPrompt(null);
   };
 
   const confirmRemoveSub = (id, remove) => {
@@ -305,7 +336,10 @@ export default function ExpenseTracker({
     if (remove) {
       const exp = (state.expenses || []).find(e => e.id === id);
       if (exp) {
-        set('subscriptions', prev => (prev || []).filter(s => s.label !== exp.description));
+        const desc = exp.description || '';
+        set('subscriptions', prev => (prev || []).filter(
+          s => s.label !== desc && s.label !== `${desc} (yearly)`
+        ));
       }
     }
     setRemoveSubPrompt(null);
@@ -423,8 +457,8 @@ export default function ExpenseTracker({
           <div style={{ marginTop: 20 }}>
             {/* Recurring summary line */}
             {analyticsStats.recurringCount > 0 && (
-              <p style={{ fontSize: 12, color: '#6b6660', marginBottom: 16 }}>
-                <span style={{ color: '#7eb5d6', marginRight: 4 }}>🔄</span>
+              <p style={{ fontSize: 12, color: '#6b6660', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 5 }}>
+                <RecurringIcon active={true} />
                 Recurring this period: <strong>{f(analyticsStats.recurringTotal)}</strong> across {analyticsStats.recurringCount} item{analyticsStats.recurringCount !== 1 ? 's' : ''}
               </p>
             )}
@@ -655,8 +689,10 @@ export default function ExpenseTracker({
                 </colgroup>
                 <thead>
                   <tr>
-                    {['Date', 'Description', 'Amount', 'Currency', 'Category', 'Paid By', '🔄', ''].map(h => (
-                      <th key={h} style={{ ...thSt, textAlign: h === 'Amount' ? 'right' : 'left' }}>{h}</th>
+                    {['Date', 'Description', 'Amount', 'Currency', 'Category', 'Paid By', 'REC', ''].map(h => (
+                      <th key={h} style={{ ...thSt, textAlign: h === 'Amount' ? 'right' : 'left' }}>
+                        {h === 'REC' ? <RecurringIcon active={false} /> : h}
+                      </th>
                     ))}
                   </tr>
                 </thead>
@@ -666,8 +702,8 @@ export default function ExpenseTracker({
 
                     if (isEditing) {
                       return (
+                        <Fragment key={exp.id}>
                         <tr
-                          key={exp.id}
                           style={{ background: '#fdfcfa', borderBottom: '1px solid #f0ece4' }}
                           onBlur={e => {
                             if (!e.currentTarget.contains(e.relatedTarget)) saveRow(exp.id);
@@ -793,18 +829,42 @@ export default function ExpenseTracker({
                                 onMouseDown={e => { e.preventDefault(); toggleRecurring(exp.id); }}
                                 title={exp.recurring ? 'Mark non-recurring' : 'Mark recurring'}
                                 style={{
-                                  background: exp.recurring ? '#7eb5d6' : 'none',
-                                  border: exp.recurring ? 'none' : '1px solid #d5d0c8',
-                                  borderRadius: 5, width: 24, height: 24,
-                                  cursor: 'pointer', fontSize: 13, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                  background: exp.recurring ? '#ebf4fb' : 'none',
+                                  border: 'none',
+                                  borderRadius: '50%', width: 26, height: 26,
+                                  cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                  padding: 0,
                                 }}
-                              >🔄</button>
+                              ><RecurringIcon active={exp.recurring} /></button>
                             )}
                           </td>
                           <td style={{ padding: '5px 8px' }}>
                             <DelBtn onClick={() => deleteExp(exp.id)} />
                           </td>
                         </tr>
+                        {/* Frequency prompt row */}
+                        {showFrequencyPrompt === exp.id && (
+                          <tr style={{ background: '#fdfcfa', borderBottom: '1px solid #f0ece4' }}>
+                            <td colSpan={8} style={{ padding: '4px 8px 10px 8px' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: '#6b6660' }}>
+                                <span>How often?</span>
+                                {['monthly', 'yearly'].map(freq => (
+                                  <button
+                                    key={freq}
+                                    onMouseDown={e => { e.preventDefault(); setFrequency(exp.id, freq); }}
+                                    style={{
+                                      padding: '3px 10px', borderRadius: 6, border: '1px solid #e8e4dc',
+                                      background: (exp.recurringFrequency || 'monthly') === freq ? '#5B9BD5' : 'transparent',
+                                      color: (exp.recurringFrequency || 'monthly') === freq ? '#fff' : '#6b6660',
+                                      fontSize: 12, cursor: 'pointer', fontFamily: 'inherit',
+                                    }}
+                                  >{freq.charAt(0).toUpperCase() + freq.slice(1)}</button>
+                                ))}
+                              </div>
+                            </td>
+                          </tr>
+                        )}
+                        </Fragment>
                       );
                     }
 
@@ -845,9 +905,7 @@ export default function ExpenseTracker({
                         </td>
                         {/* Recurring indicator (view mode) */}
                         <td style={{ padding: '6px 4px', textAlign: 'center' }} onClick={e => e.stopPropagation()}>
-                          {exp.recurring && (
-                            <span style={{ color: '#7eb5d6', fontSize: 13 }} title="Recurring">🔄</span>
-                          )}
+                          {exp.recurring && <RecurringIcon active={true} />}
                         </td>
                         <td style={{ padding: '6px 8px' }} onClick={e => e.stopPropagation()}>
                           <DelBtn onClick={() => deleteExp(exp.id)} />
