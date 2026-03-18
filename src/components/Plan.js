@@ -1,6 +1,6 @@
 import { useState, useRef, useMemo } from 'react';
 import {
-  PieChart, Pie, Cell,
+  PieChart, Pie, Cell, Sector,
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from 'recharts';
 import {
@@ -18,15 +18,27 @@ const BANK_COLORS   = ['#5B9BD5', '#7EB5D6', '#A8D1E8', '#C5E3F0'];
 const INVEST_COLORS = ['#6dbb8a', '#8ECBA3', '#A8D8B8', '#C2E4CC'];
 const CRYPTO_COLORS = ['#E8A838', '#F0BE6A', '#F5D090', '#F9E2B5'];
 
-// Shared underline-only input style (used across income layout options)
+// Shared underline-only input style
 const UI = {
   background: 'transparent', border: 'none', borderBottom: '1px solid #e8e4dc',
   outline: 'none', padding: '4px 0', fontSize: 14, fontFamily: 'inherit', color: '#2d2a26',
 };
 
-const optionLabelStyle = {
-  fontSize: 10, color: '#9e9890', letterSpacing: '0.12em', fontWeight: 600, marginBottom: 8,
-};
+// ── Goals chart tooltip ────────────────────────────────────────────────────────
+function GoalsChartTooltip({ active, payload, f }) {
+  if (!active || !payload?.length) return null;
+  const d = payload[0].payload;
+  return (
+    <div style={{
+      background: '#fff', border: '1px solid #e8e4dc', borderRadius: 8,
+      padding: '8px 12px', fontSize: 12, boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
+    }}>
+      <p style={{ fontWeight: 600, color: '#2d2a26', marginBottom: 2 }}>{d.name}</p>
+      <p style={{ color: '#6b6660', marginBottom: 2 }}>{f(d.homeValue)}</p>
+      <p style={{ color: '#b0aa9f', fontSize: 11 }}>{d.percentage}% · {d.group}</p>
+    </div>
+  );
+}
 
 // ── Reusable Allocation Table ──────────────────────────────────────────────────
 function AllocationTable({ rows, setRows, monthlyBase, f, title, subtitle }) {
@@ -184,8 +196,10 @@ export default function Plan({
   netWorth, selectedYear, navigate, toHome, fxRates,
   latestSnapshots, totalLiabilities, MONTHS,
 }) {
-  const [subTab, setSubTab]       = useState('allocation');
+  const [subTab, setSubTab]         = useState('allocation');
   const [chipEditId, setChipEditId] = useState(null);
+  const [hoveredChip, setHoveredChip] = useState(null);
+  const [activeIndex, setActiveIndex] = useState(null);
 
   const homeCode = state.currencyCode || 'GBP';
 
@@ -215,8 +229,6 @@ export default function Plan({
   // Helper: focus/blur handlers for underline inputs
   const uFocus = e => { e.target.style.borderBottom = '1px solid #7eb5d6'; };
   const uBlur  = e => { e.target.style.borderBottom = '1px solid #e8e4dc'; };
-  const uHoverIn  = e => { if (document.activeElement !== e.target) e.target.style.borderBottomColor = '#e8e4dc'; };
-  const uHoverOut = e => { if (document.activeElement !== e.target) e.target.style.borderBottomColor = 'transparent'; };
 
   // Helper: add a new income source
   const addIncomeSource = () =>
@@ -280,23 +292,23 @@ export default function Plan({
         const investSlices = investAccts.map((a, i) => ({ ...a, fill: INVEST_COLORS[i % INVEST_COLORS.length] }));
         const cryptoSlices = cryptoAccts.map((a, i) => ({ ...a, fill: CRYPTO_COLORS[i % CRYPTO_COLORS.length] }));
 
-        // Option A — all individual account slices in one ring
-        const optionASlices = [...bankSlices, ...investSlices, ...cryptoSlices];
-        const optionATotal  = optionASlices.reduce((s, a) => s + a.homeValue, 0);
+        const allSlices  = [...bankSlices, ...investSlices, ...cryptoSlices];
+        const totalValue = allSlices.reduce((s, a) => s + a.homeValue, 0);
 
-        // Option B — inner ring: group totals; outer ring: individual accounts (same slices)
-        const bankTotal   = bankSlices.reduce((s, a)   => s + a.homeValue, 0);
-        const investTotal = investSlices.reduce((s, a) => s + a.homeValue, 0);
-        const cryptoTotal = cryptoSlices.reduce((s, a) => s + a.homeValue, 0);
-        const optionBInner = [
-          ...(bankTotal   > 0 ? [{ name: 'Banks',          value: bankTotal,   fill: '#5B9BD5' }] : []),
-          ...(investTotal > 0 ? [{ name: 'Investments',    value: investTotal, fill: '#6dbb8a' }] : []),
-          ...(cryptoTotal > 0 ? [{ name: 'Crypto / Other', value: cryptoTotal, fill: '#E8A838' }] : []),
-        ];
+        const bankIds   = new Set(bankSlices.map(a => a.id));
+        const investIds = new Set(investSlices.map(a => a.id));
 
-        const hasData = optionASlices.length > 0;
+        // Pre-calculate percentage and group for each slice
+        const dataWithPct = allSlices.map(acc => ({
+          ...acc,
+          value: acc.homeValue,
+          percentage: totalValue > 0 ? ((acc.homeValue / totalValue) * 100).toFixed(0) : '0',
+          group: bankIds.has(acc.id) ? 'Banks' : investIds.has(acc.id) ? 'Investments' : 'Crypto / Other',
+        }));
 
-        // Goal ring (shared between both options)
+        const hasData = dataWithPct.length > 0;
+
+        // Goal ring
         const goalPct       = goal > 0 ? Math.min(Math.max(0, netWorth / goal), 1) : 0;
         const goalRingColor = goalPct >= 0.5 ? '#6dbb8a' : '#E8A838';
         const goalRingData  = goal > 0 ? [
@@ -313,18 +325,20 @@ export default function Plan({
           </p>
         );
 
-        // Shared goal ring Pie element
-        const GoalRing = () => goal > 0 && goalRingData.length > 0 ? (
-          <Pie
-            data={goalRingData} cx={105} cy={105}
-            innerRadius={90} outerRadius={95}
-            paddingAngle={0} dataKey="value"
-            startAngle={90} endAngle={-270}
-          >
-            <Cell fill={goalRingColor} strokeWidth={0} />
-            <Cell fill="#f0ece4" stroke="none" strokeWidth={0} />
-          </Pie>
-        ) : null;
+        // Active shape expands the hovered segment
+        const renderActiveShape = (props) => {
+          const { cx, cy, innerRadius, outerRadius, startAngle, endAngle, fill } = props;
+          return (
+            <Sector
+              cx={cx} cy={cy}
+              innerRadius={innerRadius}
+              outerRadius={outerRadius + 6}
+              startAngle={startAngle}
+              endAngle={endAngle}
+              fill={fill}
+            />
+          );
+        };
 
         return (
           <div>
@@ -373,100 +387,50 @@ export default function Plan({
               </p>
             </div>
 
-            {/* Two chart options side by side */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
-
-              {/* ── OPTION A ── Single ring, individual accounts */}
-              <div>
-                <p style={optionLabelStyle}>OPTION A — INDIVIDUAL ACCOUNTS</p>
-                <div style={s.card}>
-                  {!hasData ? noDataMsg : (
-                    <>
-                      <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 12 }}>
-                        <PieChart width={210} height={210}>
-                          <Pie
-                            data={optionASlices.map(a => ({ name: a.name, value: a.homeValue }))}
-                            cx={105} cy={105} innerRadius={55} outerRadius={85}
-                            paddingAngle={2} dataKey="value"
-                          >
-                            {optionASlices.map((a, i) => <Cell key={i} fill={a.fill} />)}
-                          </Pie>
-                          <GoalRing />
-                        </PieChart>
+            {/* Net worth breakdown chart */}
+            <div style={{ ...s.card, marginBottom: 16 }}>
+              {!hasData ? noDataMsg : (
+                <>
+                  <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 12 }}>
+                    <PieChart width={210} height={210}>
+                      <Pie
+                        data={dataWithPct}
+                        cx={105} cy={105} innerRadius={55} outerRadius={85}
+                        paddingAngle={2} dataKey="value"
+                        activeIndex={activeIndex !== null ? activeIndex : undefined}
+                        activeShape={renderActiveShape}
+                        onMouseEnter={(_, i) => setActiveIndex(i)}
+                        onMouseLeave={() => setActiveIndex(null)}
+                      >
+                        {dataWithPct.map((a, i) => <Cell key={i} fill={a.fill} />)}
+                      </Pie>
+                      {goal > 0 && goalRingData.length > 0 && (
+                        <Pie
+                          data={goalRingData} cx={105} cy={105}
+                          innerRadius={90} outerRadius={95}
+                          paddingAngle={0} dataKey="value"
+                          startAngle={90} endAngle={-270}
+                        >
+                          <Cell fill={goalRingColor} strokeWidth={0} />
+                          <Cell fill="#f0ece4" stroke="none" strokeWidth={0} />
+                        </Pie>
+                      )}
+                      <Tooltip content={<GoalsChartTooltip f={f} />} />
+                    </PieChart>
+                  </div>
+                  {/* Legend */}
+                  <div>
+                    {dataWithPct.map((acc, i) => (
+                      <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 5 }}>
+                        <div style={{ width: 8, height: 8, borderRadius: '50%', background: acc.fill, flexShrink: 0 }} />
+                        <span style={{ fontSize: 11, color: '#6b6660', flex: 1 }}>{acc.name}</span>
+                        <span style={{ fontSize: 11, fontWeight: 600, color: '#2d2a26' }}>{f(acc.homeValue)}</span>
+                        <span style={{ fontSize: 10, color: '#b0aa9f', minWidth: 28, textAlign: 'right' }}>{acc.percentage}%</span>
                       </div>
-                      {/* Legend: each account */}
-                      <div>
-                        {optionASlices.map((acc, i) => {
-                          const acctPct = optionATotal > 0 ? ((acc.homeValue / optionATotal) * 100).toFixed(0) : 0;
-                          return (
-                            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 5 }}>
-                              <div style={{ width: 8, height: 8, borderRadius: '50%', background: acc.fill, flexShrink: 0 }} />
-                              <span style={{ fontSize: 11, color: '#6b6660', flex: 1 }}>{acc.name}</span>
-                              <span style={{ fontSize: 11, fontWeight: 600, color: '#2d2a26' }}>{f(acc.homeValue)}</span>
-                              <span style={{ fontSize: 10, color: '#b0aa9f', minWidth: 28, textAlign: 'right' }}>{acctPct}%</span>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </>
-                  )}
-                </div>
-              </div>
-
-              {/* ── OPTION B ── Two-ring donut: inner groups, outer accounts */}
-              <div>
-                <p style={optionLabelStyle}>OPTION B — GROUP + ACCOUNTS</p>
-                <div style={s.card}>
-                  {!hasData ? noDataMsg : (
-                    <>
-                      <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 12 }}>
-                        <PieChart width={210} height={210}>
-                          {/* Inner ring: group totals */}
-                          <Pie
-                            data={optionBInner}
-                            cx={105} cy={105} innerRadius={35} outerRadius={60}
-                            paddingAngle={2} dataKey="value"
-                          >
-                            {optionBInner.map((entry, i) => <Cell key={i} fill={entry.fill} />)}
-                          </Pie>
-                          {/* Outer ring: individual accounts */}
-                          <Pie
-                            data={optionASlices.map(a => ({ name: a.name, value: a.homeValue }))}
-                            cx={105} cy={105} innerRadius={65} outerRadius={85}
-                            paddingAngle={1} dataKey="value"
-                          >
-                            {optionASlices.map((a, i) => <Cell key={i} fill={a.fill} />)}
-                          </Pie>
-                          <GoalRing />
-                        </PieChart>
-                      </div>
-                      {/* Legend: groups with indented accounts */}
-                      <div>
-                        {[
-                          { label: 'BANKS',          total: bankTotal,   accts: bankSlices,   fill: '#5B9BD5' },
-                          { label: 'INVESTMENTS',     total: investTotal, accts: investSlices, fill: '#6dbb8a' },
-                          { label: 'CRYPTO / OTHER',  total: cryptoTotal, accts: cryptoSlices, fill: '#E8A838' },
-                        ].filter(g => g.total > 0).map((group, gi) => (
-                          <div key={gi} style={{ marginBottom: 8 }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 3 }}>
-                              <div style={{ width: 8, height: 8, borderRadius: '50%', background: group.fill, flexShrink: 0 }} />
-                              <span style={{ fontSize: 11, fontWeight: 700, color: '#2d2a26', flex: 1 }}>{group.label}</span>
-                              <span style={{ fontSize: 11, fontWeight: 600, color: '#2d2a26' }}>{f(group.total)}</span>
-                            </div>
-                            {group.accts.map((acc, i) => (
-                              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 2, paddingLeft: 16 }}>
-                                <span style={{ fontSize: 11, color: '#b0aa9f', flexShrink: 0 }}>·</span>
-                                <span style={{ fontSize: 11, color: '#6b6660', flex: 1 }}>{acc.name}</span>
-                                <span style={{ fontSize: 11, color: '#4a4643' }}>{f(acc.homeValue)}</span>
-                              </div>
-                            ))}
-                          </div>
-                        ))}
-                      </div>
-                    </>
-                  )}
-                </div>
-              </div>
+                    ))}
+                  </div>
+                </>
+              )}
             </div>
 
             {/* Net worth journey area chart — only if 2+ months data */}
@@ -504,109 +468,78 @@ export default function Plan({
       ══════════════════════════════════════════════════════════ */}
       {subTab === 'allocation' && (
         <div>
-          {/* ── BASE MONTHLY INCOME — three layout options ── */}
+          {/* ── BASE MONTHLY INCOME ── */}
           <div style={{ ...s.card, marginBottom: 16 }}>
             <Lbl>BASE MONTHLY INCOME</Lbl>
-            <p style={{ fontSize: 12, color: '#b0aa9f', marginBottom: 20 }}>
+            <p style={{ fontSize: 12, color: '#b0aa9f', marginBottom: 16 }}>
               Used to calculate your monthly allocation amounts.
             </p>
 
-            {/* ────────────────────────────────────────────────
-                OPTION A — COMPACT ROWS
-            ──────────────────────────────────────────────── */}
-            <p style={optionLabelStyle}>OPTION A — COMPACT ROWS</p>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+            {/* Chips */}
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 8 }}>
               {state.incomeSources.map(src => {
-                const converted = srcToHome(src);
-                const isForeign = (src.currency || homeCode) !== homeCode;
+                const flag = getCurrencyFlag(src.currency || homeCode);
+                const amtFormatted = new Intl.NumberFormat().format(Number(src.amount) || 0);
                 return (
-                  <div key={src.id}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '6px 0', borderBottom: '1px solid #f0ece4' }}>
-                      <input
-                        value={src.label}
-                        onChange={e => updateSrc(src.id, 'label', e.target.value)}
-                        onMouseEnter={uHoverIn} onMouseLeave={uHoverOut}
-                        onFocus={uFocus} onBlur={uBlur}
-                        style={{ ...UI, flex: 2, borderBottomColor: 'transparent' }}
-                      />
-                      <input
-                        type="number" min={0}
-                        value={src.amount === 0 ? '' : src.amount}
-                        onChange={e => updateSrc(src.id, 'amount', e.target.value === '' ? 0 : (Number(e.target.value) || 0))}
-                        onKeyDown={blockNonNumeric} onPaste={pasteNumericOnly}
-                        onMouseEnter={uHoverIn} onMouseLeave={uHoverOut}
-                        onFocus={uFocus} onBlur={uBlur}
-                        placeholder="0"
-                        style={{ ...UI, width: 80, textAlign: 'right', borderBottomColor: 'transparent', MozAppearance: 'textfield', WebkitAppearance: 'none' }}
-                      />
-                      <span style={{ fontSize: 12, color: '#9e9890', width: 60, flexShrink: 0 }}>
-                        {getCurrencyFlag(src.currency || homeCode)} {src.currency || homeCode}
+                  <div
+                    key={src.id}
+                    style={{ position: 'relative' }}
+                    onMouseEnter={() => setHoveredChip(src.id)}
+                    onMouseLeave={() => setHoveredChip(null)}
+                  >
+                    <div
+                      onClick={() => setChipEditId(chipEditId === src.id ? null : src.id)}
+                      style={{
+                        display: 'inline-flex', alignItems: 'center', gap: 6,
+                        background: chipEditId === src.id ? '#f0f7ff' : '#f9f7f3',
+                        border: `1px solid ${chipEditId === src.id ? '#7eb5d6' : '#e8e4dc'}`,
+                        borderRadius: 20, padding: '0 16px',
+                        fontSize: 13, height: 38, cursor: 'pointer',
+                        userSelect: 'none',
+                      }}
+                    >
+                      <span style={{ color: '#6b6660' }}>{src.label}</span>
+                      <span style={{ color: '#d0ccc5' }}>·</span>
+                      <span style={{ fontWeight: 600, color: '#1a1714' }}>{amtFormatted}</span>
+                      <span style={{ color: '#9e9890', fontSize: 12 }}>
+                        {flag && <>{flag} </>}{src.currency || homeCode}
                       </span>
-                      {state.incomeSources.length > 1 && (
-                        <DelBtn onClick={() => set('incomeSources', prev => prev.filter(x => x.id !== src.id))} />
-                      )}
                     </div>
-                    {isForeign && (
-                      <div style={{ fontSize: 11, color: converted !== null ? '#b0aa9f' : '#e8a598', paddingLeft: 4, paddingBottom: 2, lineHeight: 1.4 }}>
-                        {converted !== null ? `= ${f(converted)} at current rates` : 'no rate available'}
-                      </div>
+                    {/* × button — outside chip, visible on hover */}
+                    {hoveredChip === src.id && state.incomeSources.length > 1 && (
+                      <button
+                        onClick={e => {
+                          e.stopPropagation();
+                          set('incomeSources', prev => prev.filter(x => x.id !== src.id));
+                          if (chipEditId === src.id) setChipEditId(null);
+                        }}
+                        style={{
+                          position: 'absolute', top: -6, right: -6,
+                          width: 16, height: 16, borderRadius: '50%',
+                          background: '#c4bfb7', border: 'none',
+                          cursor: 'pointer', color: '#fff',
+                          fontSize: 10, fontWeight: 700,
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          padding: 0, lineHeight: 1,
+                        }}
+                      >×</button>
                     )}
                   </div>
                 );
               })}
-              {/* Add row — dashed */}
-              <button
-                onClick={addIncomeSource}
-                style={{ textAlign: 'left', padding: '8px 0', border: 'none', background: 'transparent', cursor: 'pointer', color: '#a09890', fontSize: 13, fontFamily: 'inherit', borderBottom: '1px dashed #d8d4cc' }}
-              >+ Add income source</button>
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'flex-end', fontSize: 13, marginTop: 8 }}>
-              <span style={{ fontWeight: 700, color: '#1a1714' }}>
-                {f(baseIncome)}
-                {isMultiCurrency && <span style={{ fontSize: 11, color: '#b0aa9f', marginLeft: 4 }}>(converted to {homeCode})</span>}
-              </span>
-            </div>
-
-            <Divider />
-
-            {/* ────────────────────────────────────────────────
-                OPTION B — CHIP CARDS
-            ──────────────────────────────────────────────── */}
-            <p style={optionLabelStyle}>OPTION B — CHIP CARDS</p>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 8 }}>
-              {state.incomeSources.map(src => (
-                <div key={src.id} style={{
-                  display: 'inline-flex', alignItems: 'center', gap: 8,
-                  background: chipEditId === src.id ? '#f0f7ff' : '#f9f7f3',
-                  border: `1px solid ${chipEditId === src.id ? '#7eb5d6' : '#e8e4dc'}`,
-                  borderRadius: 20, padding: '6px 14px', fontSize: 13,
-                }}>
-                  <span style={{ color: '#6b6660' }}>{src.label}</span>
-                  <span style={{ fontWeight: 600, color: '#1a1714' }}>
-                    {src.currency || homeCode} {Number(src.amount).toLocaleString()}
-                  </span>
-                  <button
-                    onClick={() => setChipEditId(chipEditId === src.id ? null : src.id)}
-                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#b0aa9f', fontSize: 11, padding: 0 }}
-                  >✎</button>
-                  {state.incomeSources.length > 1 && (
-                    <button
-                      onClick={() => { set('incomeSources', prev => prev.filter(x => x.id !== src.id)); if (chipEditId === src.id) setChipEditId(null); }}
-                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#d0ccc5', fontSize: 14, padding: 0, lineHeight: 1 }}
-                    >×</button>
-                  )}
-                </div>
-              ))}
+              {/* + Add source chip */}
               <button
                 onClick={addIncomeSource}
                 style={{
                   display: 'inline-flex', alignItems: 'center', gap: 6,
                   background: 'transparent', border: '1px dashed #d8d4cc',
-                  borderRadius: 20, padding: '6px 14px', fontSize: 13,
+                  borderRadius: 20, padding: '0 16px',
+                  height: 38, fontSize: 13,
                   color: '#a09890', cursor: 'pointer', fontFamily: 'inherit',
                 }}
               >+ Add source</button>
             </div>
+
             {/* Inline edit form for selected chip */}
             {chipEditId && state.incomeSources.find(x => x.id === chipEditId) && (() => {
               const src = state.incomeSources.find(x => x.id === chipEditId);
@@ -641,102 +574,22 @@ export default function Plan({
                   </div>
                   <button
                     onClick={() => setChipEditId(null)}
-                    onKeyDown={e => e.key === 'Enter' && setChipEditId(null)}
                     style={{ fontSize: 11, background: 'transparent', border: '1px solid #d8d4cc', borderRadius: 6, padding: '3px 10px', cursor: 'pointer', color: '#6b6660', fontFamily: 'inherit' }}
                   >Done</button>
                 </div>
               );
             })()}
-            <p style={{ fontSize: 13, color: '#9e9890', marginTop: 4 }}>
-              Total: <span style={{ fontWeight: 600, color: '#1a1714' }}>{f(baseIncome)}</span> / month
-              {isMultiCurrency && <span style={{ fontSize: 11, color: '#b0aa9f', marginLeft: 4 }}>(converted to {homeCode})</span>}
-            </p>
 
-            <Divider />
-
-            {/* ────────────────────────────────────────────────
-                OPTION C — TABLE ROWS
-            ──────────────────────────────────────────────── */}
-            <p style={optionLabelStyle}>OPTION C — TABLE ROWS</p>
-            <table style={{ width: '100%', tableLayout: 'fixed', borderCollapse: 'collapse', fontSize: 13 }}>
-              <colgroup>
-                <col style={{ width: '45%' }} />
-                <col style={{ width: '30%' }} />
-                <col style={{ width: '18%' }} />
-                <col style={{ width: '7%' }}  />
-              </colgroup>
-              <thead>
-                <tr>
-                  {['Label', 'Amount', 'Currency', ''].map((h, i) => (
-                    <th key={i} style={{
-                      padding: '8px 10px', color: '#b0aa9f', fontSize: 10,
-                      letterSpacing: '0.08em', textAlign: 'left',
-                      borderBottom: '1px solid #f0ece4', fontWeight: 500,
-                    }}>{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {state.incomeSources.map(src => (
-                  <tr key={src.id} style={{ borderBottom: '1px solid #f9f7f3' }}>
-                    <td style={{ padding: '5px 10px' }}>
-                      <input
-                        value={src.label}
-                        onChange={e => updateSrc(src.id, 'label', e.target.value)}
-                        onMouseEnter={e => { if (document.activeElement !== e.target) e.target.style.borderBottom = '1px solid #e8e4dc'; }}
-                        onMouseLeave={e => { if (document.activeElement !== e.target) e.target.style.borderBottom = 'none'; }}
-                        onFocus={e => { e.target.style.borderBottom = '1px solid #7eb5d6'; }}
-                        onBlur={e => { e.target.style.borderBottom = e.target.matches(':hover') ? '1px solid #e8e4dc' : 'none'; }}
-                        style={{ background: 'transparent', border: 'none', borderBottom: 'none', outline: 'none', width: '100%', fontSize: 13, fontFamily: 'inherit', color: '#2d2a26', padding: '4px 0' }}
-                      />
-                    </td>
-                    <td style={{ padding: '5px 10px' }}>
-                      <input
-                        type="number" min={0}
-                        value={src.amount === 0 ? '' : src.amount}
-                        onChange={e => updateSrc(src.id, 'amount', e.target.value === '' ? 0 : (Number(e.target.value) || 0))}
-                        onKeyDown={blockNonNumeric} onPaste={pasteNumericOnly}
-                        onMouseEnter={e => { if (document.activeElement !== e.target) e.target.style.borderBottom = '1px solid #e8e4dc'; }}
-                        onMouseLeave={e => { if (document.activeElement !== e.target) e.target.style.borderBottom = 'none'; }}
-                        onFocus={e => { e.target.style.borderBottom = '1px solid #7eb5d6'; }}
-                        onBlur={e => { e.target.style.borderBottom = e.target.matches(':hover') ? '1px solid #e8e4dc' : 'none'; }}
-                        placeholder="0"
-                        style={{ background: 'transparent', border: 'none', borderBottom: 'none', outline: 'none', width: '100%', fontSize: 13, fontFamily: 'inherit', color: '#2d2a26', padding: '4px 0', textAlign: 'right', MozAppearance: 'textfield', WebkitAppearance: 'none' }}
-                      />
-                    </td>
-                    <td style={{ padding: '5px 10px' }}>
-                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                        <select
-                          value={src.currency || homeCode}
-                          onChange={e => updateSrc(src.id, 'currency', e.target.value)}
-                          onMouseEnter={e => { if (document.activeElement !== e.target) e.target.style.borderBottom = '1px solid #e8e4dc'; }}
-                          onMouseLeave={e => { if (document.activeElement !== e.target) e.target.style.borderBottom = 'none'; }}
-                          onFocus={e => { e.target.style.borderBottom = '1px solid #7eb5d6'; }}
-                          onBlur={e => { e.target.style.borderBottom = e.target.matches(':hover') ? '1px solid #e8e4dc' : 'none'; }}
-                          style={{ background: 'transparent', border: 'none', borderBottom: 'none', outline: 'none', fontSize: 13, fontFamily: 'inherit', color: '#2d2a26', padding: '4px 18px 4px 0', cursor: 'pointer', appearance: 'none', WebkitAppearance: 'none' }}
-                        >
-                          {CURRENCIES.map(c => <option key={c.code} value={c.code}>{getCurrencyFlag(c.code)} {c.code}</option>)}
-                        </select>
-                        <span style={{ pointerEvents: 'none', color: '#9e9890', fontSize: 11, flexShrink: 0 }}>▾</span>
-                      </span>
-                    </td>
-                    <td style={{ padding: '5px 10px' }}>
-                      {state.incomeSources.length > 1 && (
-                        <DelBtn onClick={() => set('incomeSources', prev => prev.filter(x => x.id !== src.id))} />
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            <AddBtn onClick={addIncomeSource} label="+ Add income source" />
-            <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: 10, borderTop: '1px solid #f0ece4', marginTop: 8, fontSize: 13 }}>
-              <span style={{ color: '#9e9890' }}>Total monthly income</span>
-              <span style={{ fontWeight: 600, color: '#1a1714' }}>
-                {f(baseIncome)}
-                {isMultiCurrency && <span style={{ fontSize: 11, color: '#b0aa9f', marginLeft: 4 }}>(converted to {homeCode})</span>}
-              </span>
+            {/* Total line */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: 10, borderTop: '1px solid #f0ece4', marginTop: 4, fontSize: 13 }}>
+              <span style={{ color: '#9e9890' }}>Total / month</span>
+              <span style={{ fontWeight: 600, color: '#1a1714' }}>{f(baseIncome)}</span>
             </div>
+            {isMultiCurrency && (
+              <p style={{ fontSize: 11, color: '#b0aa9f', textAlign: 'right', marginTop: 2 }}>
+                converted to {homeCode}
+              </p>
+            )}
           </div>
 
           {/* Allocation donut + benchmark */}
@@ -764,8 +617,8 @@ export default function Plan({
               <Lbl>YOUR BENCHMARK</Lbl>
               <p style={{ fontSize: 11, color: '#b0aa9f', marginBottom: 12 }}>Set your target percentages.</p>
               {[
-                { key: 'benchmarkNeeds',         cat: 'Needs',          yours: allocByCat['Needs'] || 0,                                              lowerIsBetter: true,  barColor: '#E8A838' },
-                { key: 'benchmarkWants',         cat: 'Wants',          yours: allocByCat['Wants'] || 0,                                              lowerIsBetter: true,  barColor: '#D96B6B' },
+                { key: 'benchmarkNeeds',         cat: 'Needs',            yours: allocByCat['Needs'] || 0,                                              lowerIsBetter: true,  barColor: '#E8A838' },
+                { key: 'benchmarkWants',         cat: 'Wants',            yours: allocByCat['Wants'] || 0,                                              lowerIsBetter: true,  barColor: '#D96B6B' },
                 { key: 'benchmarkSavingsInvest', cat: 'Savings + Invest', yours: (allocByCat['Savings'] || 0) + (allocByCat['Investments'] || 0), lowerIsBetter: false, barColor: '#6dbb8a' },
               ].map(({ key, cat, yours, lowerIsBetter, barColor }) => {
                 const bench = state[key] ?? (key === 'benchmarkNeeds' ? 50 : key === 'benchmarkWants' ? 30 : 20);
