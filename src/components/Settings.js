@@ -44,7 +44,7 @@ function Toggle({ checked, onChange, label, desc }) {
   );
 }
 
-export default function Settings({ state, set, onDeleteAccount, onLogout, settingsTargetSubTab, setSettingsTargetSubTab, navigate }) {
+export default function Settings({ state, set, onDeleteAccount, onDeleteYear, onLogout, availableYears, selectedYear, settingsTargetSubTab, setSettingsTargetSubTab, navigate }) {
   const [subTab,     setSubTab]     = useState('profile');
 
   useEffect(() => {
@@ -60,6 +60,8 @@ export default function Settings({ state, set, onDeleteAccount, onLogout, settin
   const [busyPw,     setBusyPw]     = useState(false);
   const [delText,    setDelText]    = useState('');
   const [delConfirm, setDelConfirm] = useState(false);
+  // Year deletion confirmation (year number or null)
+  const [confirmDeleteYear, setConfirmDeleteYear] = useState(null);
   // Color picker open state (category id or null)
   const [colorPickId, setColorPickId] = useState(null);
 
@@ -410,6 +412,135 @@ export default function Settings({ state, set, onDeleteAccount, onLogout, settin
       {/* ── Danger ── */}
       {subTab === 'danger' && (
         <div style={{ maxWidth: 680 }}>
+
+          {/* ── Manage Years ── */}
+          {(() => {
+            const currentCalendarYear = new Date().getFullYear();
+            const years = (availableYears || []).slice().sort((a, b) => b - a);
+
+            // Stats for the currently loaded year (state is scoped to selectedYear)
+            const loadedYearExpenseCount = (state.expenses || []).length;
+            const loadedYearMonthsWithData = new Set([
+              ...Object.keys(state.accountSnapshots || {}).filter(m => {
+                const snap = state.accountSnapshots[m];
+                return snap && Object.values(snap).some(v => v > 0);
+              }),
+              ...Object.keys(state.actuals || {}).filter(m => {
+                const act = state.actuals[m];
+                return act && Object.values(act).some(v => v > 0);
+              }),
+            ]).size;
+
+            return (
+              <div style={{ ...s.card, marginBottom: 16 }}>
+                <p style={{ fontSize: 14, fontWeight: 600, color: '#1a1714', marginBottom: 4 }}>MANAGE YEARS</p>
+                <p style={{ fontSize: 12, color: '#9e9890', marginBottom: 16 }}>
+                  Delete all data for a specific year. This cannot be undone.
+                </p>
+                {years.length === 0 && (
+                  <p style={{ fontSize: 13, color: '#b0aa9f' }}>No years found.</p>
+                )}
+                {years.map(year => {
+                  const isCurrent = year === currentCalendarYear;
+                  const expenseCount = year === selectedYear ? loadedYearExpenseCount : '—';
+                  const monthsWithData = year === selectedYear ? loadedYearMonthsWithData : '—';
+                  const isConfirming = confirmDeleteYear === year;
+
+                  return (
+                    <div key={year} style={{
+                      borderBottom: '1px solid #f0ece4',
+                    }}>
+                      <div style={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        padding: '10px 0',
+                      }}>
+                        <div>
+                          <span style={{ fontSize: 14, fontWeight: 500, color: '#1a1714' }}>
+                            {year}{isCurrent ? ' (current)' : ''}
+                          </span>
+                          {!isCurrent && (
+                            <span style={{ fontSize: 12, color: '#9e9890', marginLeft: 8 }}>
+                              {expenseCount} expenses · {monthsWithData} months of data
+                            </span>
+                          )}
+                        </div>
+                        {!isCurrent && (
+                          <button
+                            onClick={() => setConfirmDeleteYear(isConfirming ? null : year)}
+                            style={{
+                              background: 'transparent',
+                              border: '1px solid #e8e4dc',
+                              borderRadius: 7,
+                              padding: '5px 12px',
+                              fontSize: 12,
+                              color: '#c94040',
+                              cursor: 'pointer',
+                              fontFamily: 'inherit',
+                            }}
+                          >
+                            Delete {year}
+                          </button>
+                        )}
+                      </div>
+
+                      {isConfirming && (
+                        <div style={{
+                          background: '#fdf2f2',
+                          border: '1px solid #fecaca',
+                          borderRadius: 8,
+                          padding: '12px 14px',
+                          marginBottom: 10,
+                        }}>
+                          <p style={{ fontSize: 13, color: '#6b6660', marginBottom: 10 }}>
+                            Are you sure you want to delete all {year} data? This cannot be undone.
+                          </p>
+                          <div style={{ display: 'flex', gap: 8 }}>
+                            <button
+                              onClick={() => setConfirmDeleteYear(null)}
+                              style={{
+                                background: 'transparent',
+                                border: '1px solid #e8e4dc',
+                                borderRadius: 7,
+                                padding: '6px 14px',
+                                fontSize: 12,
+                                color: '#6b6660',
+                                cursor: 'pointer',
+                                fontFamily: 'inherit',
+                              }}
+                            >
+                              Cancel
+                            </button>
+                            <button
+                              onClick={() => {
+                                setConfirmDeleteYear(null);
+                                onDeleteYear && onDeleteYear(year);
+                              }}
+                              style={{
+                                background: '#c94040',
+                                border: 'none',
+                                borderRadius: 7,
+                                padding: '6px 14px',
+                                fontSize: 12,
+                                color: '#fff',
+                                cursor: 'pointer',
+                                fontFamily: 'inherit',
+                              }}
+                            >
+                              Yes, delete {year}
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            );
+          })()}
+
+          {/* ── Delete Account ── */}
           <div style={{ ...s.card, background: '#fdf2f2', borderColor: '#fecaca' }}>
             <p style={{ fontSize: 14, fontWeight: 600, color: '#c94040', marginBottom: 8 }}>Delete Account</p>
             <p style={{ fontSize: 13, color: '#6b6660', marginBottom: 16 }}>

@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import {
-  saveData, loadData, loadLatestData, listYears, fetchFxRates, deleteUser
+  saveData, loadData, loadLatestData, listYears, fetchFxRates, deleteUser, deleteYearData
 } from './supabase';
 import {
   TABS, getCurrency, fmt, getMonthsFromStart, makeDefaultState, s, Select
@@ -255,6 +255,9 @@ export default function App() {
       secondaryAllocations: JSON.parse(JSON.stringify(state.secondaryAllocations || {})),
       goalSavings: state.goalSavings,
       goalNetWorth: state.goalNetWorth,
+      // Carry forward permanent checklist state so it never resets on new year
+      checklistPermanentlyDismissed: state.checklistPermanentlyDismissed || false,
+      checklistTasksDone: { ...(state.checklistTasksDone || {}) },
     };
 
     // Pre-fill starting balance from previous year's December closing
@@ -297,6 +300,20 @@ export default function App() {
     await deleteUser(state.userId);
     handleLogout();
   }, [state.userId, handleLogout]);
+
+  const handleDeleteYear = useCallback(async (year) => {
+    await deleteYearData(state.userId, year);
+    const newAvailableYears = availableYears.filter(y => y !== year);
+    setAvailableYears(newAvailableYears);
+    // If currently viewing the deleted year, switch to another
+    if (selectedYear === year) {
+      if (newAvailableYears.length > 0) {
+        await switchYear(newAvailableYears[0]);
+      } else {
+        setState(prev => ({ ...makeDefaultState(), userId: prev.userId }));
+      }
+    }
+  }, [state.userId, selectedYear, availableYears, switchYear]);
 
   // Derived calculations
   const baseIncome     = state.incomeSources.reduce((sum, i) => {
@@ -447,7 +464,10 @@ export default function App() {
           <Settings
             state={state} set={set}
             onDeleteAccount={handleDeleteAccount}
+            onDeleteYear={handleDeleteYear}
             onLogout={handleLogout}
+            availableYears={availableYears}
+            selectedYear={selectedYear}
             settingsTargetSubTab={settingsTargetSubTab}
             setSettingsTargetSubTab={setSettingsTargetSubTab}
             navigate={navigate}
