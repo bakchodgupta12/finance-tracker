@@ -13,10 +13,10 @@ const SUB_TABS = [
   { id: 'goals',      label: 'Goals' },
 ];
 
-// Colour families for account groups
-const BANK_COLORS   = ['#5B9BD5', '#7EB5D6', '#A8D1E8', '#C5E3F0'];
-const INVEST_COLORS = ['#6dbb8a', '#8ECBA3', '#A8D8B8', '#C2E4CC'];
-const CRYPTO_COLORS = ['#E8A838', '#F0BE6A', '#F5D090', '#F9E2B5'];
+// Colour families for account groups — match Dashboard/NetWorth group header colours
+const BANK_COLORS   = ['#3B82F6', '#60A5FA', '#93C5FD', '#BFDBFE'];
+const INVEST_COLORS = ['#7C3AED', '#8B5CF6', '#A78BFA', '#C4B5FD'];
+const CRYPTO_COLORS = ['#D97706', '#F59E0B', '#FCD34D', '#FDE68A'];
 
 // Shared underline-only input style
 const UI = {
@@ -323,7 +323,7 @@ export default function Plan({
         const dataWithPct = allSlices.map(acc => ({
           ...acc,
           value: acc.homeValue,
-          percentage: totalValue > 0 ? ((acc.homeValue / totalValue) * 100).toFixed(0) : '0',
+          percentage: totalValue > 0 ? ((acc.homeValue / totalValue) * 100).toFixed(1) : '0.0',
           group: bankIds.has(acc.id) ? 'Banks' : investIds.has(acc.id) ? 'Investments' : 'Crypto / Other',
         }));
 
@@ -335,7 +335,7 @@ export default function Plan({
           {
             name: 'Goal Achieved',
             value: Math.min(netWorth, goal),
-            fill: netWorth >= goal ? '#6dbb8a' : '#E8A838',
+            fill: '#6dbb8a',
             isGoalSegment: true,
             goalPct: goalPct * 100,
             goalTotal: goal,
@@ -411,7 +411,7 @@ export default function Plan({
                   <div style={{ height: 8, background: '#f0ece4', borderRadius: 8, overflow: 'hidden' }}>
                     <div style={{
                       height: '100%', width: `${Math.min(pct, 100)}%`,
-                      background: pct >= 75 ? '#7ec8a0' : pct >= 40 ? '#7eb5d6' : '#e8a598',
+                      background: '#6dbb8a',
                       borderRadius: 8, transition: 'width 0.4s',
                     }} />
                   </div>
