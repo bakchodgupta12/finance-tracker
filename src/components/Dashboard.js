@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
 } from 'recharts';
@@ -94,6 +94,22 @@ export default function Dashboard({
 
 
   // ── Getting Started Checklist ──────────────────
+
+  // Permanently track which tasks have ever been completed (year-agnostic)
+  const tasksDone = state.checklistTasksDone || {};
+  useEffect(() => {
+    const current = state.checklistTasksDone || {};
+    const updates = {};
+    if (!current.account_added && (state.accounts || []).length > 0) updates.account_added = true;
+    if (!current.allocation_set && (state.allocation || []).some(a => a.pct > 0)) updates.allocation_set = true;
+    if (!current.expense_logged && (state.expenses || []).length > 0) updates.expense_logged = true;
+    if (!current.goal_set && (state.goalNetWorth || 0) > 0) updates.goal_set = true;
+    if (!current.actuals_logged && (Object.keys(state.actuals || {}).length > 0 || Object.keys(state.incomeActuals || {}).length > 0)) updates.actuals_logged = true;
+    if (Object.keys(updates).length > 0) {
+      set('checklistTasksDone', { ...current, ...updates });
+    }
+  }, [state.accounts, state.allocation, state.expenses, state.goalNetWorth, state.actuals, state.incomeActuals]); // eslint-disable-line
+
   const checklistItems = [
     {
       id: 'onboarded',
@@ -104,35 +120,35 @@ export default function Dashboard({
     {
       id: 'account_added',
       label: 'Add your first account',
-      done: (state.accounts || []).length > 0,
+      done: tasksDone.account_added || (state.accounts || []).length > 0,
       cta: () => navigate('settings', 'accounts'),
       ctaLabel: 'Go to Accounts →',
     },
     {
       id: 'allocation_set',
       label: 'Set your budget allocation',
-      done: (state.allocation || []).some(a => a.pct > 0),
+      done: tasksDone.allocation_set || (state.allocation || []).some(a => a.pct > 0),
       cta: () => navigate('plan'),
       ctaLabel: 'Go to Plan →',
     },
     {
       id: 'actuals_logged',
       label: 'Log your first month\'s actuals',
-      done: Object.keys(state.actuals || {}).length > 0,
+      done: tasksDone.actuals_logged || Object.keys(state.actuals || {}).length > 0 || Object.keys(state.incomeActuals || {}).length > 0,
       cta: () => navigate('tracker', 'income'),
       ctaLabel: 'Go to Tracker →',
     },
     {
       id: 'expense_logged',
       label: 'Log your first expense',
-      done: (state.expenses || []).length > 0,
+      done: tasksDone.expense_logged || (state.expenses || []).length > 0,
       cta: () => navigate('tracker', 'expenses'),
       ctaLabel: 'Go to Expenses →',
     },
     {
       id: 'goal_set',
       label: 'Set a net worth goal',
-      done: (state.goalNetWorth || 0) > 0,
+      done: tasksDone.goal_set || (state.goalNetWorth || 0) > 0,
       cta: () => navigate('plan', 'goals'),
       ctaLabel: 'Set a Goal →',
     },
@@ -140,18 +156,13 @@ export default function Dashboard({
 
   const allDone = checklistItems.every(i => i.done);
   const completedCount = checklistItems.filter(i => i.done).length;
-  const dismissCount = state.checklistDismissCount || 0;
   const permanentlyDismissed = state.checklistPermanentlyDismissed || false;
+  // Hide when permanently dismissed OR when all tasks are done (stays hidden across years
+  // because checklistTasksDone persists, so allDone stays true even in a new year)
   const showChecklist = !permanentlyDismissed && !allDone;
 
   const handleDismissChecklist = () => {
-    const newCount = dismissCount + 1;
-    if (newCount >= 4) {
-      // 4th dismiss: permanently hide
-      set('checklistPermanentlyDismissed');
-    } else {
-      set('checklistDismissCount', newCount);
-    }
+    set('checklistPermanentlyDismissed', true);
   };
 
   return (
@@ -217,7 +228,7 @@ export default function Dashboard({
               fontSize: 13, color: '#b0aa9f', padding: '4px 8px', borderRadius: 6,
               fontFamily: 'inherit',
             }}>
-              {dismissCount >= 3 ? 'Hide permanently' : 'Dismiss'}
+              {allDone ? 'Done' : 'Dismiss'}
             </button>
           </div>
           <div style={{ height: 4, background: '#f0ece4', borderRadius: 4, overflow: 'hidden', marginBottom: 16 }}>

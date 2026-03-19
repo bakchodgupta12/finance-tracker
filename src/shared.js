@@ -224,6 +224,8 @@ export const makeDefaultState = () => ({
   onboardingCompleted: false,
   checklistDismissCount: 0,
   checklistPermanentlyDismissed: false,
+  // Permanent record of which checklist tasks have ever been completed (year-agnostic)
+  checklistTasksDone: {},
 });
 
 // ─────────────────────────────────────────────

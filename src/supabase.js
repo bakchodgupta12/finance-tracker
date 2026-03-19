@@ -126,6 +126,12 @@ export async function deleteUser(userId) {
   await supabase.from('tracker_data').delete().eq('user_id', userId);
 }
 
+// Delete a specific year's data for a user
+export async function deleteYearData(userId, year) {
+  if (!supabase) return;
+  await supabase.from('tracker_data').delete().eq('user_id', userId).eq('year', year);
+}
+
 // Fetch live FX rates — base currency to all others
 // Primary: ExchangeRate-API; fallback: frankfurter.app
 // Returns { rates: {}, source: 'exchangerate-api'|'frankfurter'|'empty' }
