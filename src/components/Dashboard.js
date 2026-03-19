@@ -104,11 +104,11 @@ export default function Dashboard({
     if (!current.allocation_set && (state.allocation || []).some(a => a.pct > 0)) updates.allocation_set = true;
     if (!current.expense_logged && (state.expenses || []).length > 0) updates.expense_logged = true;
     if (!current.goal_set && (state.goalNetWorth || 0) > 0) updates.goal_set = true;
-    if (!current.actuals_logged && Object.keys(state.actuals || {}).length > 0) updates.actuals_logged = true;
+    if (!current.actuals_logged && (Object.keys(state.actuals || {}).length > 0 || Object.keys(state.incomeActuals || {}).length > 0)) updates.actuals_logged = true;
     if (Object.keys(updates).length > 0) {
       set('checklistTasksDone', { ...current, ...updates });
     }
-  }, [state.accounts, state.allocation, state.expenses, state.goalNetWorth, state.actuals]); // eslint-disable-line
+  }, [state.accounts, state.allocation, state.expenses, state.goalNetWorth, state.actuals, state.incomeActuals]); // eslint-disable-line
 
   const checklistItems = [
     {
@@ -134,7 +134,7 @@ export default function Dashboard({
     {
       id: 'actuals_logged',
       label: 'Log your first month\'s actuals',
-      done: tasksDone.actuals_logged || Object.keys(state.actuals || {}).length > 0,
+      done: tasksDone.actuals_logged || Object.keys(state.actuals || {}).length > 0 || Object.keys(state.incomeActuals || {}).length > 0,
       cta: () => navigate('tracker', 'income'),
       ctaLabel: 'Go to Tracker →',
     },

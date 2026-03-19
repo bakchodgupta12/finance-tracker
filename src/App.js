@@ -88,6 +88,11 @@ export default function App() {
   const [availableYears, setAvailableYears] = useState([]);
   const [showNewYearConfirm, setShowNewYearConfirm] = useState(false);
   const [yearLoading, setYearLoading] = useState(false);
+  // Custom year dropdown
+  const [yearDropdownOpen, setYearDropdownOpen] = useState(false);
+  const [hoveredYear, setHoveredYear] = useState(null);
+  const [yearToDelete, setYearToDelete] = useState(null);
+  const yearDropdownRef = useRef(null);
 
   // Sub-tab navigation targets (set by navigate(), consumed by child components)
   const [trackerTargetSubTab, setTrackerTargetSubTab] = useState(null);
@@ -119,6 +124,19 @@ export default function App() {
       }
     });
   }, [state.currencyCode, loaded]);
+
+  // Close year dropdown when clicking outside
+  useEffect(() => {
+    if (!yearDropdownOpen) return;
+    const handle = (e) => {
+      if (yearDropdownRef.current && !yearDropdownRef.current.contains(e.target)) {
+        setYearDropdownOpen(false);
+        setYearToDelete(null);
+      }
+    };
+    document.addEventListener('mousedown', handle);
+    return () => document.removeEventListener('mousedown', handle);
+  }, [yearDropdownOpen]);
 
   // Convert any amount in fromCurrency to home currency
   // Uses live FX rates first, falls back to manual rates
@@ -218,15 +236,32 @@ export default function App() {
   const switchYear = useCallback(async (year) => {
     if (year === selectedYear) return;
     setYearLoading(true);
+    // Capture permanent checklist state before wiping state with loaded year's data
+    const preservedDismissed = state.checklistPermanentlyDismissed || false;
+    const preservedTasksDone = state.checklistTasksDone || {};
     const { data } = await loadData(state.userId, year);
     if (data) {
-      setState(prev => ({ ...makeDefaultState(), ...sanitizeNumericFields(data), userId: prev.userId }));
+      const loaded = sanitizeNumericFields(data);
+      setState(prev => ({
+        ...makeDefaultState(),
+        ...loaded,
+        userId: prev.userId,
+        // Permanent dismissal: once true, stays true regardless of what the loaded year has
+        checklistPermanentlyDismissed: preservedDismissed || (loaded.checklistPermanentlyDismissed || false),
+        // Tasks done: merge — once a task was done it stays done
+        checklistTasksDone: { ...preservedTasksDone, ...(loaded.checklistTasksDone || {}) },
+      }));
     } else {
-      setState(prev => ({ ...makeDefaultState(), userId: prev.userId }));
+      setState(prev => ({
+        ...makeDefaultState(),
+        userId: prev.userId,
+        checklistPermanentlyDismissed: preservedDismissed,
+        checklistTasksDone: preservedTasksDone,
+      }));
     }
     setSelectedYear(year);
     setYearLoading(false);
-  }, [selectedYear, state.userId]);
+  }, [selectedYear, state.userId, state.checklistPermanentlyDismissed, state.checklistTasksDone]);
 
   // Create new year — carry forward plan data
   const createNewYear = useCallback(async () => {
@@ -398,15 +433,118 @@ export default function App() {
           {(state.displayName?.trim() || (state.userId ? state.userId.charAt(0).toUpperCase() + state.userId.slice(1).toLowerCase() : ''))}'s Finance Tracker
         </p>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          {/* Year selector */}
+          {/* Year selector — custom dropdown with per-year delete */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <Select
-              value={selectedYear}
-              onChange={e => switchYear(Number(e.target.value))}
-              style={{ width: 'auto', padding: '4px 8px', fontSize: 13, fontWeight: 600 }}
-            >
-              {availableYears.map(y => <option key={y} value={y}>{y}</option>)}
-            </Select>
+            <div style={{ position: 'relative' }} ref={yearDropdownRef}>
+              {/* Trigger */}
+              <button
+                onClick={() => { setYearDropdownOpen(o => !o); setYearToDelete(null); }}
+                style={{
+                  background: '#f9f7f3', border: '1px solid #e8e4dc', borderRadius: 7,
+                  padding: '4px 10px', fontSize: 13, fontWeight: 600, cursor: 'pointer',
+                  color: '#2d2a26', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 5,
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                {selectedYear}
+                <span style={{ fontSize: 10, color: '#9e9890', lineHeight: 1 }}>▾</span>
+              </button>
+
+              {/* Dropdown panel */}
+              {yearDropdownOpen && (
+                <div style={{
+                  position: 'absolute', top: 'calc(100% + 4px)', right: 0, zIndex: 50,
+                  background: '#fff', border: '1px solid #e8e4dc', borderRadius: 10,
+                  boxShadow: '0 4px 16px rgba(0,0,0,0.08)', minWidth: 190, overflow: 'hidden',
+                }}>
+                  {[...availableYears].sort((a, b) => b - a).map(year => {
+                    const isCurrent = year === new Date().getFullYear();
+                    const isConfirming = yearToDelete === year;
+                    return (
+                      <div key={year}>
+                        <div
+                          style={{
+                            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                            padding: '8px 12px', cursor: 'pointer',
+                            background: year === selectedYear ? '#f9f7f3' : 'transparent',
+                          }}
+                          onMouseEnter={() => setHoveredYear(year)}
+                          onMouseLeave={() => setHoveredYear(null)}
+                        >
+                          <span
+                            onClick={() => {
+                              switchYear(year);
+                              setYearDropdownOpen(false);
+                              setYearToDelete(null);
+                            }}
+                            style={{ fontSize: 14, color: '#1a1714', flex: 1 }}
+                          >
+                            {year}
+                            {isCurrent && (
+                              <span style={{ fontSize: 11, color: '#9e9890', marginLeft: 6 }}>current</span>
+                            )}
+                          </span>
+                          {!isCurrent && hoveredYear === year && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setYearToDelete(isConfirming ? null : year);
+                              }}
+                              style={{
+                                background: 'none', border: 'none', cursor: 'pointer',
+                                color: '#c94040', fontSize: 12, padding: '2px 6px',
+                                borderRadius: 4, fontFamily: 'inherit',
+                              }}
+                            >
+                              Delete
+                            </button>
+                          )}
+                        </div>
+
+                        {/* Inline confirmation */}
+                        {isConfirming && (
+                          <div style={{
+                            padding: '10px 12px', background: '#fdf2f2',
+                            borderTop: '1px solid #fecaca',
+                          }}>
+                            <p style={{ fontSize: 12, color: '#6b6660', marginBottom: 8 }}>
+                              Delete all {year} data? This cannot be undone.
+                            </p>
+                            <div style={{ display: 'flex', gap: 6 }}>
+                              <button
+                                onClick={() => setYearToDelete(null)}
+                                style={{
+                                  background: 'transparent', border: '1px solid #e8e4dc',
+                                  borderRadius: 6, padding: '5px 12px', fontSize: 12,
+                                  color: '#6b6660', cursor: 'pointer', fontFamily: 'inherit',
+                                }}
+                              >
+                                Cancel
+                              </button>
+                              <button
+                                onClick={() => {
+                                  setYearToDelete(null);
+                                  setYearDropdownOpen(false);
+                                  handleDeleteYear(year);
+                                }}
+                                style={{
+                                  background: '#c94040', border: 'none',
+                                  borderRadius: 6, padding: '5px 12px', fontSize: 12,
+                                  color: '#fff', cursor: 'pointer', fontFamily: 'inherit',
+                                }}
+                              >
+                                Delete {year}
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
             <button
               onClick={() => setShowNewYearConfirm(true)}
               style={{
