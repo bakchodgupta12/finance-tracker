@@ -28,14 +28,35 @@ const UI = {
 function GoalsChartTooltip({ active, payload, f }) {
   if (!active || !payload?.length) return null;
   const d = payload[0].payload;
+
+  const tipStyle = {
+    background: '#fff', border: '1px solid #e8e4dc', borderRadius: 8,
+    padding: '8px 12px', fontSize: 12, boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
+  };
+
+  if (d.isGoalSegment) {
+    if (d.isRemaining) return null;
+    return (
+      <div style={tipStyle}>
+        <div style={{ fontWeight: 600, color: '#1a1714', fontSize: 13, marginBottom: 6 }}>Goal Progress</div>
+        <div style={{ color: '#6b6660' }}>{f(d.value)} of {f(d.goalTotal)}</div>
+        <div style={{ color: d.goalPct >= 100 ? '#6dbb8a' : '#E8A838', fontWeight: 600, marginTop: 4 }}>
+          {d.goalPct.toFixed(1)}% achieved
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div style={{
-      background: '#fff', border: '1px solid #e8e4dc', borderRadius: 8,
-      padding: '8px 12px', fontSize: 12, boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
-    }}>
-      <p style={{ fontWeight: 600, color: '#2d2a26', marginBottom: 2 }}>{d.name}</p>
-      <p style={{ color: '#6b6660', marginBottom: 2 }}>{f(d.homeValue)}</p>
-      <p style={{ color: '#b0aa9f', fontSize: 11 }}>{d.percentage}% · {d.group}</p>
+    <div style={tipStyle}>
+      <div style={{ fontWeight: 600, color: '#1a1714', fontSize: 13, marginBottom: 6 }}>{d.name}</div>
+      <div style={{ color: '#6b6660' }}>{f(d.homeValue)}</div>
+      <div style={{ color: '#9e9890', marginTop: 2 }}>{d.percentage}% of net worth</div>
+      {d.group && (
+        <div style={{ color: '#b0aa9f', fontSize: 11, marginTop: 4, paddingTop: 4, borderTop: '1px solid #f0ece4' }}>
+          {d.group}
+        </div>
+      )}
     </div>
   );
 }
@@ -309,11 +330,25 @@ export default function Plan({
         const hasData = dataWithPct.length > 0;
 
         // Goal ring
-        const goalPct       = goal > 0 ? Math.min(Math.max(0, netWorth / goal), 1) : 0;
-        const goalRingColor = goalPct >= 0.5 ? '#6dbb8a' : '#E8A838';
-        const goalRingData  = goal > 0 ? [
-          { name: 'achieved',  value: goalPct * 100 },
-          { name: 'remaining', value: (1 - goalPct) * 100 },
+        const goalPct      = goal > 0 ? Math.min(Math.max(0, netWorth / goal), 1) : 0;
+        const goalRingData = goal > 0 ? [
+          {
+            name: 'Goal Achieved',
+            value: Math.min(netWorth, goal),
+            fill: netWorth >= goal ? '#6dbb8a' : '#E8A838',
+            isGoalSegment: true,
+            goalPct: goalPct * 100,
+            goalTotal: goal,
+          },
+          {
+            name: 'Remaining',
+            value: Math.max(0, goal - netWorth),
+            fill: '#f0ece4',
+            isGoalSegment: true,
+            isRemaining: true,
+            goalPct: goalPct * 100,
+            goalTotal: goal,
+          },
         ] : [];
 
         const nwChartColor = chartData.length < 2 || chartData[chartData.length - 1].total >= chartData[0].total
@@ -390,12 +425,13 @@ export default function Plan({
             {/* Net worth breakdown chart */}
             <div style={{ ...s.card, marginBottom: 16 }}>
               {!hasData ? noDataMsg : (
-                <>
-                  <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 12 }}>
-                    <PieChart width={210} height={210}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 32, padding: '8px 0' }}>
+                  {/* Left: chart */}
+                  <div style={{ flexShrink: 0 }}>
+                    <PieChart width={320} height={320}>
                       <Pie
                         data={dataWithPct}
-                        cx={105} cy={105} innerRadius={55} outerRadius={85}
+                        cx={160} cy={160} innerRadius={80} outerRadius={120}
                         paddingAngle={2} dataKey="value"
                         activeIndex={activeIndex !== null ? activeIndex : undefined}
                         activeShape={renderActiveShape}
@@ -406,30 +442,56 @@ export default function Plan({
                       </Pie>
                       {goal > 0 && goalRingData.length > 0 && (
                         <Pie
-                          data={goalRingData} cx={105} cy={105}
-                          innerRadius={90} outerRadius={95}
+                          data={goalRingData} cx={160} cy={160}
+                          innerRadius={128} outerRadius={136}
                           paddingAngle={0} dataKey="value"
                           startAngle={90} endAngle={-270}
                         >
-                          <Cell fill={goalRingColor} strokeWidth={0} />
-                          <Cell fill="#f0ece4" stroke="none" strokeWidth={0} />
+                          {goalRingData.map((entry, i) => (
+                            <Cell key={i} fill={entry.fill} stroke="none" strokeWidth={0} />
+                          ))}
                         </Pie>
                       )}
                       <Tooltip content={<GoalsChartTooltip f={f} />} />
                     </PieChart>
                   </div>
-                  {/* Legend */}
-                  <div>
+                  {/* Right: legend */}
+                  <div style={{ flex: 1 }}>
                     {dataWithPct.map((acc, i) => (
-                      <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 5 }}>
-                        <div style={{ width: 8, height: 8, borderRadius: '50%', background: acc.fill, flexShrink: 0 }} />
-                        <span style={{ fontSize: 11, color: '#6b6660', flex: 1 }}>{acc.name}</span>
-                        <span style={{ fontSize: 11, fontWeight: 600, color: '#2d2a26' }}>{f(acc.homeValue)}</span>
-                        <span style={{ fontSize: 10, color: '#b0aa9f', minWidth: 28, textAlign: 'right' }}>{acc.percentage}%</span>
+                      <div key={i} style={{
+                        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                        padding: '6px 0', borderBottom: '1px solid #f9f7f3', gap: 16, minWidth: 280,
+                      }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <div style={{ width: 9, height: 9, borderRadius: '50%', background: acc.fill, flexShrink: 0 }} />
+                          <span style={{ fontSize: 13, color: '#4a4643' }}>{acc.name}</span>
+                        </div>
+                        <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
+                          <span style={{ fontSize: 13, fontWeight: 600, color: '#1a1714', textAlign: 'right', minWidth: 100 }}>
+                            {f(acc.homeValue)}
+                          </span>
+                          <span style={{ fontSize: 12, color: '#9e9890', minWidth: 32, textAlign: 'right' }}>
+                            {acc.percentage}%
+                          </span>
+                        </div>
                       </div>
                     ))}
+                    {/* Total row */}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: 10, marginTop: 4, borderTop: '1px solid #e8e4dc' }}>
+                      <span style={{ fontSize: 13, color: '#6b6660', fontWeight: 600 }}>Total Net Worth</span>
+                      <span style={{ fontSize: 14, fontWeight: 700, color: '#1a1714' }}>{f(totalValue)}</span>
+                    </div>
+                    {/* Goal progress row */}
+                    {goal > 0 && (
+                      <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: 6 }}>
+                        <span style={{ fontSize: 12, color: '#9e9890' }}>Goal progress</span>
+                        <span style={{ fontSize: 12, fontWeight: 600, color: goalPct >= 1 ? '#6dbb8a' : '#E8A838' }}>
+                          {(goalPct * 100).toFixed(1)}% of {f(goal)}
+                        </span>
+                      </div>
+                    )}
                   </div>
-                </>
+                </div>
               )}
             </div>
 
