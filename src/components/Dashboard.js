@@ -157,7 +157,9 @@ export default function Dashboard({
   const allDone = checklistItems.every(i => i.done);
   const completedCount = checklistItems.filter(i => i.done).length;
   const permanentlyDismissed = state.checklistPermanentlyDismissed || false;
-  const showChecklist = !permanentlyDismissed;
+  // Hide when permanently dismissed OR when all tasks are done (stays hidden across years
+  // because checklistTasksDone persists, so allDone stays true even in a new year)
+  const showChecklist = !permanentlyDismissed && !allDone;
 
   const handleDismissChecklist = () => {
     set('checklistPermanentlyDismissed', true);
