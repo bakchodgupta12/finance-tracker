@@ -229,6 +229,10 @@ export const makeDefaultState = () => ({
   // Investments: deposits and trades per account
   investmentDeposits: {},  // { [accountId]: [{ id, date, type, amount, currency, notes }] }
   investmentTrades: {},    // { [accountId]: [{ id, date, action, asset, quantity, price, total, currency, notes }] }
+  // Investments: which accounts show as tabs (default true)
+  investmentAccountVisibility: {},  // { [accountId]: true | false }
+  // Investments: opening balance per account
+  investmentOpeningBalances: {},    // { [accountId]: { amount, date, currency } }
 });
 
 // ─────────────────────────────────────────────

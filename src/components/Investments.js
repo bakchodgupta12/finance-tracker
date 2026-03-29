@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react';
-import { s, getCurrencyFlag, DelBtn, TypeBadge } from '../shared';
+import { s, getCurrencyFlag, DelBtn, TypeBadge, EditableCell } from '../shared';
 
 // ── Date helpers ──────────────────────────────────────────────────────────────
 const formatDisplayDate = (isoDate) => {
@@ -9,8 +9,8 @@ const formatDisplayDate = (isoDate) => {
 };
 
 const todayISO = () => new Date().toISOString().split('T')[0];
-const genId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
-const fmtNum = (n, dp = 2) =>
+const genId    = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+const fmtNum   = (n, dp = 2) =>
   new Intl.NumberFormat('en-GB', { maximumFractionDigits: dp }).format(Number(n) || 0);
 
 // ── DateInput (same pattern as ExpenseTracker) ────────────────────────────────
@@ -19,7 +19,7 @@ function DateInput({ value, onChange }) {
   const displayValue =
     value && /^\d{4}-\d{2}-\d{2}$/.test(value) ? formatDisplayDate(value) : value || '';
   const handleTextChange = (e) => {
-    const raw = e.target.value;
+    const raw   = e.target.value;
     const parts = raw.split('-');
     if (parts.length === 3 && parts[2].length === 4) {
       onChange(`${parts[2]}-${parts[1]}-${parts[0]}`);
@@ -62,13 +62,43 @@ function DateInput({ value, onChange }) {
   );
 }
 
-// ── Badges ────────────────────────────────────────────────────────────────────
+// ── Inline underline-only select (matches allocation table pattern) ────────────
+function InlineSelect({ value, onChange, options }) {
+  return (
+    <div style={{ position: 'relative', display: 'inline-flex', alignItems: 'center' }}>
+      <select
+        value={value}
+        onChange={onChange}
+        style={{
+          appearance: 'none', WebkitAppearance: 'none',
+          background: 'transparent', border: 'none',
+          borderBottom: '1px solid #e8e4dc', outline: 'none',
+          padding: '4px 20px 4px 0', fontSize: 13,
+          fontFamily: 'inherit', color: '#1a1714', cursor: 'pointer',
+        }}
+      >
+        {options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+      </select>
+      <div style={{
+        position: 'absolute', right: 2, top: '50%', transform: 'translateY(-50%)',
+        pointerEvents: 'none', color: '#9e9890',
+      }}>
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+          strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <polyline points="6 9 12 15 18 9" />
+        </svg>
+      </div>
+    </div>
+  );
+}
+
+// ── Coloured view-mode badges ─────────────────────────────────────────────────
 function DepositBadge({ type }) {
   const isDeposit = type === 'deposit';
   return (
     <span style={{
       fontSize: 11, padding: '2px 8px', borderRadius: 20,
-      background: isDeposit ? '#f0fdf4' : '#fdf2f2',
+      background: isDeposit ? '#f0faf4' : '#fef2f2',
       color: isDeposit ? '#2d9e6b' : '#c94040',
       fontWeight: 600, letterSpacing: '0.08em',
     }}>
@@ -82,8 +112,8 @@ function TradeBadge({ action }) {
   return (
     <span style={{
       fontSize: 11, padding: '2px 8px', borderRadius: 20,
-      background: isBuy ? '#eff6ff' : '#fff7ed',
-      color: isBuy ? '#5B9BD5' : '#E8A838',
+      background: isBuy ? '#f0faf4' : '#fef2f2',
+      color: isBuy ? '#2d9e6b' : '#c94040',
       fontWeight: 600, letterSpacing: '0.08em',
     }}>
       {isBuy ? 'Buy' : 'Sell'}
@@ -106,14 +136,78 @@ const inlineInput = {
   borderBottom: '1px solid #e8e4dc', outline: 'none',
   fontSize: 13, color: '#1a1714', padding: '3px 0', fontFamily: 'inherit',
 };
-const inlineSelect = {
-  background: '#f9f7f3', border: '1px solid #e8e4dc', borderRadius: 6,
-  fontSize: 12, padding: '4px 8px', color: '#2d2a26', fontFamily: 'inherit', cursor: 'pointer',
-};
 const addBtnStyle = {
   fontSize: 11, background: 'transparent', border: '1px dashed #d8d4cc',
   borderRadius: 7, padding: '5px 12px', cursor: 'pointer', color: '#a09890', marginBottom: 8,
 };
+
+// ── Opening Balance row (top of each account tab) ─────────────────────────────
+function OpeningBalanceRow({ accountId, openingBalances, currency, onUpdate }) {
+  const ob      = openingBalances?.[accountId];
+  const [open, setOpen] = useState(false);
+  const [draft, setDraft] = useState({ amount: '', date: todayISO() });
+
+  const save = () => {
+    if (!draft.amount) { setOpen(false); return; }
+    onUpdate(accountId, { amount: Number(draft.amount) || 0, date: draft.date, currency });
+    setOpen(false);
+  };
+
+  if (!ob && !open) {
+    return (
+      <div style={{ marginBottom: 28 }}>
+        <button
+          onClick={() => { setDraft({ amount: '', date: todayISO() }); setOpen(true); }}
+          style={{
+            background: 'none', border: 'none', cursor: 'pointer',
+            fontSize: 12, color: '#b0aa9f', fontFamily: 'inherit', padding: 0,
+            textDecoration: 'underline',
+          }}
+        >
+          + Set opening balance
+        </button>
+      </div>
+    );
+  }
+
+  if (open) {
+    return (
+      <div style={{ ...s.card, padding: '14px 18px', marginBottom: 28, display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+        <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.1em', color: '#1a1714', margin: 0, flexShrink: 0 }}>OPENING BALANCE</p>
+        <span style={{ fontSize: 12, color: '#9e9890' }}>As of</span>
+        <DateInput value={draft.date} onChange={v => setDraft(d => ({ ...d, date: v }))} />
+        <span style={{ fontSize: 12, color: '#9e9890' }}>—</span>
+        <input
+          type="number" value={draft.amount} placeholder="0" autoFocus min="0" step="any"
+          onChange={e => setDraft(d => ({ ...d, amount: e.target.value }))}
+          onKeyDown={e => { if (e.key === 'Enter') save(); if (e.key === 'Escape') setOpen(false); }}
+          onBlur={save}
+          style={{ ...inlineInput, width: 100 }}
+        />
+        <span style={{ fontSize: 12, color: '#9e9890' }}>{currency}</span>
+        <button onClick={() => setOpen(false)} style={{ background: 'none', border: 'none', color: '#ccc', cursor: 'pointer', fontSize: 18, lineHeight: 1, padding: 0, marginLeft: 'auto' }}>×</button>
+      </div>
+    );
+  }
+
+  // Saved state — show read-only with edit option
+  return (
+    <div style={{ ...s.card, padding: '14px 18px', marginBottom: 28, display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+      <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.1em', color: '#1a1714', margin: 0, flexShrink: 0 }}>OPENING BALANCE</p>
+      <span style={{ fontSize: 12, color: '#9e9890' }}>As of {formatDisplayDate(ob.date)} —</span>
+      <span style={{ fontSize: 14, fontWeight: 600, color: '#1a1714' }}>{fmtNum(ob.amount)} {currency}</span>
+      <span style={{ fontSize: 12, color: '#9e9890', marginLeft: 4 }}>
+        This is your starting balance before you began tracking here.
+      </span>
+      <button
+        onClick={() => { setDraft({ amount: ob.amount, date: ob.date }); setOpen(true); }}
+        style={{ marginLeft: 'auto', background: 'none', border: 'none', fontSize: 11, color: '#b0aa9f', cursor: 'pointer', fontFamily: 'inherit', padding: 0, textDecoration: 'underline' }}
+      >
+        Edit
+      </button>
+    </div>
+  );
+}
 
 // ── Deposits section ──────────────────────────────────────────────────────────
 function DepositsSection({ account, deposits, onUpdate }) {
@@ -173,17 +267,18 @@ function DepositsSection({ account, deposits, onUpdate }) {
                   <DateInput value={row.date} onChange={v => setRow(r => ({ ...r, date: v }))} />
                 </td>
                 <td style={{ ...TD, padding: '6px 10px' }}>
-                  <select value={row.type} onChange={e => setRow(r => ({ ...r, type: e.target.value }))} style={inlineSelect}>
-                    <option value="deposit">Deposit</option>
-                    <option value="withdrawal">Withdrawal</option>
-                  </select>
+                  <InlineSelect
+                    value={row.type}
+                    onChange={e => setRow(r => ({ ...r, type: e.target.value }))}
+                    options={[{ value: 'deposit', label: 'Deposit' }, { value: 'withdrawal', label: 'Withdrawal' }]}
+                  />
                 </td>
                 <td style={{ ...TD, padding: '6px 10px' }}>
                   <input
-                    type="number" value={row.amount} placeholder="0" autoFocus
+                    type="number" value={row.amount} placeholder="0" autoFocus min="0" step="any"
                     onChange={e => setRow(r => ({ ...r, amount: e.target.value }))}
                     onKeyDown={e => { if (e.key === 'Enter') saveRow(); if (e.key === 'Escape') setAdding(false); }}
-                    style={{ ...inlineInput, width: 90 }} min="0" step="any"
+                    style={{ ...inlineInput, width: 90 }}
                   />
                 </td>
                 <td style={TD}>{getCurrencyFlag(account.currency)} {account.currency}</td>
@@ -221,9 +316,9 @@ function TradesSection({ account, trades, onUpdate }) {
   const [adding, setAdding] = useState(false);
   const [row, setRow] = useState({ date: todayISO(), action: 'buy', asset: '', quantity: '', price: '', notes: '' });
 
-  const isCrypto = account.type === 'Crypto';
+  const isCrypto      = account.type === 'Crypto';
   const isIndiaEquity = account.type === 'Investment' && account.currency === 'INR';
-  const assetLabel = isCrypto ? 'Asset' : isIndiaEquity ? 'Stock/Fund' : 'Ticker';
+  const assetLabel    = isCrypto ? 'Asset' : isIndiaEquity ? 'Stock/Fund' : 'Ticker';
 
   const totalBought = trades.filter(t => t.action === 'buy').reduce((s, t) => s + (Number(t.total) || 0), 0);
   const totalSold   = trades.filter(t => t.action === 'sell').reduce((s, t) => s + (Number(t.total) || 0), 0);
@@ -231,7 +326,7 @@ function TradesSection({ account, trades, onUpdate }) {
   const saveRow = () => {
     if (!row.asset || !row.quantity || !row.price) { setAdding(false); return; }
     const qty   = Number(row.quantity) || 0;
-    const price = Number(row.price) || 0;
+    const price = Number(row.price)    || 0;
     const asset = (!isCrypto && !isIndiaEquity) ? row.asset.toUpperCase() : row.asset;
     onUpdate([...trades, {
       id: genId(), date: row.date, action: row.action, asset,
@@ -290,10 +385,11 @@ function TradesSection({ account, trades, onUpdate }) {
                   <DateInput value={row.date} onChange={v => setRow(r => ({ ...r, date: v }))} />
                 </td>
                 <td style={{ ...TD, padding: '6px 10px' }}>
-                  <select value={row.action} onChange={e => setRow(r => ({ ...r, action: e.target.value }))} style={inlineSelect}>
-                    <option value="buy">Buy</option>
-                    <option value="sell">Sell</option>
-                  </select>
+                  <InlineSelect
+                    value={row.action}
+                    onChange={e => setRow(r => ({ ...r, action: e.target.value }))}
+                    options={[{ value: 'buy', label: 'Buy' }, { value: 'sell', label: 'Sell' }]}
+                  />
                 </td>
                 <td style={{ ...TD, padding: '6px 10px' }}>
                   <input
@@ -344,15 +440,31 @@ function TradesSection({ account, trades, onUpdate }) {
       <button onClick={() => setAdding(true)} style={addBtnStyle}>+ Add Trade</button>
 
       <div style={{ display: 'flex', gap: 24, marginTop: 8, fontSize: 12, color: '#6b6660', flexWrap: 'wrap' }}>
-        <span>Total bought: <strong style={{ color: '#5B9BD5' }}>{fmtNum(totalBought)} {account.currency}</strong></span>
-        <span>Total sold: <strong style={{ color: '#E8A838' }}>{fmtNum(totalSold)} {account.currency}</strong></span>
+        <span>Total bought: <strong style={{ color: '#2d9e6b' }}>{fmtNum(totalBought)} {account.currency}</strong></span>
+        <span>Total sold: <strong style={{ color: '#c94040' }}>{fmtNum(totalSold)} {account.currency}</strong></span>
       </div>
     </div>
   );
 }
 
 // ── Overview tab ──────────────────────────────────────────────────────────────
-function OverviewTab({ investmentAccounts, investmentDeposits, investmentTrades }) {
+function OverviewTab({
+  investmentAccounts, investmentDeposits, investmentTrades,
+  investmentOpeningBalances, accountSnapshots, MONTHS, onUpdateOpeningBalance,
+}) {
+  const [hoveredNoBalance, setHoveredNoBalance] = useState(null);
+
+  const getLatestBalance = (accId) => {
+    if (!accountSnapshots || !MONTHS) return null;
+    for (let i = MONTHS.length - 1; i >= 0; i--) {
+      const snap = accountSnapshots[MONTHS[i]];
+      if (snap && snap[accId] !== undefined && snap[accId] !== null && snap[accId] !== 0) {
+        return snap[accId];
+      }
+    }
+    return null;
+  };
+
   return (
     <div>
       <p style={{ fontFamily: 'Lora, serif', fontSize: 20, color: '#1a1714', margin: '0 0 4px' }}>Investment Accounts</p>
@@ -366,75 +478,143 @@ function OverviewTab({ investmentAccounts, investmentDeposits, investmentTrades 
           </p>
         </div>
       ) : (
-        <div style={{ border: '1px solid #e8e4dc', borderRadius: 10, overflow: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 560 }}>
-            <thead>
-              <tr>
-                <th style={TH}>Account</th>
-                <th style={TH}>Type</th>
-                <th style={TH}>Currency</th>
-                <th style={TH}>Total Deposited</th>
-                <th style={TH}>Total Deployed</th>
-                <th style={TH}>Notes</th>
-              </tr>
-            </thead>
-            <tbody>
-              {investmentAccounts.map(acc => {
-                const deps = investmentDeposits[acc.id] || [];
-                const trs  = investmentTrades[acc.id]   || [];
-                const totalDeposited = deps.filter(d => d.type === 'deposit').reduce((s, d) => s + (Number(d.amount) || 0), 0);
-                const totalDeployed  = trs.filter(t => t.action === 'buy').reduce((s, t) => s + (Number(t.total) || 0), 0);
-                return (
-                  <tr key={acc.id}>
-                    <td style={{ ...TD, fontWeight: 500 }}>{acc.name}</td>
-                    <td style={TD}><TypeBadge type={acc.type} /></td>
-                    <td style={TD}>{getCurrencyFlag(acc.currency)} {acc.currency}</td>
-                    <td style={{ ...TD, fontFamily: 'monospace' }}>{fmtNum(totalDeposited)}</td>
-                    <td style={{ ...TD, fontFamily: 'monospace' }}>{fmtNum(totalDeployed)}</td>
-                    <td style={{ ...TD, color: '#9e9890' }}>{acc.note || '—'}</td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+        <>
+          <div style={{ border: '1px solid #e8e4dc', borderRadius: 10, overflow: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 640 }}>
+              <thead>
+                <tr>
+                  <th style={TH}>Account</th>
+                  <th style={TH}>Type</th>
+                  <th style={TH}>Currency</th>
+                  <th style={TH}>Opening Balance</th>
+                  <th style={TH}>Latest Balance</th>
+                  <th style={TH}>Total Deposited</th>
+                  <th style={TH}>Total Deployed</th>
+                </tr>
+              </thead>
+              <tbody>
+                {investmentAccounts.map(acc => {
+                  const deps           = investmentDeposits[acc.id] || [];
+                  const trs            = investmentTrades[acc.id]   || [];
+                  const totalDeposited = deps.filter(d => d.type === 'deposit').reduce((s, d) => s + (Number(d.amount) || 0), 0);
+                  const totalDeployed  = trs.filter(t => t.action === 'buy').reduce((s, t) => s + (Number(t.total) || 0), 0);
+                  const openingAmount  = investmentOpeningBalances?.[acc.id]?.amount;
+                  const latestBal      = getLatestBalance(acc.id);
+
+                  return (
+                    <tr key={acc.id}>
+                      <td style={{ ...TD, fontWeight: 500 }}>{acc.name}</td>
+                      <td style={TD}><TypeBadge type={acc.type} /></td>
+                      <td style={TD}>{getCurrencyFlag(acc.currency)} {acc.currency}</td>
+                      <td style={{ ...TD }}>
+                        <EditableCell
+                          value={openingAmount || ''}
+                          onChange={v => onUpdateOpeningBalance(acc.id, { amount: v, date: investmentOpeningBalances?.[acc.id]?.date || todayISO(), currency: acc.currency })}
+                          width={80}
+                          narrowEmpty={true}
+                        />
+                      </td>
+                      <td style={{ ...TD }}>
+                        {latestBal !== null ? (
+                          <span style={{ fontFamily: 'monospace' }}>{fmtNum(latestBal)}</span>
+                        ) : (
+                          <span
+                            style={{ position: 'relative', display: 'inline-block' }}
+                            onMouseEnter={() => setHoveredNoBalance(acc.id)}
+                            onMouseLeave={() => setHoveredNoBalance(null)}
+                          >
+                            <span style={{ color: '#b0aa9f', cursor: 'default' }}>—</span>
+                            {hoveredNoBalance === acc.id && (
+                              <div style={{
+                                position: 'absolute', bottom: 'calc(100% + 4px)', left: 0,
+                                background: '#2d2a26', color: '#fff', fontSize: 11,
+                                padding: '4px 8px', borderRadius: 5, whiteSpace: 'nowrap',
+                                boxShadow: '0 2px 8px rgba(0,0,0,0.15)', pointerEvents: 'none', zIndex: 10,
+                              }}>
+                                Log balances in Finance → Tracker → Balances
+                              </div>
+                            )}
+                          </span>
+                        )}
+                      </td>
+                      <td style={{ ...TD, fontFamily: 'monospace' }}>{fmtNum(totalDeposited)}</td>
+                      <td style={{ ...TD, fontFamily: 'monospace' }}>{fmtNum(totalDeployed)}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+          <p style={{ fontSize: 11, color: '#b0aa9f', margin: '10px 0 0' }}>
+            Opening balance is your starting point before you began tracking deposits and trades here.
+          </p>
+        </>
       )}
     </div>
   );
 }
 
 // ── Investments Settings tab ──────────────────────────────────────────────────
-function InvestmentsSettingsTab({ investmentAccounts }) {
+function InvestmentsSettingsTab({ allInvestmentAccounts, investmentAccountVisibility, onToggleVisibility }) {
+  const isVisible = (id) => {
+    const v = investmentAccountVisibility?.[id];
+    return v === undefined || v === true;
+  };
+
   return (
     <div>
-      <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.12em', color: '#1a1714', margin: '0 0 4px' }}>INVESTMENT ACCOUNTS</p>
-      <p style={{ fontSize: 13, color: '#9e9890', margin: '0 0 20px' }}>Manage which accounts appear in each asset class tab.</p>
+      {/* Visibility section */}
+      <div style={{ ...s.card, marginBottom: 20 }}>
+        <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.12em', color: '#1a1714', margin: '0 0 4px' }}>ACCOUNTS IN INVESTMENTS</p>
+        <p style={{ fontSize: 13, color: '#9e9890', margin: '0 0 16px' }}>
+          Choose which accounts appear as tabs in the Investments pillar.
+        </p>
 
-      {investmentAccounts.length === 0 ? (
-        <div style={{ ...s.card, padding: '20px 24px', marginBottom: 20 }}>
-          <p style={{ fontSize: 13, color: '#9e9890' }}>
-            No investment accounts. Add them in Finance → Settings → Accounts.
-          </p>
-        </div>
-      ) : (
-        <div style={{ ...s.card, padding: 0, overflow: 'hidden', marginBottom: 20 }}>
-          {investmentAccounts.map((acc, i) => (
-            <div key={acc.id} style={{
-              display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px',
-              borderBottom: i < investmentAccounts.length - 1 ? '1px solid #f0ece4' : 'none',
-            }}>
-              <div style={{ flex: 1 }}>
-                <p style={{ fontSize: 13, fontWeight: 500, color: '#1a1714', margin: 0 }}>{acc.name}</p>
-                <p style={{ fontSize: 11, color: '#9e9890', margin: '2px 0 0' }}>
-                  To add or remove accounts, go to Finance → Settings → Accounts
-                </p>
-              </div>
-              <TypeBadge type={acc.type} />
-            </div>
-          ))}
-        </div>
-      )}
+        {allInvestmentAccounts.length === 0 ? (
+          <p style={{ fontSize: 13, color: '#9e9890' }}>No investment accounts. Add them in Finance → Settings → Accounts.</p>
+        ) : (
+          <>
+            {allInvestmentAccounts.map((acc, i) => {
+              const visible = isVisible(acc.id);
+              return (
+                <div key={acc.id} style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                  padding: '10px 0',
+                  borderBottom: i < allInvestmentAccounts.length - 1 ? '1px solid #f0ece4' : 'none',
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <TypeBadge type={acc.type} />
+                    <span style={{ fontSize: 14, color: '#1a1714' }}>{acc.name}</span>
+                    <span style={{ fontSize: 12, color: '#9e9890' }}>{getCurrencyFlag(acc.currency)} {acc.currency}</span>
+                  </div>
+                  {/* Toggle switch */}
+                  <div
+                    onClick={() => onToggleVisibility(acc.id)}
+                    style={{
+                      width: 36, height: 20, borderRadius: 10,
+                      background: visible ? '#5B9BD5' : '#e8e4dc',
+                      cursor: 'pointer', position: 'relative',
+                      transition: 'background 0.2s', flexShrink: 0,
+                    }}
+                  >
+                    <div style={{
+                      position: 'absolute', top: 2,
+                      left: visible ? 18 : 2,
+                      width: 16, height: 16, borderRadius: '50%', background: '#fff',
+                      transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.15)',
+                    }} />
+                  </div>
+                </div>
+              );
+            })}
+            <p style={{ fontSize: 11, color: '#b0aa9f', margin: '12px 0 0' }}>
+              To add or remove accounts, go to Finance → Settings → Accounts
+            </p>
+          </>
+        )}
+      </div>
 
+      {/* Base currency note */}
       <div style={{ ...s.card }}>
         <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.12em', color: '#1a1714', marginBottom: 4 }}>BASE CURRENCY</p>
         <p style={{ fontSize: 13, color: '#9e9890', margin: 0 }}>
@@ -446,9 +626,15 @@ function InvestmentsSettingsTab({ investmentAccounts }) {
 }
 
 // ── Main Investments export ───────────────────────────────────────────────────
-export default function Investments({ state, set, subTab, investmentAccounts }) {
-  const deposits = state.investmentDeposits || {};
-  const trades   = state.investmentTrades   || {};
+export default function Investments({
+  state, set, subTab,
+  allInvestmentAccounts, visibleInvestmentAccounts,
+  accountSnapshots, MONTHS,
+}) {
+  const deposits          = state.investmentDeposits          || {};
+  const trades            = state.investmentTrades            || {};
+  const openingBalances   = state.investmentOpeningBalances   || {};
+  const accountVisibility = state.investmentAccountVisibility || {};
 
   const updateDeposits = (accountId, newDeposits) =>
     set('investmentDeposits', prev => ({ ...(prev || {}), [accountId]: newDeposits }));
@@ -456,16 +642,30 @@ export default function Investments({ state, set, subTab, investmentAccounts }) 
   const updateTrades = (accountId, newTrades) =>
     set('investmentTrades', prev => ({ ...(prev || {}), [accountId]: newTrades }));
 
-  // Find the active account (if a per-account tab is active)
-  const activeAccount = investmentAccounts.find(a => String(a.id) === subTab) || null;
+  const updateOpeningBalance = (accountId, ob) =>
+    set('investmentOpeningBalances', prev => ({ ...(prev || {}), [accountId]: ob }));
+
+  const toggleVisibility = (accountId) => {
+    set('investmentAccountVisibility', prev => {
+      const p = prev || {};
+      const current = p[accountId] === undefined ? true : p[accountId];
+      return { ...p, [accountId]: !current };
+    });
+  };
+
+  const activeAccount = visibleInvestmentAccounts.find(a => String(a.id) === subTab) || null;
 
   return (
     <div>
       {subTab === 'overview' && (
         <OverviewTab
-          investmentAccounts={investmentAccounts}
+          investmentAccounts={visibleInvestmentAccounts}
           investmentDeposits={deposits}
           investmentTrades={trades}
+          investmentOpeningBalances={openingBalances}
+          accountSnapshots={accountSnapshots}
+          MONTHS={MONTHS}
+          onUpdateOpeningBalance={updateOpeningBalance}
         />
       )}
 
@@ -474,9 +674,16 @@ export default function Investments({ state, set, subTab, investmentAccounts }) 
           <p style={{ fontFamily: 'Lora, serif', fontSize: 20, color: '#1a1714', margin: '0 0 4px' }}>
             {activeAccount.name}
           </p>
-          <p style={{ fontSize: 13, color: '#9e9890', margin: '0 0 24px' }}>
+          <p style={{ fontSize: 13, color: '#9e9890', margin: '0 0 20px' }}>
             {activeAccount.type} account · {getCurrencyFlag(activeAccount.currency)} {activeAccount.currency}
           </p>
+
+          <OpeningBalanceRow
+            accountId={activeAccount.id}
+            openingBalances={openingBalances}
+            currency={activeAccount.currency}
+            onUpdate={updateOpeningBalance}
+          />
 
           <DepositsSection
             account={activeAccount}
@@ -493,7 +700,11 @@ export default function Investments({ state, set, subTab, investmentAccounts }) 
       )}
 
       {subTab === 'settings' && (
-        <InvestmentsSettingsTab investmentAccounts={investmentAccounts} />
+        <InvestmentsSettingsTab
+          allInvestmentAccounts={allInvestmentAccounts}
+          investmentAccountVisibility={accountVisibility}
+          onToggleVisibility={toggleVisibility}
+        />
       )}
     </div>
   );

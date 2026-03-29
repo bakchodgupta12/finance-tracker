@@ -59,6 +59,12 @@ function sanitizeNumericFields(data) {
   if (!out.investmentTrades || typeof out.investmentTrades !== 'object' || Array.isArray(out.investmentTrades)) {
     out.investmentTrades = {};
   }
+  if (!out.investmentAccountVisibility || typeof out.investmentAccountVisibility !== 'object' || Array.isArray(out.investmentAccountVisibility)) {
+    out.investmentAccountVisibility = {};
+  }
+  if (!out.investmentOpeningBalances || typeof out.investmentOpeningBalances !== 'object' || Array.isArray(out.investmentOpeningBalances)) {
+    out.investmentOpeningBalances = {};
+  }
   return out;
 }
 
@@ -83,34 +89,55 @@ function sanitiseFutureSnapshots(data) {
 // Sidebar icons
 // ─────────────────────────────────────────────
 const WalletIcon = (
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-    strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+    strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
     <rect x="2" y="5" width="20" height="14" rx="2" />
+    <path d="M16 12h2" />
     <path d="M2 10h20" />
-    <path d="M16 14h2" />
   </svg>
 );
 
 const TrendingIcon = (
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-    strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+    strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
     <polyline points="23 6 13.5 15.5 8.5 10.5 1 18" />
     <polyline points="17 6 23 6 23 12" />
   </svg>
 );
 
-const LeafIcon = (
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+const SunIcon = (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+    strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="12" cy="12" r="5" />
+    <line x1="12" y1="1" x2="12" y2="3" />
+    <line x1="12" y1="21" x2="12" y2="23" />
+    <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" />
+    <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
+    <line x1="1" y1="12" x2="3" y2="12" />
+    <line x1="21" y1="12" x2="23" y2="12" />
+    <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" />
+    <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
+  </svg>
+);
+
+const ChevronLeft = (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
     strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M12 22V12" />
-    <path d="M5 12c0-5.5 5-9 7-9s7 3.5 7 9c0 4-3 7-7 7s-7-3-7-7z" />
+    <polyline points="15 18 9 12 15 6" />
+  </svg>
+);
+
+const ChevronRight = (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+    strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <polyline points="9 18 15 12 9 6" />
   </svg>
 );
 
 const PILLARS = [
   { id: 'finance',     label: 'Finance',     icon: WalletIcon  },
   { id: 'investments', label: 'Investments', icon: TrendingIcon },
-  { id: 'life',        label: 'Life',        icon: LeafIcon     },
+  { id: 'life',        label: 'Life',        icon: SunIcon      },
 ];
 
 // ─────────────────────────────────────────────
@@ -172,21 +199,30 @@ export default function App() {
   const currency = getCurrency(state.currencyCode || 'GBP');
   const f = useCallback((v) => fmt(v, currency.symbol, currency.locale), [currency]);
 
-  // Investment accounts (computed)
-  const investmentAccounts = useMemo(
+  // All investment accounts
+  const allInvestmentAccounts = useMemo(
     () => (state.accounts || []).filter(a => a.type === 'Investment' || a.type === 'Crypto'),
     [state.accounts]
+  );
+
+  // Only accounts the user has toggled visible (default: true)
+  const visibleInvestmentAccounts = useMemo(
+    () => allInvestmentAccounts.filter(a => {
+      const vis = (state.investmentAccountVisibility || {})[a.id];
+      return vis === undefined || vis === true;
+    }),
+    [allInvestmentAccounts, state.investmentAccountVisibility]
   );
 
   // Sidebar width
   const sidebarWidth = sidebarExpanded ? 200 : 56;
 
-  // Validate investSubTab whenever accounts change
+  // Validate investSubTab whenever visible accounts change
   const validInvestSubTab = useMemo(() => {
     if (investSubTab === 'overview' || investSubTab === 'settings') return investSubTab;
-    if (investmentAccounts.some(a => String(a.id) === investSubTab)) return investSubTab;
+    if (visibleInvestmentAccounts.some(a => String(a.id) === investSubTab)) return investSubTab;
     return 'overview';
-  }, [investSubTab, investmentAccounts]);
+  }, [investSubTab, visibleInvestmentAccounts]);
 
   // Fetch FX rates whenever home currency changes
   useEffect(() => {
@@ -603,7 +639,8 @@ export default function App() {
       {/* ── FIXED LEFT SIDEBAR ── */}
       <div style={{
         position: 'fixed', top: 52, left: 0, bottom: 0,
-        width: sidebarWidth, background: '#1a1714',
+        width: sidebarWidth, background: '#fff',
+        borderRight: '1px solid #e8e4dc',
         zIndex: 90, transition: 'width 0.2s ease',
         display: 'flex', flexDirection: 'column',
         overflow: 'hidden',
@@ -611,7 +648,8 @@ export default function App() {
         {/* Pillar items */}
         <div style={{ flex: 1, paddingTop: 12 }}>
           {PILLARS.map(pillar => {
-            const isActive = activePillar === pillar.id;
+            const isActive  = activePillar === pillar.id;
+            const isHovered = hoveredPillar === pillar.id;
             return (
               <div key={pillar.id} style={{ position: 'relative' }}>
                 <div
@@ -622,20 +660,20 @@ export default function App() {
                     display: 'flex', alignItems: 'center', gap: 12,
                     padding: '12px 16px', cursor: 'pointer', borderRadius: 8,
                     margin: '2px 8px', transition: 'background 0.15s',
-                    background: isActive ? 'rgba(255,255,255,0.1)' : 'transparent',
+                    background: isActive ? '#f7f5f0' : isHovered ? '#f9f7f3' : 'transparent',
                     borderLeft: isActive ? '3px solid #7eb5d6' : '3px solid transparent',
                   }}
                 >
                   <div style={{
                     width: 20, flexShrink: 0, display: 'flex', justifyContent: 'center',
-                    color: isActive ? '#fff' : '#9e9890',
+                    color: isActive ? '#1a1714' : '#6b6660',
                   }}>
                     {pillar.icon}
                   </div>
                   {sidebarExpanded && (
                     <span style={{
                       fontSize: 14, fontWeight: isActive ? 600 : 400,
-                      color: isActive ? '#fff' : '#c8c4bc',
+                      color: isActive ? '#1a1714' : '#6b6660',
                       whiteSpace: 'nowrap', overflow: 'hidden',
                     }}>
                       {pillar.label}
@@ -644,12 +682,12 @@ export default function App() {
                 </div>
 
                 {/* Tooltip when collapsed */}
-                {!sidebarExpanded && hoveredPillar === pillar.id && (
+                {!sidebarExpanded && isHovered && (
                   <div style={{
                     position: 'absolute', left: 60, top: '50%', transform: 'translateY(-50%)',
-                    background: '#2d2a26', color: '#f7f5f0', fontSize: 12, fontWeight: 500,
-                    padding: '5px 10px', borderRadius: 6, whiteSpace: 'nowrap',
-                    boxShadow: '0 2px 8px rgba(0,0,0,0.25)', pointerEvents: 'none', zIndex: 200,
+                    background: '#2d2a26', color: '#fff', fontSize: 11,
+                    padding: '4px 8px', borderRadius: 5, whiteSpace: 'nowrap',
+                    boxShadow: '0 2px 8px rgba(0,0,0,0.15)', pointerEvents: 'none', zIndex: 200,
                   }}>
                     {pillar.label}
                   </div>
@@ -666,11 +704,11 @@ export default function App() {
             position: 'absolute', bottom: 16, left: 0, right: 0,
             display: 'flex', justifyContent: 'center',
             background: 'none', border: 'none', cursor: 'pointer',
-            color: '#9e9890', padding: '8px', fontSize: 16,
+            color: '#9e9890', padding: '8px',
           }}
           title={sidebarExpanded ? 'Collapse sidebar' : 'Expand sidebar'}
         >
-          {sidebarExpanded ? '←' : '→'}
+          {sidebarExpanded ? ChevronLeft : ChevronRight}
         </button>
       </div>
 
@@ -695,7 +733,7 @@ export default function App() {
               <button onClick={() => setInvestSubTab('overview')} style={tabBtnStyle(validInvestSubTab === 'overview')}>
                 Overview
               </button>
-              {investmentAccounts.map(acc => (
+              {visibleInvestmentAccounts.map(acc => (
                 <button
                   key={acc.id}
                   onClick={() => setInvestSubTab(String(acc.id))}
@@ -747,7 +785,10 @@ export default function App() {
               state={state}
               set={set}
               subTab={validInvestSubTab}
-              investmentAccounts={investmentAccounts}
+              allInvestmentAccounts={allInvestmentAccounts}
+              visibleInvestmentAccounts={visibleInvestmentAccounts}
+              accountSnapshots={state.accountSnapshots}
+              MONTHS={MONTHS}
             />
           )}
 
