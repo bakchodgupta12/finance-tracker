@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react';
-import { s, getCurrencyFlag, DelBtn, TypeBadge, EditableCell } from '../shared';
+import { s, getCurrencyFlag, DelBtn, TypeBadge } from '../shared';
 
 // ── Date helpers ──────────────────────────────────────────────────────────────
 const formatDisplayDate = (isoDate) => {
@@ -140,74 +140,6 @@ const addBtnStyle = {
   fontSize: 11, background: 'transparent', border: '1px dashed #d8d4cc',
   borderRadius: 7, padding: '5px 12px', cursor: 'pointer', color: '#a09890', marginBottom: 8,
 };
-
-// ── Opening Balance row (top of each account tab) ─────────────────────────────
-function OpeningBalanceRow({ accountId, openingBalances, currency, onUpdate }) {
-  const ob      = openingBalances?.[accountId];
-  const [open, setOpen] = useState(false);
-  const [draft, setDraft] = useState({ amount: '', date: todayISO() });
-
-  const save = () => {
-    if (!draft.amount) { setOpen(false); return; }
-    onUpdate(accountId, { amount: Number(draft.amount) || 0, date: draft.date, currency });
-    setOpen(false);
-  };
-
-  if (!ob && !open) {
-    return (
-      <div style={{ marginBottom: 28 }}>
-        <button
-          onClick={() => { setDraft({ amount: '', date: todayISO() }); setOpen(true); }}
-          style={{
-            background: 'none', border: 'none', cursor: 'pointer',
-            fontSize: 12, color: '#b0aa9f', fontFamily: 'inherit', padding: 0,
-            textDecoration: 'underline',
-          }}
-        >
-          + Set opening balance
-        </button>
-      </div>
-    );
-  }
-
-  if (open) {
-    return (
-      <div style={{ ...s.card, padding: '14px 18px', marginBottom: 28, display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-        <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.1em', color: '#1a1714', margin: 0, flexShrink: 0 }}>OPENING BALANCE</p>
-        <span style={{ fontSize: 12, color: '#9e9890' }}>As of</span>
-        <DateInput value={draft.date} onChange={v => setDraft(d => ({ ...d, date: v }))} />
-        <span style={{ fontSize: 12, color: '#9e9890' }}>—</span>
-        <input
-          type="number" value={draft.amount} placeholder="0" autoFocus min="0" step="any"
-          onChange={e => setDraft(d => ({ ...d, amount: e.target.value }))}
-          onKeyDown={e => { if (e.key === 'Enter') save(); if (e.key === 'Escape') setOpen(false); }}
-          onBlur={save}
-          style={{ ...inlineInput, width: 100 }}
-        />
-        <span style={{ fontSize: 12, color: '#9e9890' }}>{currency}</span>
-        <button onClick={() => setOpen(false)} style={{ background: 'none', border: 'none', color: '#ccc', cursor: 'pointer', fontSize: 18, lineHeight: 1, padding: 0, marginLeft: 'auto' }}>×</button>
-      </div>
-    );
-  }
-
-  // Saved state — show read-only with edit option
-  return (
-    <div style={{ ...s.card, padding: '14px 18px', marginBottom: 28, display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-      <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.1em', color: '#1a1714', margin: 0, flexShrink: 0 }}>OPENING BALANCE</p>
-      <span style={{ fontSize: 12, color: '#9e9890' }}>As of {formatDisplayDate(ob.date)} —</span>
-      <span style={{ fontSize: 14, fontWeight: 600, color: '#1a1714' }}>{fmtNum(ob.amount)} {currency}</span>
-      <span style={{ fontSize: 12, color: '#9e9890', marginLeft: 4 }}>
-        This is your starting balance before you began tracking here.
-      </span>
-      <button
-        onClick={() => { setDraft({ amount: ob.amount, date: ob.date }); setOpen(true); }}
-        style={{ marginLeft: 'auto', background: 'none', border: 'none', fontSize: 11, color: '#b0aa9f', cursor: 'pointer', fontFamily: 'inherit', padding: 0, textDecoration: 'underline' }}
-      >
-        Edit
-      </button>
-    </div>
-  );
-}
 
 // ── Deposits section ──────────────────────────────────────────────────────────
 function DepositsSection({ account, deposits, onUpdate }) {
@@ -450,7 +382,7 @@ function TradesSection({ account, trades, onUpdate }) {
 // ── Overview tab ──────────────────────────────────────────────────────────────
 function OverviewTab({
   investmentAccounts, investmentDeposits, investmentTrades,
-  investmentOpeningBalances, accountSnapshots, MONTHS, onUpdateOpeningBalance,
+  accountSnapshots, MONTHS,
 }) {
   const [hoveredNoBalance, setHoveredNoBalance] = useState(null);
 
@@ -480,13 +412,12 @@ function OverviewTab({
       ) : (
         <>
           <div style={{ border: '1px solid #e8e4dc', borderRadius: 10, overflow: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 640 }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 540 }}>
               <thead>
                 <tr>
                   <th style={TH}>Account</th>
                   <th style={TH}>Type</th>
                   <th style={TH}>Currency</th>
-                  <th style={TH}>Opening Balance</th>
                   <th style={TH}>Latest Balance</th>
                   <th style={TH}>Total Deposited</th>
                   <th style={TH}>Total Deployed</th>
@@ -498,7 +429,6 @@ function OverviewTab({
                   const trs            = investmentTrades[acc.id]   || [];
                   const totalDeposited = deps.filter(d => d.type === 'deposit').reduce((s, d) => s + (Number(d.amount) || 0), 0);
                   const totalDeployed  = trs.filter(t => t.action === 'buy').reduce((s, t) => s + (Number(t.total) || 0), 0);
-                  const openingAmount  = investmentOpeningBalances?.[acc.id]?.amount;
                   const latestBal      = getLatestBalance(acc.id);
 
                   return (
@@ -506,14 +436,6 @@ function OverviewTab({
                       <td style={{ ...TD, fontWeight: 500 }}>{acc.name}</td>
                       <td style={TD}><TypeBadge type={acc.type} /></td>
                       <td style={TD}>{getCurrencyFlag(acc.currency)} {acc.currency}</td>
-                      <td style={{ ...TD }}>
-                        <EditableCell
-                          value={openingAmount || ''}
-                          onChange={v => onUpdateOpeningBalance(acc.id, { amount: v, date: investmentOpeningBalances?.[acc.id]?.date || todayISO(), currency: acc.currency })}
-                          width={80}
-                          narrowEmpty={true}
-                        />
-                      </td>
                       <td style={{ ...TD }}>
                         {latestBal !== null ? (
                           <span style={{ fontFamily: 'monospace' }}>{fmtNum(latestBal)}</span>
@@ -545,9 +467,6 @@ function OverviewTab({
               </tbody>
             </table>
           </div>
-          <p style={{ fontSize: 11, color: '#b0aa9f', margin: '10px 0 0' }}>
-            Opening balance is your starting point before you began tracking deposits and trades here.
-          </p>
         </>
       )}
     </div>
@@ -633,7 +552,6 @@ export default function Investments({
 }) {
   const deposits          = state.investmentDeposits          || {};
   const trades            = state.investmentTrades            || {};
-  const openingBalances   = state.investmentOpeningBalances   || {};
   const accountVisibility = state.investmentAccountVisibility || {};
 
   const updateDeposits = (accountId, newDeposits) =>
@@ -641,9 +559,6 @@ export default function Investments({
 
   const updateTrades = (accountId, newTrades) =>
     set('investmentTrades', prev => ({ ...(prev || {}), [accountId]: newTrades }));
-
-  const updateOpeningBalance = (accountId, ob) =>
-    set('investmentOpeningBalances', prev => ({ ...(prev || {}), [accountId]: ob }));
 
   const toggleVisibility = (accountId) => {
     set('investmentAccountVisibility', prev => {
@@ -662,10 +577,8 @@ export default function Investments({
           investmentAccounts={visibleInvestmentAccounts}
           investmentDeposits={deposits}
           investmentTrades={trades}
-          investmentOpeningBalances={openingBalances}
           accountSnapshots={accountSnapshots}
           MONTHS={MONTHS}
-          onUpdateOpeningBalance={updateOpeningBalance}
         />
       )}
 
@@ -677,13 +590,6 @@ export default function Investments({
           <p style={{ fontSize: 13, color: '#9e9890', margin: '0 0 20px' }}>
             {activeAccount.type} account · {getCurrencyFlag(activeAccount.currency)} {activeAccount.currency}
           </p>
-
-          <OpeningBalanceRow
-            accountId={activeAccount.id}
-            openingBalances={openingBalances}
-            currency={activeAccount.currency}
-            onUpdate={updateOpeningBalance}
-          />
 
           <DepositsSection
             account={activeAccount}

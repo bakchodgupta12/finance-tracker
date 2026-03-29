@@ -62,9 +62,6 @@ function sanitizeNumericFields(data) {
   if (!out.investmentAccountVisibility || typeof out.investmentAccountVisibility !== 'object' || Array.isArray(out.investmentAccountVisibility)) {
     out.investmentAccountVisibility = {};
   }
-  if (!out.investmentOpeningBalances || typeof out.investmentOpeningBalances !== 'object' || Array.isArray(out.investmentOpeningBalances)) {
-    out.investmentOpeningBalances = {};
-  }
   return out;
 }
 
@@ -652,25 +649,26 @@ export default function App() {
             const isHovered = hoveredPillar === pillar.id;
             return (
               <div key={pillar.id} style={{ position: 'relative' }}>
-                <div
-                  onClick={() => setActivePillar(pillar.id)}
-                  onMouseEnter={() => setHoveredPillar(pillar.id)}
-                  onMouseLeave={() => setHoveredPillar(null)}
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: 12,
-                    padding: '12px 16px', cursor: 'pointer', borderRadius: 8,
-                    margin: '2px 8px', transition: 'background 0.15s',
-                    background: isActive ? '#f7f5f0' : isHovered ? '#f9f7f3' : 'transparent',
-                    borderLeft: isActive ? '3px solid #7eb5d6' : '3px solid transparent',
-                  }}
-                >
-                  <div style={{
-                    width: 20, flexShrink: 0, display: 'flex', justifyContent: 'center',
-                    color: isActive ? '#1a1714' : '#6b6660',
-                  }}>
-                    {pillar.icon}
-                  </div>
-                  {sidebarExpanded && (
+                {sidebarExpanded ? (
+                  /* ── Expanded item ── */
+                  <div
+                    onClick={() => setActivePillar(pillar.id)}
+                    onMouseEnter={() => setHoveredPillar(pillar.id)}
+                    onMouseLeave={() => setHoveredPillar(null)}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 12,
+                      padding: '12px 16px', cursor: 'pointer', borderRadius: 8,
+                      margin: '2px 8px', transition: 'background 0.15s',
+                      background: isActive ? '#f7f5f0' : isHovered ? '#f9f7f3' : 'transparent',
+                      borderLeft: isActive ? '3px solid #7eb5d6' : '3px solid transparent',
+                    }}
+                  >
+                    <div style={{
+                      width: 20, flexShrink: 0, display: 'flex', justifyContent: 'center',
+                      color: isActive ? '#1a1714' : '#6b6660',
+                    }}>
+                      {pillar.icon}
+                    </div>
                     <span style={{
                       fontSize: 14, fontWeight: isActive ? 600 : 400,
                       color: isActive ? '#1a1714' : '#6b6660',
@@ -678,18 +676,62 @@ export default function App() {
                     }}>
                       {pillar.label}
                     </span>
-                  )}
-                </div>
+                  </div>
+                ) : (
+                  /* ── Collapsed item — 40×40 centred box ── */
+                  <div
+                    onClick={() => setActivePillar(pillar.id)}
+                    onMouseEnter={() => setHoveredPillar(pillar.id)}
+                    onMouseLeave={() => setHoveredPillar(null)}
+                    style={{
+                      width: 40, height: 40, borderRadius: 8,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      margin: '2px auto', cursor: 'pointer',
+                      background: isActive ? '#f0f4f8' : isHovered ? '#f9f7f3' : 'transparent',
+                      border: isActive ? '1px solid #e0eaf2' : '1px solid transparent',
+                      transition: 'all 0.15s', position: 'relative',
+                    }}
+                  >
+                    <div style={{
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      color: isActive ? '#5B9BD5' : '#9e9890',
+                      transition: 'color 0.15s',
+                    }}>
+                      {pillar.icon}
+                    </div>
 
-                {/* Tooltip when collapsed */}
-                {!sidebarExpanded && isHovered && (
-                  <div style={{
-                    position: 'absolute', left: 60, top: '50%', transform: 'translateY(-50%)',
-                    background: '#2d2a26', color: '#fff', fontSize: 11,
-                    padding: '4px 8px', borderRadius: 5, whiteSpace: 'nowrap',
-                    boxShadow: '0 2px 8px rgba(0,0,0,0.15)', pointerEvents: 'none', zIndex: 200,
-                  }}>
-                    {pillar.label}
+                    {/* Active accent bar on sidebar left edge */}
+                    {isActive && (
+                      <div style={{
+                        position: 'absolute', left: -8, top: '50%',
+                        transform: 'translateY(-50%)',
+                        width: 3, height: 20,
+                        borderRadius: '0 2px 2px 0',
+                        background: '#7eb5d6',
+                      }} />
+                    )}
+
+                    {/* Tooltip to the right */}
+                    {isHovered && (
+                      <div style={{
+                        position: 'absolute', left: '110%', top: '50%',
+                        transform: 'translateY(-50%)',
+                        background: '#2d2a26', color: '#fff', fontSize: 11,
+                        padding: '4px 10px', borderRadius: 5,
+                        whiteSpace: 'nowrap', pointerEvents: 'none',
+                        zIndex: 100, boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+                      }}>
+                        {pillar.label}
+                        <div style={{
+                          position: 'absolute', right: '100%', top: '50%',
+                          transform: 'translateY(-50%)',
+                          width: 0, height: 0,
+                          borderTop: '4px solid transparent',
+                          borderBottom: '4px solid transparent',
+                          borderRight: '4px solid #2d2a26',
+                        }} />
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
