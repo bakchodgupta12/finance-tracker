@@ -160,7 +160,9 @@ function LifeComingSoon() {
 export default function App() {
   const [state, setState]             = useState(makeDefaultState());
   const [tab, setTab]                 = useState('dashboard');
-  const [saveStatus, setSaveStatus]   = useState('');
+  const [saveStatus, setSaveStatus]   = useState('idle');
+  const [lastSavedAt, setLastSavedAt] = useState(null);
+  const [displayTime, setDisplayTime] = useState('');
   const [loaded, setLoaded]           = useState(false);
   const [fxRates, setFxRates]         = useState({});
   const [fxLoading, setFxLoading]     = useState(false);
@@ -275,11 +277,40 @@ export default function App() {
     setSaveStatus('saving');
     const t = setTimeout(async () => {
       const { error } = await saveData(state.userId, selectedYear, state);
-      setSaveStatus(error ? 'error' : 'saved');
-      if (!error) setTimeout(() => setSaveStatus(''), 2500);
+      if (error) {
+        setSaveStatus('error');
+      } else {
+        setLastSavedAt(new Date());
+        setSaveStatus('saved');
+      }
     }, 1200);
     return () => clearTimeout(t);
   }, [state, loaded, selectedYear]);
+
+  // Update relative timestamp every 30 seconds
+  useEffect(() => {
+    if (!lastSavedAt) return;
+    const update = () => {
+      const now = new Date();
+      const diffMs = now - lastSavedAt;
+      const diffMins = Math.floor(diffMs / 60000);
+      const diffSecs = Math.floor(diffMs / 1000);
+      if (diffSecs < 10) {
+        setDisplayTime('just now');
+      } else if (diffSecs < 60) {
+        setDisplayTime(`${diffSecs}s ago`);
+      } else if (diffMins === 1) {
+        setDisplayTime('1 min ago');
+      } else if (diffMins < 60) {
+        setDisplayTime(`${diffMins} mins ago`);
+      } else {
+        setDisplayTime(lastSavedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
+      }
+    };
+    update();
+    const interval = setInterval(update, 30000);
+    return () => clearInterval(interval);
+  }, [lastSavedAt]);
 
   // Login handler
   const handleLogin = useCallback(async (userId, existingData, year, pwHash, secQ, secAHash) => {
@@ -517,6 +548,7 @@ export default function App() {
 
   return (
     <div style={{ minHeight: '100vh', background: '#f7f5f0', fontFamily: "'DM Sans', sans-serif", color: '#2d2a26' }}>
+      <style>{`@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }`}</style>
 
       {/* ── New Year Confirmation Modal ── */}
       {showNewYearConfirm && (
@@ -626,11 +658,30 @@ export default function App() {
           </div>
 
           {/* Save status */}
-          <span style={{ fontSize: 11, color: saveStatus === 'error' ? '#c94040' : '#b0aa9f', minWidth: 70 }}>
-            {saveStatus === 'saving' && '⟳ Saving…'}
-            {saveStatus === 'saved'  && '✓ Saved'}
-            {saveStatus === 'error'  && '⚠ Save failed'}
-          </span>
+          {saveStatus === 'saving' && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: '#9e9890' }}>
+              <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#b0aa9f', animation: 'pulse 1s infinite' }} />
+              Saving…
+            </div>
+          )}
+          {saveStatus === 'saved' && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: '#9e9890' }}>
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#6dbb8a" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="20 6 9 17 4 12"/>
+              </svg>
+              Saved · {displayTime}
+            </div>
+          )}
+          {saveStatus === 'error' && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: '#c94040' }}>
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#c94040" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="10"/>
+                <line x1="12" y1="8" x2="12" y2="12"/>
+                <line x1="12" y1="16" x2="12.01" y2="16"/>
+              </svg>
+              Save failed · Retrying…
+            </div>
+          )}
 
           {yearLoading && <span style={{ fontSize: 11, color: '#b0aa9f' }}>Loading…</span>}
         </div>
