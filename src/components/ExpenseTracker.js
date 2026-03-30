@@ -826,7 +826,7 @@ export default function ExpenseTracker({
                 </colgroup>
                 <thead>
                   <tr>
-                    <th style={{ ...thSt, paddingLeft: 4 }}>DATE</th>
+                    <th style={thSt}>DATE</th>
                     <th style={{ width: 16, padding: 0, border: 'none' }} />
                     <th style={{ ...thSt, paddingLeft: 0 }}>DESCRIPTION</th>
                     <th style={{ ...thSt, paddingLeft: 0, textAlign: 'right' }}>AMOUNT</th>

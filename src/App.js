@@ -231,11 +231,14 @@ export default function App() {
       fxCacheRef.current[code] = rates;
       setFxRates(rates);
       setFxLoading(false);
+      console.log('FX source:', source === 'exchangerate-api' ? 'ExchangeRate-API' : source === 'frankfurter' ? 'frankfurter fallback' : 'empty (no rates)');
       if (source === 'exchangerate-api') {
         const month = new Date().toISOString().slice(0, 7);
         set('fxApiCallsThisMonth', prev => {
           const p = prev || { month: '', count: 0 };
-          return p.month !== month ? { month, count: 1 } : { ...p, count: p.count + 1 };
+          const newState = p.month !== month ? { month, count: 1 } : { ...p, count: p.count + 1 };
+          console.log('FX API count:', newState.count);
+          return newState;
         });
       }
     });
@@ -642,8 +645,37 @@ export default function App() {
         display: 'flex', flexDirection: 'column',
         overflow: 'hidden',
       }}>
+        {/* Expand/collapse toggle at top */}
+        <div style={{
+          display: 'flex', alignItems: 'center',
+          justifyContent: sidebarExpanded ? 'flex-end' : 'center',
+          padding: '12px 12px 4px', marginBottom: 8,
+          borderBottom: '1px solid #f0ece4',
+        }}>
+          <button
+            onClick={() => setSidebarExpanded(e => !e)}
+            style={{
+              background: 'none', border: 'none', cursor: 'pointer',
+              color: '#9e9890', padding: 6, borderRadius: 6,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              transition: 'background 0.15s, color 0.15s',
+            }}
+            onMouseEnter={e => { e.currentTarget.style.background = '#f9f7f3'; e.currentTarget.style.color = '#1a1714'; }}
+            onMouseLeave={e => { e.currentTarget.style.background = 'none'; e.currentTarget.style.color = '#9e9890'; }}
+            title={sidebarExpanded ? 'Collapse sidebar' : 'Expand sidebar'}
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+              strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              {sidebarExpanded
+                ? <polyline points="15 18 9 12 15 6" />
+                : <polyline points="9 18 15 12 9 6" />
+              }
+            </svg>
+          </button>
+        </div>
+
         {/* Pillar items */}
-        <div style={{ flex: 1, paddingTop: 12 }}>
+        <div style={{ flex: 1 }}>
           {PILLARS.map(pillar => {
             const isActive  = activePillar === pillar.id;
             const isHovered = hoveredPillar === pillar.id;
@@ -739,19 +771,6 @@ export default function App() {
           })}
         </div>
 
-        {/* Expand/collapse toggle */}
-        <button
-          onClick={() => setSidebarExpanded(e => !e)}
-          style={{
-            position: 'absolute', bottom: 16, left: 0, right: 0,
-            display: 'flex', justifyContent: 'center',
-            background: 'none', border: 'none', cursor: 'pointer',
-            color: '#9e9890', padding: '8px',
-          }}
-          title={sidebarExpanded ? 'Collapse sidebar' : 'Expand sidebar'}
-        >
-          {sidebarExpanded ? ChevronLeft : ChevronRight}
-        </button>
       </div>
 
       {/* ── MAIN CONTENT (right of sidebar, below top bar) ── */}
