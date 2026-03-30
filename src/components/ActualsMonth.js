@@ -111,24 +111,6 @@ function BalanceCell({ value, onChange, prefix = '', balanceIndex }) {
   );
 }
 
-// ── Trades Placeholder ────────────────────────────────────────────────────────
-function TradesPlaceholder() {
-  return (
-    <div style={{ maxWidth: 560 }}>
-      <div style={{ ...s.card, textAlign: 'center', padding: '48px 32px' }}>
-        <span style={{
-          display: 'inline-block', fontSize: 10, fontWeight: 700, letterSpacing: '0.12em',
-          color: '#b0aa9f', background: '#f0ece4', borderRadius: 20, padding: '4px 12px', marginBottom: 16,
-        }}>COMING SOON</span>
-        <p style={{ fontFamily: 'Lora, serif', fontSize: 22, color: '#1a1714', marginBottom: 8 }}>Trades Tracker</p>
-        <p style={{ fontSize: 13, color: '#9e9890', maxWidth: 340, margin: '0 auto' }}>
-          Track your crypto, equity and other investment trades with P&amp;L, win rate, and portfolio analytics.
-        </p>
-      </div>
-    </div>
-  );
-}
-
 // ── Main component ────────────────────────────────────────────────────────────
 export default function ActualsMonth({
   state, set, f, currency, MONTHS, baseIncome, allocByCat,
@@ -145,14 +127,13 @@ export default function ActualsMonth({
     }
   }, [trackerTargetSubTab, setTrackerTargetSubTab]); // eslint-disable-line
 
-  const mods = modules || { income: true, expenses: true, trades: true };
+  const mods = modules || { income: true, expenses: true };
 
   // Available sub-tabs (Balances always shown)
   const SUB_TABS = [
     { id: 'balances',  label: 'Balances' },
     ...(mods.income   ? [{ id: 'income',   label: 'Income' }]   : []),
     ...(mods.expenses ? [{ id: 'expenses', label: 'Expenses' }] : []),
-    ...(mods.trades   ? [{ id: 'trades',   label: 'Trades' }]   : []),
   ];
 
   // If current tab was hidden by toggling a module, fall back to balances
@@ -628,8 +609,6 @@ export default function ActualsMonth({
         />
       )}
 
-      {/* ── Trades ── */}
-      {activeTab === 'trades' && <TradesPlaceholder />}
     </div>
   );
 }

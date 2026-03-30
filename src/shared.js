@@ -226,6 +226,11 @@ export const makeDefaultState = () => ({
   checklistPermanentlyDismissed: false,
   // Permanent record of which checklist tasks have ever been completed (year-agnostic)
   checklistTasksDone: {},
+  // Investments: deposits and trades per account
+  investmentDeposits: {},  // { [accountId]: [{ id, date, type, amount, currency, notes }] }
+  investmentTrades: {},    // { [accountId]: [{ id, date, action, asset, quantity, price, total, currency, notes }] }
+  // Investments: which accounts show as tabs (default true)
+  investmentAccountVisibility: {},  // { [accountId]: true | false }
 });
 
 // ─────────────────────────────────────────────

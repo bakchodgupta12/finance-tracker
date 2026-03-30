@@ -142,12 +142,18 @@ export async function fetchFxRates(baseCurrency = 'GBP') {
     if (json.result === 'success' && json.conversion_rates) {
       return { rates: json.conversion_rates, source: 'exchangerate-api' };
     }
-  } catch {}
+    console.log('ExchangeRate-API response status:', res.status, '| result:', json.result || 'missing', '| error:', json['error-type'] || 'none');
+  } catch (err) {
+    console.log('ExchangeRate-API fetch error:', err.message);
+  }
   // Fallback to frankfurter
+  console.log('Falling back to frankfurter.app...');
   try {
     const res = await fetch(`https://api.frankfurter.app/latest?from=${baseCurrency}`);
     const json = await res.json();
     return { rates: json.rates || {}, source: 'frankfurter' };
-  } catch {}
+  } catch (err) {
+    console.log('Frankfurter fetch error:', err.message);
+  }
   return { rates: {}, source: 'empty' };
 }

@@ -12,10 +12,10 @@ import Plan from './components/Plan';
 import Tracker from './components/ActualsMonth';
 import NetWorth from './components/NetWorth';
 import Settings from './components/Settings';
+import Investments from './components/Investments';
 
 // ─────────────────────────────────────────────
 // Sanitise numeric fields loaded from storage
-// Prevents '' or NaN in state from crashing arithmetic
 // ─────────────────────────────────────────────
 function sanitizeNumericFields(data) {
   if (!data || typeof data !== 'object') return data;
@@ -52,6 +52,16 @@ function sanitizeNumericFields(data) {
   if (!out.checkupUsage || typeof out.checkupUsage !== 'object') {
     out.checkupUsage = { month: '', count: 0 };
   }
+  // Migrate: add investment fields if missing
+  if (!out.investmentDeposits || typeof out.investmentDeposits !== 'object' || Array.isArray(out.investmentDeposits)) {
+    out.investmentDeposits = {};
+  }
+  if (!out.investmentTrades || typeof out.investmentTrades !== 'object' || Array.isArray(out.investmentTrades)) {
+    out.investmentTrades = {};
+  }
+  if (!out.investmentAccountVisibility || typeof out.investmentAccountVisibility !== 'object' || Array.isArray(out.investmentAccountVisibility)) {
+    out.investmentAccountVisibility = {};
+  }
   return out;
 }
 
@@ -61,7 +71,7 @@ function sanitizeNumericFields(data) {
 function sanitiseFutureSnapshots(data) {
   if (!data?.accountSnapshots) return data;
   const now = new Date();
-  const currentMonthIndex = now.getMonth(); // 0 = Jan, 11 = Dec
+  const currentMonthIndex = now.getMonth();
   const ALL_MONTHS_LOCAL = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
   const cleanedSnapshots = { ...data.accountSnapshots };
   ALL_MONTHS_LOCAL.forEach((month, index) => {
@@ -72,29 +82,112 @@ function sanitiseFutureSnapshots(data) {
   return { ...data, accountSnapshots: cleanedSnapshots };
 }
 
+// ─────────────────────────────────────────────
+// Sidebar icons
+// ─────────────────────────────────────────────
+const WalletIcon = (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+    strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+    <rect x="2" y="5" width="20" height="14" rx="2" />
+    <path d="M16 12h2" />
+    <path d="M2 10h20" />
+  </svg>
+);
+
+const TrendingIcon = (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+    strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+    <polyline points="23 6 13.5 15.5 8.5 10.5 1 18" />
+    <polyline points="17 6 23 6 23 12" />
+  </svg>
+);
+
+const SunIcon = (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+    strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="12" cy="12" r="5" />
+    <line x1="12" y1="1" x2="12" y2="3" />
+    <line x1="12" y1="21" x2="12" y2="23" />
+    <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" />
+    <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
+    <line x1="1" y1="12" x2="3" y2="12" />
+    <line x1="21" y1="12" x2="23" y2="12" />
+    <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" />
+    <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
+  </svg>
+);
+
+const ChevronLeft = (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+    strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <polyline points="15 18 9 12 15 6" />
+  </svg>
+);
+
+const ChevronRight = (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+    strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <polyline points="9 18 15 12 9 6" />
+  </svg>
+);
+
+const PILLARS = [
+  { id: 'finance',     label: 'Finance',     icon: WalletIcon  },
+  { id: 'investments', label: 'Investments', icon: TrendingIcon },
+  { id: 'life',        label: 'Life',        icon: SunIcon      },
+];
+
+// ─────────────────────────────────────────────
+// Life — Coming Soon
+// ─────────────────────────────────────────────
+function LifeComingSoon() {
+  return (
+    <div style={{
+      display: 'flex', flexDirection: 'column', alignItems: 'center',
+      justifyContent: 'center', height: '60vh', gap: 16,
+    }}>
+      <div style={{ fontSize: 48 }}>🌱</div>
+      <h2 style={{ fontFamily: 'Lora, serif', fontSize: 24, fontWeight: 400, color: '#1a1714', margin: 0 }}>
+        Life Tracker
+      </h2>
+      <p style={{ fontSize: 14, color: '#9e9890', textAlign: 'center', maxWidth: 300, margin: 0 }}>
+        Daily habits, goals, and life tracking. Coming soon.
+      </p>
+    </div>
+  );
+}
 
 export default function App() {
   const [state, setState]             = useState(makeDefaultState());
   const [tab, setTab]                 = useState('dashboard');
-  const [saveStatus, setSaveStatus]   = useState('');
+  const [saveStatus, setSaveStatus]   = useState('idle');
+  const [lastSavedAt, setLastSavedAt] = useState(null);
+  const [displayTime, setDisplayTime] = useState('');
   const [loaded, setLoaded]           = useState(false);
   const [fxRates, setFxRates]         = useState({});
   const [fxLoading, setFxLoading]     = useState(false);
   const fxCacheRef                    = useRef({});
   const [onboardingData, setOnboardingData] = useState(null);
 
+  // Sidebar
+  const [activePillar,    setActivePillar]    = useState('finance');
+  const [sidebarExpanded, setSidebarExpanded] = useState(true);
+  const [hoveredPillar,   setHoveredPillar]   = useState(null);
+
+  // Investments sub-tab: 'overview' | String(accountId) | 'settings'
+  const [investSubTab, setInvestSubTab] = useState('overview');
+
   // Year management
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [availableYears, setAvailableYears] = useState([]);
   const [showNewYearConfirm, setShowNewYearConfirm] = useState(false);
   const [yearLoading, setYearLoading] = useState(false);
-  // Custom year dropdown
   const [yearDropdownOpen, setYearDropdownOpen] = useState(false);
   const [hoveredYear, setHoveredYear] = useState(null);
   const [yearToDelete, setYearToDelete] = useState(null);
   const yearDropdownRef = useRef(null);
 
-  // Sub-tab navigation targets (set by navigate(), consumed by child components)
+  // Sub-tab navigation targets
   const [trackerTargetSubTab, setTrackerTargetSubTab] = useState(null);
   const [settingsTargetSubTab, setSettingsTargetSubTab] = useState(null);
 
@@ -104,6 +197,31 @@ export default function App() {
 
   const currency = getCurrency(state.currencyCode || 'GBP');
   const f = useCallback((v) => fmt(v, currency.symbol, currency.locale), [currency]);
+
+  // All investment accounts
+  const allInvestmentAccounts = useMemo(
+    () => (state.accounts || []).filter(a => a.type === 'Investment' || a.type === 'Crypto'),
+    [state.accounts]
+  );
+
+  // Only accounts the user has toggled visible (default: true)
+  const visibleInvestmentAccounts = useMemo(
+    () => allInvestmentAccounts.filter(a => {
+      const vis = (state.investmentAccountVisibility || {})[a.id];
+      return vis === undefined || vis === true;
+    }),
+    [allInvestmentAccounts, state.investmentAccountVisibility]
+  );
+
+  // Sidebar width
+  const sidebarWidth = sidebarExpanded ? 200 : 56;
+
+  // Validate investSubTab whenever visible accounts change
+  const validInvestSubTab = useMemo(() => {
+    if (investSubTab === 'overview' || investSubTab === 'settings') return investSubTab;
+    if (visibleInvestmentAccounts.some(a => String(a.id) === investSubTab)) return investSubTab;
+    return 'overview';
+  }, [investSubTab, visibleInvestmentAccounts]);
 
   // Fetch FX rates whenever home currency changes
   useEffect(() => {
@@ -115,11 +233,14 @@ export default function App() {
       fxCacheRef.current[code] = rates;
       setFxRates(rates);
       setFxLoading(false);
+      console.log('FX source:', source === 'exchangerate-api' ? 'ExchangeRate-API' : source === 'frankfurter' ? 'frankfurter fallback' : 'empty (no rates)');
       if (source === 'exchangerate-api') {
         const month = new Date().toISOString().slice(0, 7);
         set('fxApiCallsThisMonth', prev => {
           const p = prev || { month: '', count: 0 };
-          return p.month !== month ? { month, count: 1 } : { ...p, count: p.count + 1 };
+          const newState = p.month !== month ? { month, count: 1 } : { ...p, count: p.count + 1 };
+          console.log('FX API count:', newState.count);
+          return newState;
         });
       }
     });
@@ -139,15 +260,13 @@ export default function App() {
   }, [yearDropdownOpen]);
 
   // Convert any amount in fromCurrency to home currency
-  // Uses live FX rates first, falls back to manual rates
   const toHome = useCallback((amount, fromCurrency) => {
     if (!fromCurrency || fromCurrency === (state.currencyCode || 'GBP')) return amount;
     const rate = fxRates[fromCurrency];
     if (rate) return amount / rate;
-    // Fall back to manual rate
     const manualRate = state.manualFxRates?.[fromCurrency];
     if (manualRate && manualRate > 0) return amount * manualRate;
-    return null; // unknown rate
+    return null;
   }, [fxRates, state.currencyCode, state.manualFxRates]);
 
   const MONTHS = useMemo(() => getMonthsFromStart(state.yearStartMonth ?? 0), [state.yearStartMonth]);
@@ -158,19 +277,46 @@ export default function App() {
     setSaveStatus('saving');
     const t = setTimeout(async () => {
       const { error } = await saveData(state.userId, selectedYear, state);
-      setSaveStatus(error ? 'error' : 'saved');
-      if (!error) setTimeout(() => setSaveStatus(''), 2500);
+      if (error) {
+        setSaveStatus('error');
+      } else {
+        setLastSavedAt(new Date());
+        setSaveStatus('saved');
+      }
     }, 1200);
     return () => clearTimeout(t);
   }, [state, loaded, selectedYear]);
+
+  // Update relative timestamp every 30 seconds
+  useEffect(() => {
+    if (!lastSavedAt) return;
+    const update = () => {
+      const now = new Date();
+      const diffMs = now - lastSavedAt;
+      const diffMins = Math.floor(diffMs / 60000);
+      const diffSecs = Math.floor(diffMs / 1000);
+      if (diffSecs < 10) {
+        setDisplayTime('just now');
+      } else if (diffSecs < 60) {
+        setDisplayTime(`${diffSecs}s ago`);
+      } else if (diffMins === 1) {
+        setDisplayTime('1 min ago');
+      } else if (diffMins < 60) {
+        setDisplayTime(`${diffMins} mins ago`);
+      } else {
+        setDisplayTime(lastSavedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
+      }
+    };
+    update();
+    const interval = setInterval(update, 30000);
+    return () => clearInterval(interval);
+  }, [lastSavedAt]);
 
   // Login handler
   const handleLogin = useCallback(async (userId, existingData, year, pwHash, secQ, secAHash) => {
     const currentYear = new Date().getFullYear();
 
     if (existingData) {
-      // Returning user — load their data for the given year
-      // Migrate expenseCategories: add type field if missing
       const DEFAULT_CAT_TYPES = {
         Rent:'Need', Groceries:'Need', Food:'Want', Transport:'Need', Utilities:'Need',
         Shopping:'Want', Entertainment:'Want', Travel:'Want', Drinks:'Want', Health:'Need',
@@ -195,14 +341,12 @@ export default function App() {
       setState({ ...makeDefaultState(), ...cleanedData, userId });
       setSelectedYear(year || currentYear);
     } else {
-      // New user — show onboarding before entering the app
       setOnboardingData({ userId, pwHash: pwHash || '', secQ: secQ || '', secAHash: secAHash || '' });
       setSelectedYear(currentYear);
       setAvailableYears([currentYear]);
-      return; // don't set loaded yet
+      return;
     }
 
-    // Load available years
     const years = await listYears(userId);
     if (years.length > 0) {
       setAvailableYears(years);
@@ -213,7 +357,7 @@ export default function App() {
     setLoaded(true);
   }, []);
 
-  // Onboarding complete — save initial state and enter app
+  // Onboarding complete
   const handleOnboardingComplete = useCallback(async ({ currency, modules, account }) => {
     const currentYear = new Date().getFullYear();
     const newState = {
@@ -236,7 +380,6 @@ export default function App() {
   const switchYear = useCallback(async (year) => {
     if (year === selectedYear) return;
     setYearLoading(true);
-    // Capture permanent checklist state before wiping state with loaded year's data
     const preservedDismissed = state.checklistPermanentlyDismissed || false;
     const preservedTasksDone = state.checklistTasksDone || {};
     const { data } = await loadData(state.userId, year);
@@ -246,9 +389,7 @@ export default function App() {
         ...makeDefaultState(),
         ...loaded,
         userId: prev.userId,
-        // Permanent dismissal: once true, stays true regardless of what the loaded year has
         checklistPermanentlyDismissed: preservedDismissed || (loaded.checklistPermanentlyDismissed || false),
-        // Tasks done: merge — once a task was done it stays done
         checklistTasksDone: { ...preservedTasksDone, ...(loaded.checklistTasksDone || {}) },
       }));
     } else {
@@ -263,11 +404,9 @@ export default function App() {
     setYearLoading(false);
   }, [selectedYear, state.userId, state.checklistPermanentlyDismissed, state.checklistTasksDone]);
 
-  // Create new year — carry forward plan data
+  // Create new year
   const createNewYear = useCallback(async () => {
     const newYear = Math.max(...availableYears, new Date().getFullYear()) + 1;
-
-    // Carry forward plan data from current year
     const carryForward = {
       ...makeDefaultState(),
       userId: state.userId,
@@ -281,7 +420,6 @@ export default function App() {
       benchmarkNeeds: state.benchmarkNeeds,
       benchmarkWants: state.benchmarkWants,
       benchmarkSavingsInvest: state.benchmarkSavingsInvest,
-      // Plan data carried forward
       incomeSources: JSON.parse(JSON.stringify(state.incomeSources)),
       allocation: JSON.parse(JSON.stringify(state.allocation)),
       subscriptions: JSON.parse(JSON.stringify(state.subscriptions)),
@@ -290,13 +428,10 @@ export default function App() {
       secondaryAllocations: JSON.parse(JSON.stringify(state.secondaryAllocations || {})),
       goalSavings: state.goalSavings,
       goalNetWorth: state.goalNetWorth,
-      // Carry forward permanent checklist state so it never resets on new year
       checklistPermanentlyDismissed: state.checklistPermanentlyDismissed || false,
       checklistTasksDone: { ...(state.checklistTasksDone || {}) },
     };
 
-    // Pre-fill starting balance from previous year's December closing
-    // Find the last month of the financial year in current data
     const lastMonth = MONTHS[MONTHS.length - 1];
     const decSnap = state.accountSnapshots?.[lastMonth];
     if (decSnap) {
@@ -308,7 +443,6 @@ export default function App() {
       carryForward.startingBalance = Math.round(closingBalance);
     }
 
-    // Save and switch
     await saveData(state.userId, newYear, carryForward);
     setAvailableYears(prev => [newYear, ...prev]);
     setState(carryForward);
@@ -316,8 +450,9 @@ export default function App() {
     setShowNewYearConfirm(false);
   }, [state, availableYears, MONTHS, toHome]);
 
-  // Navigate to a tab, optionally targeting a specific sub-tab
+  // Navigate to a tab, optionally targeting a sub-tab
   const navigate = useCallback((targetTab, subTab) => {
+    setActivePillar('finance');
     setTab(targetTab);
     if (subTab) {
       if (targetTab === 'tracker')  setTrackerTargetSubTab(subTab);
@@ -340,7 +475,6 @@ export default function App() {
     await deleteYearData(state.userId, year);
     const newAvailableYears = availableYears.filter(y => y !== year);
     setAvailableYears(newAvailableYears);
-    // If currently viewing the deleted year, switch to another
     if (selectedYear === year) {
       if (newAvailableYears.length > 0) {
         await switchYear(newAvailableYears[0]);
@@ -351,20 +485,19 @@ export default function App() {
   }, [state.userId, selectedYear, availableYears, switchYear]);
 
   // Derived calculations
-  const baseIncome     = state.incomeSources.reduce((sum, i) => {
+  const baseIncome = state.incomeSources.reduce((sum, i) => {
     const c = toHome(Number(i.amount) || 0, i.currency || state.currencyCode || 'GBP');
     return sum + (c ?? 0);
   }, 0);
-  const monthIncome    = useCallback(m => state.monthlyIncomeOverrides[m] ?? baseIncome, [state.monthlyIncomeOverrides, baseIncome]);
-  const allocByCat     = useMemo(() => {
+  const monthIncome = useCallback(m => state.monthlyIncomeOverrides[m] ?? baseIncome, [state.monthlyIncomeOverrides, baseIncome]);
+  const allocByCat  = useMemo(() => {
     const map = {};
     for (const cat of ['Savings', 'Investments', 'Needs', 'Wants'])
       map[cat] = state.allocation.filter(a => a.category === cat).reduce((s, a) => s + (Number(a.pct) || 0), 0);
     return map;
   }, [state.allocation]);
-  const totalAllocPct  = Object.values(allocByCat).reduce((s, v) => s + (Number(v) || 0), 0);
+  const totalAllocPct = Object.values(allocByCat).reduce((s, v) => s + (Number(v) || 0), 0);
 
-  // Net worth from account snapshots (latest month with data)
   const latestSnapshots = useMemo(() => {
     for (let i = MONTHS.length - 1; i >= 0; i--) {
       const snap = state.accountSnapshots?.[MONTHS[i]];
@@ -388,7 +521,7 @@ export default function App() {
   }, 0);
   const netWorth = accountsNetWorth - totalLiabilities;
 
-  // Common props for child components
+  // Common props for Finance child components
   const commonProps = {
     state, set, f, currency, MONTHS, baseIncome, allocByCat, monthIncome,
     toHome, fxRates, fxLoading, selectedYear,
@@ -402,12 +535,24 @@ export default function App() {
   if (!loaded && !onboardingData) return <LoginScreen onLogin={handleLogin} />;
   if (!loaded && onboardingData) return <Onboarding onComplete={handleOnboardingComplete} />;
 
+  // ── Sub-tab bar content ──────────────────────────────────────────────────────
+  const tabBtnStyle = (isActive) => ({
+    background: 'none', border: 'none',
+    borderBottom: isActive ? '2px solid #2d2a26' : '2px solid transparent',
+    color: isActive ? '#1a1714' : '#a09890',
+    cursor: 'pointer', padding: '12px 16px',
+    fontSize: 12, fontWeight: isActive ? 600 : 400,
+    textTransform: 'capitalize', fontFamily: 'inherit',
+    letterSpacing: '0.02em', transition: 'color 0.15s', whiteSpace: 'nowrap',
+  });
+
   return (
     <div style={{ minHeight: '100vh', background: '#f7f5f0', fontFamily: "'DM Sans', sans-serif", color: '#2d2a26' }}>
+      <style>{`@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }`}</style>
 
-      {/* New Year Confirmation Modal */}
+      {/* ── New Year Confirmation Modal ── */}
       {showNewYearConfirm && (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ position: 'fixed', inset: 0, zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <div onClick={() => setShowNewYearConfirm(false)} style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.18)' }} />
           <div style={{ ...s.card, position: 'relative', maxWidth: 420, width: '100%', padding: '24px', zIndex: 1 }}>
             <p style={{ fontFamily: 'Lora, serif', fontSize: 18, color: '#1a1714', marginBottom: 8 }}>Create New Year</p>
@@ -423,20 +568,20 @@ export default function App() {
         </div>
       )}
 
-      {/* Top bar */}
+      {/* ── FIXED TOP BAR ── */}
       <div style={{
+        position: 'fixed', top: 0, left: 0, right: 0, zIndex: 100,
         borderBottom: '1px solid #e8e4dc', background: '#fff', padding: '0 24px',
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        height: 52, position: 'sticky', top: 0, zIndex: 21
+        height: 52,
       }}>
         <p style={{ fontFamily: 'Lora, serif', fontSize: 18, fontWeight: 500, color: '#1a1714' }}>
           {(state.displayName?.trim() || (state.userId ? state.userId.charAt(0).toUpperCase() + state.userId.slice(1).toLowerCase() : ''))}'s Finance Tracker
         </p>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          {/* Year selector — custom dropdown with per-year delete */}
+          {/* Year selector */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             <div style={{ position: 'relative' }} ref={yearDropdownRef}>
-              {/* Trigger */}
               <button
                 onClick={() => { setYearDropdownOpen(o => !o); setYearToDelete(null); }}
                 style={{
@@ -450,10 +595,9 @@ export default function App() {
                 <span style={{ fontSize: 10, color: '#9e9890', lineHeight: 1 }}>▾</span>
               </button>
 
-              {/* Dropdown panel */}
               {yearDropdownOpen && (
                 <div style={{
-                  position: 'absolute', top: 'calc(100% + 4px)', right: 0, zIndex: 50,
+                  position: 'absolute', top: 'calc(100% + 4px)', right: 0, zIndex: 150,
                   background: '#fff', border: '1px solid #e8e4dc', borderRadius: 10,
                   boxShadow: '0 4px 16px rgba(0,0,0,0.08)', minWidth: 190, overflow: 'hidden',
                 }}>
@@ -472,69 +616,27 @@ export default function App() {
                           onMouseLeave={() => setHoveredYear(null)}
                         >
                           <span
-                            onClick={() => {
-                              switchYear(year);
-                              setYearDropdownOpen(false);
-                              setYearToDelete(null);
-                            }}
+                            onClick={() => { switchYear(year); setYearDropdownOpen(false); setYearToDelete(null); }}
                             style={{ fontSize: 14, color: '#1a1714', flex: 1 }}
                           >
                             {year}
-                            {isCurrent && (
-                              <span style={{ fontSize: 11, color: '#9e9890', marginLeft: 6 }}>current</span>
-                            )}
+                            {isCurrent && <span style={{ fontSize: 11, color: '#9e9890', marginLeft: 6 }}>current</span>}
                           </span>
                           {!isCurrent && hoveredYear === year && (
                             <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setYearToDelete(isConfirming ? null : year);
-                              }}
-                              style={{
-                                background: 'none', border: 'none', cursor: 'pointer',
-                                color: '#c94040', fontSize: 12, padding: '2px 6px',
-                                borderRadius: 4, fontFamily: 'inherit',
-                              }}
+                              onClick={(e) => { e.stopPropagation(); setYearToDelete(isConfirming ? null : year); }}
+                              style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#c94040', fontSize: 12, padding: '2px 6px', borderRadius: 4, fontFamily: 'inherit' }}
                             >
                               Delete
                             </button>
                           )}
                         </div>
-
-                        {/* Inline confirmation */}
                         {isConfirming && (
-                          <div style={{
-                            padding: '10px 12px', background: '#fdf2f2',
-                            borderTop: '1px solid #fecaca',
-                          }}>
-                            <p style={{ fontSize: 12, color: '#6b6660', marginBottom: 8 }}>
-                              Delete all {year} data? This cannot be undone.
-                            </p>
+                          <div style={{ padding: '10px 12px', background: '#fdf2f2', borderTop: '1px solid #fecaca' }}>
+                            <p style={{ fontSize: 12, color: '#6b6660', marginBottom: 8 }}>Delete all {year} data? This cannot be undone.</p>
                             <div style={{ display: 'flex', gap: 6 }}>
-                              <button
-                                onClick={() => setYearToDelete(null)}
-                                style={{
-                                  background: 'transparent', border: '1px solid #e8e4dc',
-                                  borderRadius: 6, padding: '5px 12px', fontSize: 12,
-                                  color: '#6b6660', cursor: 'pointer', fontFamily: 'inherit',
-                                }}
-                              >
-                                Cancel
-                              </button>
-                              <button
-                                onClick={() => {
-                                  setYearToDelete(null);
-                                  setYearDropdownOpen(false);
-                                  handleDeleteYear(year);
-                                }}
-                                style={{
-                                  background: '#c94040', border: 'none',
-                                  borderRadius: 6, padding: '5px 12px', fontSize: 12,
-                                  color: '#fff', cursor: 'pointer', fontFamily: 'inherit',
-                                }}
-                              >
-                                Delete {year}
-                              </button>
+                              <button onClick={() => setYearToDelete(null)} style={{ background: 'transparent', border: '1px solid #e8e4dc', borderRadius: 6, padding: '5px 12px', fontSize: 12, color: '#6b6660', cursor: 'pointer', fontFamily: 'inherit' }}>Cancel</button>
+                              <button onClick={() => { setYearToDelete(null); setYearDropdownOpen(false); handleDeleteYear(year); }} style={{ background: '#c94040', border: 'none', borderRadius: 6, padding: '5px 12px', fontSize: 12, color: '#fff', cursor: 'pointer', fontFamily: 'inherit' }}>Delete {year}</button>
                             </div>
                           </div>
                         )}
@@ -550,68 +652,262 @@ export default function App() {
               style={{
                 background: 'none', border: '1px dashed #d8d4cc', borderRadius: 6,
                 padding: '4px 8px', fontSize: 11, cursor: 'pointer', color: '#a09890',
-                fontFamily: 'inherit', whiteSpace: 'nowrap'
+                fontFamily: 'inherit', whiteSpace: 'nowrap',
               }}
             >+ New Year</button>
           </div>
 
           {/* Save status */}
-          <span style={{ fontSize: 11, color: saveStatus === 'error' ? '#c94040' : '#b0aa9f', minWidth: 70 }}>
-            {saveStatus === 'saving' && '⟳ Saving…'}
-            {saveStatus === 'saved' && '✓ Saved'}
-            {saveStatus === 'error' && '⚠ Save failed'}
-          </span>
+          {saveStatus === 'saving' && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: '#9e9890' }}>
+              <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#b0aa9f', animation: 'pulse 1s infinite' }} />
+              Saving…
+            </div>
+          )}
+          {saveStatus === 'saved' && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: '#9e9890' }}>
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#6dbb8a" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="20 6 9 17 4 12"/>
+              </svg>
+              Saved · {displayTime}
+            </div>
+          )}
+          {saveStatus === 'error' && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: '#c94040' }}>
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#c94040" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="10"/>
+                <line x1="12" y1="8" x2="12" y2="12"/>
+                <line x1="12" y1="16" x2="12.01" y2="16"/>
+              </svg>
+              Save failed · Retrying…
+            </div>
+          )}
 
           {yearLoading && <span style={{ fontSize: 11, color: '#b0aa9f' }}>Loading…</span>}
         </div>
       </div>
 
-      {/* Tab bar */}
-      <div style={{ borderBottom: '1px solid #e8e4dc', background: '#fff', padding: '0 24px', display: 'flex', position: 'sticky', top: 52, zIndex: 20 }}>
-        {TABS.map(t => (
-          <button key={t} onClick={() => setTab(t)} style={{
-            background: 'none', border: 'none',
-            borderBottom: tab === t ? '2px solid #2d2a26' : '2px solid transparent',
-            color: tab === t ? '#1a1714' : '#a09890', cursor: 'pointer', padding: '12px 16px',
-            fontSize: 12, fontWeight: tab === t ? 600 : 400, textTransform: 'capitalize',
-            fontFamily: 'inherit', letterSpacing: '0.02em', transition: 'color 0.15s',
-            whiteSpace: 'nowrap',
-          }}>{t}</button>
-        ))}
+      {/* ── FIXED LEFT SIDEBAR ── */}
+      <div style={{
+        position: 'fixed', top: 52, left: 0, bottom: 0,
+        width: sidebarWidth, background: '#fff',
+        borderRight: '1px solid #e8e4dc',
+        zIndex: 90, transition: 'width 0.2s ease',
+        display: 'flex', flexDirection: 'column',
+        overflow: 'hidden',
+      }}>
+        {/* Expand/collapse toggle at top */}
+        <div style={{
+          display: 'flex', alignItems: 'center',
+          justifyContent: sidebarExpanded ? 'flex-end' : 'center',
+          padding: '12px 12px 4px', marginBottom: 8,
+          borderBottom: '1px solid #f0ece4',
+        }}>
+          <button
+            onClick={() => setSidebarExpanded(e => !e)}
+            style={{
+              background: 'none', border: 'none', cursor: 'pointer',
+              color: '#9e9890', padding: 6, borderRadius: 6,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              transition: 'background 0.15s, color 0.15s',
+            }}
+            onMouseEnter={e => { e.currentTarget.style.background = '#f9f7f3'; e.currentTarget.style.color = '#1a1714'; }}
+            onMouseLeave={e => { e.currentTarget.style.background = 'none'; e.currentTarget.style.color = '#9e9890'; }}
+            title={sidebarExpanded ? 'Collapse sidebar' : 'Expand sidebar'}
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+              strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              {sidebarExpanded
+                ? <polyline points="15 18 9 12 15 6" />
+                : <polyline points="9 18 15 12 9 6" />
+              }
+            </svg>
+          </button>
+        </div>
+
+        {/* Pillar items */}
+        <div style={{ flex: 1 }}>
+          {PILLARS.map(pillar => {
+            const isActive  = activePillar === pillar.id;
+            const isHovered = hoveredPillar === pillar.id;
+            return (
+              <div key={pillar.id} style={{ position: 'relative' }}>
+                {sidebarExpanded ? (
+                  /* ── Expanded item ── */
+                  <div
+                    onClick={() => setActivePillar(pillar.id)}
+                    onMouseEnter={() => setHoveredPillar(pillar.id)}
+                    onMouseLeave={() => setHoveredPillar(null)}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 12,
+                      padding: '12px 16px', cursor: 'pointer', borderRadius: 8,
+                      margin: '2px 8px', transition: 'background 0.15s',
+                      background: isActive ? '#f7f5f0' : isHovered ? '#f9f7f3' : 'transparent',
+                      borderLeft: isActive ? '3px solid #7eb5d6' : '3px solid transparent',
+                    }}
+                  >
+                    <div style={{
+                      width: 20, flexShrink: 0, display: 'flex', justifyContent: 'center',
+                      color: isActive ? '#1a1714' : '#6b6660',
+                    }}>
+                      {pillar.icon}
+                    </div>
+                    <span style={{
+                      fontSize: 14, fontWeight: isActive ? 600 : 400,
+                      color: isActive ? '#1a1714' : '#6b6660',
+                      whiteSpace: 'nowrap', overflow: 'hidden',
+                    }}>
+                      {pillar.label}
+                    </span>
+                  </div>
+                ) : (
+                  /* ── Collapsed item — 40×40 centred box ── */
+                  <div
+                    onClick={() => setActivePillar(pillar.id)}
+                    onMouseEnter={() => setHoveredPillar(pillar.id)}
+                    onMouseLeave={() => setHoveredPillar(null)}
+                    style={{
+                      width: 40, height: 40, borderRadius: 8,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      margin: '2px auto', cursor: 'pointer',
+                      background: isActive ? '#f0f4f8' : isHovered ? '#f9f7f3' : 'transparent',
+                      border: isActive ? '1px solid #e0eaf2' : '1px solid transparent',
+                      transition: 'all 0.15s', position: 'relative',
+                    }}
+                  >
+                    <div style={{
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      color: isActive ? '#5B9BD5' : '#9e9890',
+                      transition: 'color 0.15s',
+                    }}>
+                      {pillar.icon}
+                    </div>
+
+                    {/* Active accent bar on sidebar left edge */}
+                    {isActive && (
+                      <div style={{
+                        position: 'absolute', left: -8, top: '50%',
+                        transform: 'translateY(-50%)',
+                        width: 3, height: 20,
+                        borderRadius: '0 2px 2px 0',
+                        background: '#7eb5d6',
+                      }} />
+                    )}
+
+                    {/* Tooltip to the right */}
+                    {isHovered && (
+                      <div style={{
+                        position: 'absolute', left: '110%', top: '50%',
+                        transform: 'translateY(-50%)',
+                        background: '#2d2a26', color: '#fff', fontSize: 11,
+                        padding: '4px 10px', borderRadius: 5,
+                        whiteSpace: 'nowrap', pointerEvents: 'none',
+                        zIndex: 100, boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+                      }}>
+                        {pillar.label}
+                        <div style={{
+                          position: 'absolute', right: '100%', top: '50%',
+                          transform: 'translateY(-50%)',
+                          width: 0, height: 0,
+                          borderTop: '4px solid transparent',
+                          borderBottom: '4px solid transparent',
+                          borderRight: '4px solid #2d2a26',
+                        }} />
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+
       </div>
 
-      <div style={{ maxWidth: 960, margin: '0 auto', padding: '28px 20px' }}>
+      {/* ── MAIN CONTENT (right of sidebar, below top bar) ── */}
+      <div style={{
+        marginLeft: sidebarWidth, paddingTop: 52,
+        minHeight: '100vh', transition: 'margin-left 0.2s ease',
+      }}>
 
-        {tab === 'dashboard' && (
-          <Dashboard {...commonProps} />
-        )}
+        {/* Sub-tab bar */}
+        <div style={{
+          position: 'sticky', top: 52, zIndex: 50,
+          background: '#fff', borderBottom: '1px solid #e8e4dc',
+          padding: '0 24px', display: 'flex', overflowX: 'auto',
+        }}>
+          {activePillar === 'finance' && TABS.map(t => (
+            <button key={t} onClick={() => setTab(t)} style={tabBtnStyle(tab === t)}>{t}</button>
+          ))}
 
-        {tab === 'plan' && (
-          <Plan {...commonProps} totalAllocPct={totalAllocPct} />
-        )}
+          {activePillar === 'investments' && (
+            <>
+              <button onClick={() => setInvestSubTab('overview')} style={tabBtnStyle(validInvestSubTab === 'overview')}>
+                Overview
+              </button>
+              {visibleInvestmentAccounts.map(acc => (
+                <button
+                  key={acc.id}
+                  onClick={() => setInvestSubTab(String(acc.id))}
+                  style={tabBtnStyle(validInvestSubTab === String(acc.id))}
+                >
+                  {acc.name}
+                </button>
+              ))}
+              <button onClick={() => setInvestSubTab('settings')} style={tabBtnStyle(validInvestSubTab === 'settings')}>
+                Settings
+              </button>
+            </>
+          )}
 
-        {tab === 'tracker' && (
-          <Tracker {...commonProps} />
-        )}
+          {activePillar === 'life' && (
+            <div style={{ padding: '14px 0', fontSize: 12, color: '#b0aa9f' }}>Life</div>
+          )}
+        </div>
 
-        {tab === 'net worth' && (
-          <NetWorth {...commonProps} />
-        )}
+        {/* Page content */}
+        <div style={{ maxWidth: 960, margin: '0 auto', padding: '28px 20px' }}>
 
-        {tab === 'settings' && (
-          <Settings
-            state={state} set={set}
-            onDeleteAccount={handleDeleteAccount}
-            onDeleteYear={handleDeleteYear}
-            onLogout={handleLogout}
-            availableYears={availableYears}
-            selectedYear={selectedYear}
-            settingsTargetSubTab={settingsTargetSubTab}
-            setSettingsTargetSubTab={setSettingsTargetSubTab}
-            navigate={navigate}
-          />
-        )}
+          {/* ── Finance pillar ── */}
+          {activePillar === 'finance' && (
+            <>
+              {tab === 'dashboard' && <Dashboard {...commonProps} />}
+              {tab === 'plan'      && <Plan {...commonProps} totalAllocPct={totalAllocPct} />}
+              {tab === 'tracker'   && <Tracker {...commonProps} />}
+              {tab === 'net worth' && <NetWorth {...commonProps} />}
+              {tab === 'settings'  && (
+                <Settings
+                  state={state} set={set}
+                  onDeleteAccount={handleDeleteAccount}
+                  onDeleteYear={handleDeleteYear}
+                  onLogout={handleLogout}
+                  availableYears={availableYears}
+                  selectedYear={selectedYear}
+                  settingsTargetSubTab={settingsTargetSubTab}
+                  setSettingsTargetSubTab={setSettingsTargetSubTab}
+                  navigate={navigate}
+                />
+              )}
+            </>
+          )}
 
+          {/* ── Investments pillar ── */}
+          {activePillar === 'investments' && (
+            <Investments
+              state={state}
+              set={set}
+              subTab={validInvestSubTab}
+              allInvestmentAccounts={allInvestmentAccounts}
+              visibleInvestmentAccounts={visibleInvestmentAccounts}
+              accountSnapshots={state.accountSnapshots}
+              MONTHS={MONTHS}
+            />
+          )}
+
+          {/* ── Life pillar ── */}
+          {activePillar === 'life' && <LifeComingSoon />}
+
+        </div>
       </div>
     </div>
   );
