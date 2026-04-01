@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import {
-  s, Lbl, Inp, Divider, EditableCell, blockNonNumeric, pasteNumericOnly,
+  s, Lbl, Inp, Divider, DelBtn, AddBtn, Select, EditableCell,
+  blockNonNumeric, pasteNumericOnly,
   CAT_COLORS, CATEGORIES, ACCOUNT_GROUPS, GROUP_HEADER_STYLES,
   getCurrency, getCurrencyFlag, getCurrentMonthAbbr, CURRENCIES, ALL_MONTHS,
 } from '../shared';
@@ -118,6 +119,9 @@ export default function ActualsMonth({
 }) {
   const [selectedMonth, setSelectedMonth] = useState(getCurrentMonthAbbr());
   const [trackerTab, setTrackerTab]       = useState('expenses');
+  const [liabilitiesOpen, setLiabilitiesOpen] = useState(
+    () => (state.liabilities || []).some(l => Number(l.amount) > 0)
+  );
 
   // Respond to external navigation requests (e.g. from Dashboard checklist)
   useEffect(() => {
@@ -217,10 +221,6 @@ export default function ActualsMonth({
 
   return (
     <div>
-      <div style={{ marginBottom: 8 }}>
-        <p style={{ fontFamily: 'Lora, serif', fontSize: 20, color: '#1a1714', marginBottom: 4 }}>Tracker — {selectedYear}</p>
-      </div>
-
       {/* Sub-tab nav */}
       <div style={{ display: 'flex', gap: 0, marginBottom: 20, borderBottom: '1px solid #e8e4dc' }}>
         {SUB_TABS.map(t => (
@@ -240,9 +240,9 @@ export default function ActualsMonth({
         <div>
           <MonthPills />
           <div style={s.card}>
-            <Lbl>ACCOUNT SNAPSHOTS — {selectedMonth.toUpperCase()}</Lbl>
+            <Lbl>ASSET SNAPSHOTS — {selectedMonth.toUpperCase()}</Lbl>
             <p style={{ fontSize: 12, color: '#b0aa9f', marginBottom: 16 }}>
-              End-of-month balances. Auto-converts to {state.currencyCode || 'GBP'}.
+              End-of-month asset balances. Auto-converts to {state.currencyCode || 'GBP'}.
               {(() => {
                 const snap = state.accountSnapshots?.[selectedMonth];
                 const hasData = snap && Object.values(snap).some(v => v > 0);
@@ -329,6 +329,79 @@ export default function ActualsMonth({
               </div>
             )}
           </div>
+
+          {/* ── Collapsible Liabilities ── */}
+          {(() => {
+            const liabs = state.liabilities || [];
+            const homeCode = state.currencyCode || 'GBP';
+            const totalLiabs = liabs.reduce((sum, l) => {
+              const c = toHome(Number(l.amount) || 0, l.currency || homeCode);
+              return sum + (c ?? 0);
+            }, 0);
+            return (
+              <div>
+                <div
+                  onClick={() => setLiabilitiesOpen(o => !o)}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 8,
+                    padding: '12px 0', cursor: 'pointer', color: '#9e9890',
+                    fontSize: 13, borderTop: '1px solid #f0ece4', marginTop: 16,
+                  }}
+                >
+                  <span style={{
+                    display: 'inline-block', width: 7, height: 7,
+                    borderRight: '1.5px solid #9e9890', borderBottom: '1.5px solid #9e9890',
+                    transform: liabilitiesOpen ? 'rotate(45deg) translateY(-2px)' : 'rotate(-45deg)',
+                    transition: 'transform 0.2s',
+                  }} />
+                  {liabs.length > 0
+                    ? `Liabilities · ${f(totalLiabs)}`
+                    : 'Track liabilities'}
+                </div>
+
+                {liabilitiesOpen && (
+                  <div style={{ marginBottom: 16 }}>
+                    <p style={{ fontSize: 12, color: '#b0aa9f', marginBottom: 16 }}>
+                      Money you owe. Subtracted from assets to calculate net worth.
+                    </p>
+                    {liabs.map(l => {
+                      const lCur = l.currency || homeCode;
+                      const isForeign = lCur !== homeCode;
+                      const homeVal = isForeign ? toHome(Number(l.amount) || 0, lCur) : null;
+                      return (
+                        <div key={l.id} style={{ marginBottom: 10 }}>
+                          <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                            <Inp value={l.label} onChange={v => set('liabilities', prev => prev.map(x => x.id === l.id ? { ...x, label: v } : x))} style={{ flex: 2 }} />
+                            <Inp type="number" value={l.amount === 0 ? '' : l.amount} onChange={v => set('liabilities', prev => prev.map(x => x.id === l.id ? { ...x, amount: v === '' ? 0 : (Number(v) || 0) } : x))} style={{ flex: 1 }} />
+                            <Select value={lCur} onChange={e => set('liabilities', prev => prev.map(x => x.id === l.id ? { ...x, currency: e.target.value } : x))} style={{ flex: 1 }}>
+                              {CURRENCIES.map(c => <option key={c.code} value={c.code}>{c.code}</option>)}
+                            </Select>
+                            <DelBtn onClick={() => set('liabilities', prev => prev.filter(x => x.id !== l.id))} />
+                          </div>
+                          {isForeign && (
+                            <div style={{ fontSize: 11, color: homeVal !== null ? '#b0aa9f' : '#e8a598', paddingLeft: 4, marginTop: 4 }}>
+                              {homeVal !== null ? `= ${f(homeVal)} at current rates` : 'no rate available'}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                    <AddBtn onClick={() => set('liabilities', prev => [...(prev || []), { id: Date.now(), label: 'New Liability', amount: 0, currency: homeCode }])} />
+                    <Divider />
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 600, fontSize: 13 }}>
+                      <span>
+                        Total liabilities
+                        {liabs.some(l => (l.currency || homeCode) !== homeCode) && (
+                          <span style={{ fontSize: 11, color: '#b0aa9f', fontWeight: 400, marginLeft: 6 }}>(converted to {homeCode})</span>
+                        )}
+                      </span>
+                      <span style={{ color: '#c94040' }}>{f(totalLiabs)}</span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })()}
         </div>
       )}
 
@@ -532,12 +605,17 @@ export default function ActualsMonth({
             <Lbl>CATEGORIES — {selectedMonth.toUpperCase()}</Lbl>
             <div style={{ marginTop: 12 }}>
               {CATEGORIES.map(cat => {
-                const plan     = planned[cat];
-                const actual   = Number(getActual(selectedMonth, cat)) || 0;
-                const hasActual = getActual(selectedMonth, cat) !== '' && actual > 0;
-                const diff     = actual - plan;
-                const isGood   = (cat === 'Savings' || cat === 'Investments') ? actual >= plan : actual <= plan;
-                const progress = plan > 0 ? Math.min((actual / plan) * 100, 150) : 0;
+                const plan          = planned[cat];
+                const isNeedsOrWants = cat === 'Needs' || cat === 'Wants';
+                const autoActualVal  = state.expenseAutoActuals?.[selectedMonth]?.[cat];
+                // For Needs/Wants use auto-computed value; otherwise use manual actuals
+                const actual = isNeedsOrWants
+                  ? (autoActualVal !== undefined ? Number(autoActualVal) : 0)
+                  : (Number(getActual(selectedMonth, cat)) || 0);
+                const hasActual = actual > 0;
+                const diff      = actual - plan;
+                const isGood    = (cat === 'Savings' || cat === 'Investments') ? actual >= plan : actual <= plan;
+                const progress  = plan > 0 ? Math.min((actual / plan) * 100, 150) : 0;
 
                 return (
                   <div key={cat} style={{ marginBottom: 16, padding: '12px 14px', background: '#fdfcfa', borderRadius: 10, border: '1px solid #f0ece4' }}>
@@ -548,7 +626,10 @@ export default function ActualsMonth({
                       </div>
                       {hasActual && (
                         <span style={{ fontSize: 12, fontWeight: 600, color: isGood ? '#2d9e6b' : '#c94040' }}>
-                          {diff >= 0 ? '+' : ''}{f(diff)}
+                          {isNeedsOrWants
+                            ? (() => { const d = plan - actual; return `${f(Math.abs(d))} ${d >= 0 ? 'remaining' : 'overspent'}`; })()
+                            : `${diff >= 0 ? '+' : ''}${f(diff)}`
+                          }
                         </span>
                       )}
                     </div>
@@ -558,8 +639,19 @@ export default function ActualsMonth({
                         <p style={{ fontSize: 14, fontWeight: 500, color: '#9e9890' }}>{f(plan)}</p>
                       </div>
                       <div>
-                        {(() => {
-                          const autoVal = state.expenseAutoActuals?.[selectedMonth]?.[cat];
+                        {isNeedsOrWants ? (
+                          <>
+                            <p style={{ fontSize: 10, color: '#b0aa9f', marginBottom: 2 }}>Actual</p>
+                            <p style={{ fontSize: 14, fontWeight: 500, color: actual > 0 ? '#1a1714' : '#b0aa9f', paddingTop: 2 }}>
+                              {actual > 0 ? `${currency.symbol}${new Intl.NumberFormat(currency.locale, { maximumFractionDigits: 0 }).format(actual)}` : '—'}
+                            </p>
+                            <p style={{ fontSize: 10, marginTop: 3 }}>
+                              <span style={{ color: '#5B9BD5', fontWeight: 600 }}>AUTO</span>
+                              <span style={{ color: '#b0aa9f' }}> from expenses</span>
+                            </p>
+                          </>
+                        ) : (() => {
+                          const autoVal   = autoActualVal;
                           const manualVal = getActual(selectedMonth, cat);
                           const isAutoFilled = (manualVal === '' || manualVal === undefined) && autoVal !== undefined;
                           return (

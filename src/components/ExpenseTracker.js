@@ -4,7 +4,7 @@ import {
   LineChart, Line,
   PieChart, Pie, Cell,
 } from 'recharts';
-import { s, Lbl, DelBtn, Select, CURRENCIES, getCurrency, getCurrencyFlag, ALL_MONTHS, blockNonNumeric, pasteNumericOnly, fmtChart } from '../shared';
+import { s, Lbl, DelBtn, Select, CURRENCIES, getCurrency, getCurrencyFlag, ALL_MONTHS, blockNonNumeric, pasteNumericOnly, fmtChart, parseExpenseDate } from '../shared';
 
 // ── Recurring icon ────────────────────────────────────────────────────────────
 const RecurringIcon = ({ active }) => (
@@ -27,7 +27,10 @@ function getAutoSuggest(description, expenses) {
   // Exact match first
   const exact = expenses.filter(e => e.description.toLowerCase() === lower);
   if (exact.length) {
-    const latest = exact.reduce((a, b) => (a.date > b.date ? a : b));
+    const latest = exact.reduce((a, b) => {
+      const da = parseExpenseDate(a.date), db = parseExpenseDate(b.date);
+      return (db && da && db > da) ? b : a;
+    });
     return { category: latest.category, paidBy: latest.paidBy };
   }
 
@@ -38,7 +41,10 @@ function getAutoSuggest(description, expenses) {
       e.description.toLowerCase().startsWith(firstWord)
     );
     if (prefix.length) {
-      const latest = prefix.reduce((a, b) => (a.date > b.date ? a : b));
+      const latest = prefix.reduce((a, b) => {
+        const da = parseExpenseDate(a.date), db = parseExpenseDate(b.date);
+        return (db && da && db > da) ? b : a;
+      });
       return { category: latest.category, paidBy: latest.paidBy };
     }
   }
@@ -141,33 +147,96 @@ export default function ExpenseTracker({
     return h ?? Number(exp.amount);
   };
 
-  const getFilterRange = () => {
-    if (dateFilter === 'this-month') {
-      const from = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-01`;
-      return { from, to: todayStr };
+  const getFilteredExpenses = (exps, filter, cStart, cEnd) => {
+    const now = new Date();
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    switch (filter) {
+      case 'this-month':
+        return exps.filter(e => {
+          if (!e.date) return false;
+          const d = parseExpenseDate(e.date);
+          return d && d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+        });
+      case 'last-3': {
+        const cutoff = new Date(startOfToday);
+        cutoff.setDate(cutoff.getDate() - 90);
+        return exps.filter(e => {
+          if (!e.date) return false;
+          const d = parseExpenseDate(e.date);
+          return d && d >= cutoff && d <= startOfToday;
+        });
+      }
+      case 'last-6': {
+        const cutoff = new Date(startOfToday);
+        cutoff.setDate(cutoff.getDate() - 180);
+        return exps.filter(e => {
+          if (!e.date) return false;
+          const d = parseExpenseDate(e.date);
+          return d && d >= cutoff && d <= startOfToday;
+        });
+      }
+      case 'this-year':
+        return exps.filter(e => {
+          if (!e.date) return false;
+          const d = parseExpenseDate(e.date);
+          return d && d.getFullYear() === now.getFullYear() && d <= startOfToday;
+        });
+      case 'all':
+        return exps.filter(e => {
+          if (!e.date) return false;
+          const d = parseExpenseDate(e.date);
+          return d && d <= startOfToday;
+        });
+      case 'custom':
+        if (!cStart || !cEnd) return exps.filter(e => Boolean(e.date));
+        return exps.filter(e => {
+          if (!e.date) return false;
+          const d = parseExpenseDate(e.date);
+          const s = parseExpenseDate(cStart);
+          const en = parseExpenseDate(cEnd);
+          return d && s && en && d >= s && d <= en;
+        });
+      default:
+        return exps.filter(e => Boolean(e.date));
     }
-    if (dateFilter === 'last-3') {
-      const d = new Date(today); d.setMonth(d.getMonth() - 3);
-      return { from: d.toISOString().split('T')[0], to: todayStr };
-    }
-    if (dateFilter === 'last-6') {
-      const d = new Date(today); d.setMonth(d.getMonth() - 6);
-      return { from: d.toISOString().split('T')[0], to: todayStr };
-    }
-    if (dateFilter === 'this-year') {
-      return { from: `${selectedYear}-01-01`, to: `${selectedYear}-12-31` };
-    }
-    if (dateFilter === 'custom' && customFrom && customTo) {
-      return { from: customFrom, to: customTo };
-    }
-    return { from: '2000-01-01', to: '9999-12-31' };
   };
 
-  // ── Analytics data ───────────────────────────────────────────────────────
-  const filteredExpenses = useMemo(() => {
-    const { from, to } = getFilterRange();
-    return expenses.filter(e => e.date >= from && e.date <= to);
-  }, [expenses, dateFilter, customFrom, customTo, selectedYear]); // eslint-disable-line
+  const getHighlightedMonths = (filter) => {
+    const now = new Date();
+    const highlighted = new Set();
+    if (filter === 'this-month') {
+      highlighted.add(now.getMonth());
+      return highlighted;
+    }
+    if (filter === 'last-3') {
+      for (let i = 0; i <= 2; i++) {
+        const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+        highlighted.add(d.getMonth());
+      }
+      return highlighted;
+    }
+    if (filter === 'last-6') {
+      for (let i = 0; i <= 5; i++) {
+        const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+        highlighted.add(d.getMonth());
+      }
+      return highlighted;
+    }
+    if (filter === 'this-year') {
+      for (let i = 0; i <= now.getMonth(); i++) highlighted.add(i);
+      return highlighted;
+    }
+    if (filter === 'all') {
+      expenses.forEach(e => { if (e.date) { const d = parseExpenseDate(e.date); if (d) highlighted.add(d.getMonth()); } });
+      return highlighted;
+    }
+    return highlighted;
+  };
+
+  const filteredExpenses = useMemo(
+    () => getFilteredExpenses(expenses, dateFilter, customFrom, customTo),
+    [expenses, dateFilter, customFrom, customTo], // eslint-disable-line
+  );
 
   const analyticsStats = useMemo(() => {
     const catTotals = {};
@@ -189,31 +258,71 @@ export default function ExpenseTracker({
   }, [filteredExpenses]); // eslint-disable-line
 
   const barChartData = useMemo(() => {
+    const pad = n => String(n).padStart(2, '0');
     if (dateFilter === 'this-month') {
-      const year = today.getFullYear();
+      const year  = today.getFullYear();
       const month = today.getMonth();
-      const daysUpToToday = today.getDate();
+      const todayDate   = today.getDate();
+      const daysInMonth = new Date(year, month + 1, 0).getDate();
       const result = [];
-      for (let day = 1; day <= daysUpToToday; day++) {
-        const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-        const total = expenses.filter(e => e.date === dateStr).reduce((sum, e) => sum + toHomeAmt(e), 0);
-        result.push({ day: String(day), total: Math.round(total) });
+      for (let day = 1; day <= daysInMonth; day++) {
+        if (day <= todayDate) {
+          const total = expenses.filter(e => {
+            if (!e.date) return false;
+            const d = parseExpenseDate(e.date);
+            return d && d.getFullYear() === year && d.getMonth() === month && d.getDate() === day;
+          }).reduce((sum, e) => sum + toHomeAmt(e), 0);
+          result.push({ day: String(day), total: Math.round(total) });
+        } else {
+          result.push({ day: String(day), total: 0 });
+        }
       }
       return result;
     }
-    const { from, to } = getFilterRange();
-    const monthTotals = {};
-    MONTHS.forEach(m => { monthTotals[m] = 0; });
-    expenses.forEach(e => {
-      if (e.date < from || e.date > to) return;
-      const mIdx = parseInt(e.date.split('-')[1], 10) - 1;
-      const abbr = ALL_MONTHS[mIdx];
-      if (abbr in monthTotals) monthTotals[abbr] += toHomeAmt(e);
+
+    // Monthly grouping — group by YYYY-MM key
+    const expByMonth = {};
+    filteredExpenses.forEach(e => {
+      if (!e.date) return;
+      const d = parseExpenseDate(e.date);
+      if (!d) return;
+      const key = `${d.getFullYear()}-${pad(d.getMonth() + 1)}`;
+      expByMonth[key] = (expByMonth[key] || 0) + toHomeAmt(e);
     });
-    return MONTHS
-      .map(m => ({ month: m, total: Math.round(monthTotals[m] || 0) }))
-      .filter(d => d.total > 0);
-  }, [expenses, dateFilter, customFrom, customTo, selectedYear, MONTHS]); // eslint-disable-line
+
+    // Determine inclusive month range to display
+    let startY, startM, endY, endM;
+    if (dateFilter === 'last-3') {
+      const cutoff = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+      cutoff.setDate(cutoff.getDate() - 90);
+      startY = cutoff.getFullYear(); startM = cutoff.getMonth() + 1;
+      endY = today.getFullYear();   endM = today.getMonth() + 1;
+    } else if (dateFilter === 'last-6') {
+      const cutoff = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+      cutoff.setDate(cutoff.getDate() - 180);
+      startY = cutoff.getFullYear(); startM = cutoff.getMonth() + 1;
+      endY = today.getFullYear();   endM = today.getMonth() + 1;
+    } else if (dateFilter === 'this-year') {
+      startY = today.getFullYear(); startM = 1;
+      endY = today.getFullYear();   endM = today.getMonth() + 1;
+    } else {
+      // 'all' or 'custom' — span actual data range
+      const keys = Object.keys(expByMonth).sort();
+      if (keys.length === 0) return [];
+      [startY, startM] = keys[0].split('-').map(Number);
+      [endY,   endM]   = keys[keys.length - 1].split('-').map(Number);
+    }
+
+    const result = [];
+    let y = startY, m = startM;
+    while (y < endY || (y === endY && m <= endM)) {
+      const key = `${y}-${pad(m)}`;
+      result.push({ month: ALL_MONTHS[m - 1], total: Math.round(expByMonth[key] || 0) });
+      m++;
+      if (m > 12) { m = 1; y++; }
+    }
+    return result;
+  }, [filteredExpenses, dateFilter, expenses]); // eslint-disable-line
 
   const catChartData = useMemo(() => {
     const { catTotals, total } = analyticsStats;
@@ -246,28 +355,36 @@ export default function ExpenseTracker({
 
   // ── Month transaction data ────────────────────────────────────────────────
   const monthExpenses = useMemo(() => {
-    const mIdx    = ALL_MONTHS.indexOf(selectedMonth);
-    const prefix  = `${selectedYear}-${String(mIdx + 1).padStart(2, '0')}`;
+    const mIdx = ALL_MONTHS.indexOf(selectedMonth);
     return expenses
-      .filter(e => e.date.startsWith(prefix))
-      .sort((a, b) => b.date.localeCompare(a.date) || b.id.localeCompare(a.id));
+      .filter(e => {
+        if (!e.date) return false;
+        const d = parseExpenseDate(e.date);
+        return d && d.getFullYear() === selectedYear && d.getMonth() === mIdx;
+      })
+      .sort((a, b) => {
+        const da = parseExpenseDate(a.date);
+        const db = parseExpenseDate(b.date);
+        if (!da || !db) return 0;
+        return db - da || b.id.localeCompare(a.id);
+      });
   }, [expenses, selectedMonth, selectedYear]);
 
-  const visibleExpenses = monthExpenses.slice(0, visibleCount);
-
-  const monthTotal = useMemo(
-    () => monthExpenses.reduce((sum, e) => sum + toHomeAmt(e), 0),
-    [monthExpenses], // eslint-disable-line
-  );
-
-  const monthCatTotals = useMemo(() => {
-    const totals = {};
-    monthExpenses.forEach(e => {
-      const cat = e.category || 'Other';
-      totals[cat] = (totals[cat] || 0) + toHomeAmt(e);
+  // When range filter active, transaction table shows analytics-filtered set
+  const tableExpenses = useMemo(() => {
+    if (dateFilter === 'this-month') return monthExpenses;
+    return [...filteredExpenses].sort((a, b) => {
+      const da = parseExpenseDate(a.date);
+      const db = parseExpenseDate(b.date);
+      if (!da || !db) return 0;
+      return db - da || b.id.localeCompare(a.id);
     });
-    return Object.entries(totals).sort((a, b) => b[1] - a[1]);
-  }, [monthExpenses]); // eslint-disable-line
+  }, [dateFilter, monthExpenses, filteredExpenses]);
+
+  const visibleExpenses = tableExpenses.slice(0, visibleCount);
+
+  // Reset pagination when filter changes
+  useEffect(() => { setVisibleCount(PAGE_SIZE); }, [dateFilter]); // eslint-disable-line
 
   const isSelectedMonthFuture = (() => {
     const yearStartMonth = state.yearStartMonth ?? 0;
@@ -290,12 +407,12 @@ export default function ExpenseTracker({
       if (seen.has(exp.id)) return false;
       seen.add(exp.id);
       if (exp.recurringFrequency === 'yearly') {
-        const origDate = new Date(exp.date);
-        return origDate.getMonth() === mIdx;
+        const origDate = parseExpenseDate(exp.date);
+        return origDate && origDate.getMonth() === mIdx;
       }
       return true;
     }).map(exp => {
-      const origDate = new Date(exp.date);
+      const origDate = parseExpenseDate(exp.date);
       const maxDay = new Date(calYear, mIdx + 1, 0).getDate();
       const day = Math.min(origDate.getDate(), maxDay);
       const expectedDate = `${calYear}-${String(mIdx + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
@@ -308,7 +425,9 @@ export default function ExpenseTracker({
     const autoActuals = {};
     expenses.forEach(exp => {
       if (!exp.date || !exp.amount) return;
-      const mIdx = parseInt(exp.date.split('-')[1], 10) - 1;
+      const parsedDate = parseExpenseDate(exp.date);
+      if (!parsedDate) return;
+      const mIdx = parsedDate.getMonth();
       const abbr = ALL_MONTHS[mIdx];
       const cat = categories.find(c => c.name === exp.category);
       if (!cat?.type) return;
@@ -336,7 +455,12 @@ export default function ExpenseTracker({
         e.description?.toLowerCase().includes(lower) ||
         e.category?.toLowerCase().includes(lower)
       )
-      .sort((a, b) => b.date.localeCompare(a.date))
+      .sort((a, b) => {
+        const da = parseExpenseDate(a.date);
+        const db = parseExpenseDate(b.date);
+        if (!da || !db) return 0;
+        return db - da;
+      })
       .slice(0, 50);
   }, [expenses, searchQuery, isSearching]); // eslint-disable-line
 
@@ -477,7 +601,11 @@ export default function ExpenseTracker({
       const unique = [...new Set(
         others
           .filter(e => e.description.toLowerCase().startsWith(lower))
-          .sort((a, b) => b.date.localeCompare(a.date))
+          .sort((a, b) => {
+            const da = parseExpenseDate(a.date), db = parseExpenseDate(b.date);
+            if (!da || !db) return 0;
+            return db - da;
+          })
           .map(e => e.description),
       )].slice(0, 5);
       setSuggestions(unique);
@@ -525,7 +653,10 @@ export default function ExpenseTracker({
           {DATE_FILTERS.map(df => (
             <button
               key={df.key}
-              onClick={() => setDateFilter(df.key)}
+              onClick={() => {
+                setDateFilter(df.key);
+                if (df.key === 'this-month') setSelectedMonth(curMonthAbbr);
+              }}
               style={{
                 padding: '5px 12px', borderRadius: 20, fontSize: 12, fontFamily: 'inherit',
                 border: dateFilter === df.key ? '2px solid #2d2a26' : '1px solid #e8e4dc',
@@ -589,9 +720,9 @@ export default function ExpenseTracker({
                       Recurring this period: <strong>{f(analyticsStats.recurringTotal)}</strong> across {analyticsStats.recurringCount} item{analyticsStats.recurringCount !== 1 ? 's' : ''}
                     </p>
                   )}
-                  {/* Monthly spend chart */}
+                  {/* Spend trend chart */}
                   <div style={{ marginBottom: 20 }}>
-                    <Lbl>MONTHLY SPEND</Lbl>
+                    <Lbl>SPEND TREND</Lbl>
                     <div style={{ marginTop: 10 }}>
                       <ResponsiveContainer width="100%" height={140}>
                         <LineChart data={barChartData}>
@@ -662,11 +793,13 @@ export default function ExpenseTracker({
                     <div style={{ marginTop: 4 }}>
                       <Lbl>SPEND BY PAYMENT METHOD</Lbl>
                       <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'flex-start', gap: 20, marginTop: 10 }}>
-                        <PieChart width={168} height={168}>
-                          <Pie data={pmChartData} cx={78} cy={78} innerRadius={42} outerRadius={72} paddingAngle={2} dataKey="value">
-                            {pmChartData.map((entry, i) => <Cell key={i} fill={entry.color} />)}
-                          </Pie>
-                        </PieChart>
+                        <div style={{ width: '50%', display: 'flex', alignItems: 'flex-start', justifyContent: 'flex-start', overflow: 'hidden' }}>
+                          <PieChart width={260} height={260}>
+                            <Pie data={pmChartData} cx={124} cy={124} innerRadius={62} outerRadius={112} paddingAngle={2} dataKey="value">
+                              {pmChartData.map((entry, i) => <Cell key={i} fill={entry.color} />)}
+                            </Pie>
+                          </PieChart>
+                        </div>
                         <div style={{ alignSelf: 'flex-start', marginTop: 0, flex: 1 }}>
                           <table style={{ fontSize: 12, borderCollapse: 'collapse', width: '100%' }}>
                             <thead>
@@ -725,15 +858,29 @@ export default function ExpenseTracker({
         {/* Month pills (hidden while searching) */}
         {!isSearching && (
           <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginBottom: 14 }}>
-            {MONTHS.map(m => (
-              <button key={m} onClick={() => { setSelectedMonth(m); setVisibleCount(PAGE_SIZE); }} style={{
-                padding: '5px 11px', borderRadius: 20, fontSize: 12, fontFamily: 'inherit',
-                border: m === selectedMonth ? '2px solid #2d2a26' : '1px solid #e8e4dc',
-                background: m === selectedMonth ? '#2d2a26' : '#fff',
-                color: m === selectedMonth ? '#fff' : m === curMonthAbbr ? '#7eb5d6' : '#6b6660',
-                cursor: 'pointer', fontWeight: (m === selectedMonth || m === curMonthAbbr) ? 600 : 400,
-              }}>{m}</button>
-            ))}
+            {(() => {
+              const highlightedMonths = getHighlightedMonths(dateFilter);
+              return MONTHS.map(m => {
+                const calIdx = ALL_MONTHS.indexOf(m);
+                const isSelected = m === selectedMonth && dateFilter === 'this-month';
+                const isInRange = highlightedMonths.has(calIdx) && dateFilter !== 'this-month';
+                return (
+                  <button
+                    key={m}
+                    onClick={() => { setSelectedMonth(m); setDateFilter('this-month'); setVisibleCount(PAGE_SIZE); }}
+                    style={{
+                      padding: '5px 11px', borderRadius: 20, fontSize: 12, fontFamily: 'inherit',
+                      background: isSelected ? '#1a1714' : isInRange ? '#e8f0f7' : 'transparent',
+                      color: isSelected ? '#fff' : isInRange ? '#5B9BD5' : '#6b6660',
+                      border: isSelected ? '1px solid #1a1714' : isInRange ? '1px solid #c5ddf0' : '1px solid #e8e4dc',
+                      cursor: 'pointer',
+                      fontWeight: (isSelected || isInRange) ? 600 : 400,
+                      transition: 'all 0.15s',
+                    }}
+                  >{m}</button>
+                );
+              });
+            })()}
           </div>
         )}
 
@@ -801,12 +948,14 @@ export default function ExpenseTracker({
           </div>
         )}
 
-        {!isSearching && (monthExpenses.length === 0 && recurringPlaceholders.length === 0 ? (
+        {!isSearching && (tableExpenses.length === 0 && (dateFilter !== 'this-month' || recurringPlaceholders.length === 0) ? (
           <div style={{
             textAlign: 'center', padding: '28px 20px', color: '#b0aa9f', fontSize: 13,
             background: '#fdfcfa', borderRadius: 10, border: '1px dashed #e8e4dc',
           }}>
-            No expenses logged for {selectedMonth}. Click '+ Add Expense' to get started.
+            {dateFilter === 'this-month'
+              ? `No expenses logged for ${selectedMonth}. Click '+ Add Expense' to get started.`
+              : 'No expenses for the selected period.'}
           </div>
         ) : (
           <>
@@ -843,7 +992,7 @@ export default function ExpenseTracker({
                   </tr>
                 </thead>
                 <tbody>
-                  {recurringPlaceholders.map(ph => {
+                  {dateFilter === 'this-month' && recurringPlaceholders.map(ph => {
                     const isConfirmed = (ph.confirmedMonths || []).includes(ph._monthKey);
                     const phFlag = getCurrencyFlag(ph.currency);
                     const catColor = categories.find(c => c.name === ph.category)?.color || '#b0aa9f';
@@ -1173,17 +1322,17 @@ export default function ExpenseTracker({
             </div>
 
             {/* Empty state when only placeholders exist */}
-            {monthExpenses.length === 0 && recurringPlaceholders.length > 0 && (
+            {dateFilter === 'this-month' && monthExpenses.length === 0 && recurringPlaceholders.length > 0 && (
               <div style={{ textAlign: 'center', padding: '16px 20px', color: '#b0aa9f', fontSize: 13, background: '#fdfcfa', borderRadius: 10, border: '1px dashed #e8e4dc', marginTop: 8 }}>
                 No expenses logged yet. {recurringPlaceholders.length} recurring expense{recurringPlaceholders.length !== 1 ? 's' : ''} expected this month — confirm them above when ready.
               </div>
             )}
 
             {/* Pagination */}
-            {monthExpenses.length > visibleCount && (
+            {tableExpenses.length > visibleCount && (
               <div style={{ textAlign: 'center', marginTop: 14 }}>
                 <p style={{ fontSize: 12, color: '#b0aa9f', marginBottom: 6 }}>
-                  Showing {Math.min(visibleCount, monthExpenses.length)} of {monthExpenses.length}
+                  Showing {Math.min(visibleCount, tableExpenses.length)} of {tableExpenses.length}
                 </p>
                 <button
                   onClick={() => setVisibleCount(prev => prev + PAGE_SIZE)}
@@ -1195,43 +1344,6 @@ export default function ExpenseTracker({
               </div>
             )}
 
-            {/* Monthly summary */}
-            <div style={{ marginTop: 16, padding: '14px 0', background: '#f9f7f3', borderRadius: 10 }}>
-              <div style={{ display: 'flex', alignItems: 'center', marginBottom: monthTotal > 0 ? 10 : 0 }}>
-                <span style={{ fontSize: 12, color: '#6b6660', fontWeight: 600, flex: 1, paddingLeft: 16 }}>Total spend this month</span>
-                <span style={{ fontSize: 14, fontWeight: 700, color: '#1a1714', width: 80, textAlign: 'right', flexShrink: 0 }}>{f(monthTotal)}</span>
-                <span style={{ display: 'inline-block', width: 498, flexShrink: 0 }} />
-              </div>
-              {monthTotal > 0 && monthCatTotals.length > 0 && (
-                <>
-                  {/* Proportional bar */}
-                  <div style={{ height: 10, display: 'flex', borderRadius: 6, overflow: 'hidden', gap: 1, marginBottom: 8, marginLeft: 16, marginRight: 16 }}>
-                    {monthCatTotals.map(([cat, amt]) => {
-                      const color = categories.find(c => c.name === cat)?.color || '#b0aa9f';
-                      return (
-                        <div
-                          key={cat}
-                          title={`${cat}: ${f(amt)} (${((amt / monthTotal) * 100).toFixed(1)}%)`}
-                          style={{ width: `${(amt / monthTotal) * 100}%`, background: color, minWidth: 2 }}
-                        />
-                      );
-                    })}
-                  </div>
-                  {/* Legend */}
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px 12px', paddingLeft: 16 }}>
-                    {monthCatTotals.slice(0, 5).map(([cat, amt]) => {
-                      const color = categories.find(c => c.name === cat)?.color || '#b0aa9f';
-                      return (
-                        <span key={cat} style={{ fontSize: 11, color: '#6b6660', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                          <span style={{ width: 7, height: 7, borderRadius: 2, background: color, display: 'inline-block' }} />
-                          {cat} {f(amt)}
-                        </span>
-                      );
-                    })}
-                  </div>
-                </>
-              )}
-            </div>
           </>
         ))}
       </div>

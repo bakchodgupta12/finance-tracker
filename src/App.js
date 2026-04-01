@@ -3,14 +3,14 @@ import {
   saveData, loadData, loadLatestData, listYears, fetchFxRates, deleteUser, deleteYearData
 } from './supabase';
 import {
-  TABS, getCurrency, fmt, getMonthsFromStart, makeDefaultState, s, Select
+  TABS, getCurrency, fmt, getMonthsFromStart, makeDefaultState, s, Select,
+  assignCategoryColours,
 } from './shared';
 import LoginScreen from './components/LoginScreen';
 import Onboarding from './components/Onboarding';
 import Dashboard from './components/Dashboard';
 import Plan from './components/Plan';
 import Tracker from './components/ActualsMonth';
-import NetWorth from './components/NetWorth';
 import Settings from './components/Settings';
 import Investments from './components/Investments';
 
@@ -324,8 +324,10 @@ export default function App() {
       const migratedData = {
         ...(existingData.expenseCategories ? {
           ...existingData,
-          expenseCategories: existingData.expenseCategories.map(cat =>
-            cat.type !== undefined ? cat : { ...cat, type: DEFAULT_CAT_TYPES[cat.name] || null }
+          expenseCategories: assignCategoryColours(
+            existingData.expenseCategories.map(cat =>
+              cat.type !== undefined ? cat : { ...cat, type: DEFAULT_CAT_TYPES[cat.name] || null }
+            )
           ),
         } : existingData),
         expenses: (existingData.expenses || []).map(e => {
@@ -874,7 +876,6 @@ export default function App() {
               {tab === 'dashboard' && <Dashboard {...commonProps} />}
               {tab === 'plan'      && <Plan {...commonProps} totalAllocPct={totalAllocPct} />}
               {tab === 'tracker'   && <Tracker {...commonProps} />}
-              {tab === 'net worth' && <NetWorth {...commonProps} />}
               {tab === 'settings'  && (
                 <Settings
                   state={state} set={set}

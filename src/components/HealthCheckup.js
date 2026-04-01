@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { jsPDF } from 'jspdf';
-import { ALL_MONTHS } from '../shared';
+import { ALL_MONTHS, parseExpenseDate } from '../shared';
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 const RATING_COLORS = {
@@ -170,7 +170,8 @@ function buildReportData(state, periodMonths, healthScore, baseIncome, allocByCa
   const getPeriodExpenses = () => {
     return (state.expenses || []).filter(exp => {
       if (!exp.date) return false;
-      const d = new Date(exp.date);
+      const d = parseExpenseDate(exp.date);
+      if (!d) return false;
       const abbr = ALL_MONTHS[d.getMonth()];
       if (!periodMonths.includes(abbr)) return false;
       const mIdx = d.getMonth();
@@ -195,9 +196,12 @@ function buildReportData(state, periodMonths, healthScore, baseIncome, allocByCa
   const monthlySpendTrend = periodMonths.map(m => {
     const mIdx = ALL_MONTHS.indexOf(m);
     const yr = mIdx >= yearStartMonth ? selectedYear : selectedYear + 1;
-    const prefix = `${yr}-${String(mIdx + 1).padStart(2, '0')}`;
     const total = (state.expenses || [])
-      .filter(e => e.date?.startsWith(prefix))
+      .filter(e => {
+        if (!e.date) return false;
+        const d = parseExpenseDate(e.date);
+        return d && d.getFullYear() === yr && d.getMonth() === mIdx;
+      })
       .reduce((sum, e) => sum + (toHome(Number(e.amount) || 0, e.currency) || 0), 0);
     return { month: m, total: Math.round(total) };
   }).filter(d => d.total > 0);
