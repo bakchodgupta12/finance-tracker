@@ -141,33 +141,88 @@ export default function ExpenseTracker({
     return h ?? Number(exp.amount);
   };
 
-  const getFilterRange = () => {
-    if (dateFilter === 'this-month') {
-      const from = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-01`;
-      return { from, to: todayStr };
+  // ── Analytics data ───────────────────────────────────────────────────────
+  const getFilteredExpenses = (exps, filter, cStart, cEnd) => {
+    const now = new Date();
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    switch (filter) {
+      case 'this-month':
+        return exps.filter(e => {
+          if (!e.date) return false;
+          const d = new Date(e.date);
+          return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+        });
+      case 'last-3': {
+        const cutoff = new Date(startOfToday);
+        cutoff.setDate(cutoff.getDate() - 90);
+        return exps.filter(e => {
+          if (!e.date) return false;
+          return new Date(e.date) >= cutoff;
+        });
+      }
+      case 'last-6': {
+        const cutoff = new Date(startOfToday);
+        cutoff.setDate(cutoff.getDate() - 180);
+        return exps.filter(e => {
+          if (!e.date) return false;
+          return new Date(e.date) >= cutoff;
+        });
+      }
+      case 'this-year':
+        return exps.filter(e => {
+          if (!e.date) return false;
+          return new Date(e.date).getFullYear() === now.getFullYear();
+        });
+      case 'all':
+        return exps.filter(e => Boolean(e.date));
+      case 'custom':
+        if (!cStart || !cEnd) return exps.filter(e => Boolean(e.date));
+        return exps.filter(e => {
+          if (!e.date) return false;
+          const d = new Date(e.date);
+          return d >= new Date(cStart) && d <= new Date(cEnd);
+        });
+      default:
+        return exps.filter(e => Boolean(e.date));
     }
-    if (dateFilter === 'last-3') {
-      const d = new Date(today); d.setMonth(d.getMonth() - 3);
-      return { from: d.toISOString().split('T')[0], to: todayStr };
-    }
-    if (dateFilter === 'last-6') {
-      const d = new Date(today); d.setMonth(d.getMonth() - 6);
-      return { from: d.toISOString().split('T')[0], to: todayStr };
-    }
-    if (dateFilter === 'this-year') {
-      return { from: `${selectedYear}-01-01`, to: `${selectedYear}-12-31` };
-    }
-    if (dateFilter === 'custom' && customFrom && customTo) {
-      return { from: customFrom, to: customTo };
-    }
-    return { from: '2000-01-01', to: '9999-12-31' };
   };
 
-  // ── Analytics data ───────────────────────────────────────────────────────
-  const filteredExpenses = useMemo(() => {
-    const { from, to } = getFilterRange();
-    return expenses.filter(e => e.date >= from && e.date <= to);
-  }, [expenses, dateFilter, customFrom, customTo, selectedYear]); // eslint-disable-line
+  const getHighlightedMonths = (filter) => {
+    const now = new Date();
+    const highlighted = new Set();
+    if (filter === 'this-month') {
+      highlighted.add(now.getMonth());
+      return highlighted;
+    }
+    if (filter === 'last-3') {
+      for (let i = 0; i <= 2; i++) {
+        const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+        highlighted.add(d.getMonth());
+      }
+      return highlighted;
+    }
+    if (filter === 'last-6') {
+      for (let i = 0; i <= 5; i++) {
+        const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+        highlighted.add(d.getMonth());
+      }
+      return highlighted;
+    }
+    if (filter === 'this-year') {
+      for (let i = 0; i <= now.getMonth(); i++) highlighted.add(i);
+      return highlighted;
+    }
+    if (filter === 'all') {
+      expenses.forEach(e => { if (e.date) highlighted.add(new Date(e.date).getMonth()); });
+      return highlighted;
+    }
+    return highlighted;
+  };
+
+  const filteredExpenses = useMemo(
+    () => getFilteredExpenses(expenses, dateFilter, customFrom, customTo),
+    [expenses, dateFilter, customFrom, customTo], // eslint-disable-line
+  );
 
   const analyticsStats = useMemo(() => {
     const catTotals = {};
@@ -201,11 +256,9 @@ export default function ExpenseTracker({
       }
       return result;
     }
-    const { from, to } = getFilterRange();
     const monthTotals = {};
     MONTHS.forEach(m => { monthTotals[m] = 0; });
-    expenses.forEach(e => {
-      if (e.date < from || e.date > to) return;
+    filteredExpenses.forEach(e => {
       const mIdx = parseInt(e.date.split('-')[1], 10) - 1;
       const abbr = ALL_MONTHS[mIdx];
       if (abbr in monthTotals) monthTotals[abbr] += toHomeAmt(e);
@@ -213,7 +266,7 @@ export default function ExpenseTracker({
     return MONTHS
       .map(m => ({ month: m, total: Math.round(monthTotals[m] || 0) }))
       .filter(d => d.total > 0);
-  }, [expenses, dateFilter, customFrom, customTo, selectedYear, MONTHS]); // eslint-disable-line
+  }, [filteredExpenses, dateFilter, selectedYear, MONTHS]); // eslint-disable-line
 
   const catChartData = useMemo(() => {
     const { catTotals, total } = analyticsStats;
@@ -253,7 +306,16 @@ export default function ExpenseTracker({
       .sort((a, b) => b.date.localeCompare(a.date) || b.id.localeCompare(a.id));
   }, [expenses, selectedMonth, selectedYear]);
 
-  const visibleExpenses = monthExpenses.slice(0, visibleCount);
+  // When range filter active, transaction table shows analytics-filtered set
+  const tableExpenses = useMemo(() => {
+    if (dateFilter === 'this-month') return monthExpenses;
+    return [...filteredExpenses].sort((a, b) => b.date.localeCompare(a.date) || b.id.localeCompare(a.id));
+  }, [dateFilter, monthExpenses, filteredExpenses]);
+
+  const visibleExpenses = tableExpenses.slice(0, visibleCount);
+
+  // Reset pagination when filter changes
+  useEffect(() => { setVisibleCount(PAGE_SIZE); }, [dateFilter]); // eslint-disable-line
 
   const monthTotal = useMemo(
     () => monthExpenses.reduce((sum, e) => sum + toHomeAmt(e), 0),
@@ -525,7 +587,10 @@ export default function ExpenseTracker({
           {DATE_FILTERS.map(df => (
             <button
               key={df.key}
-              onClick={() => setDateFilter(df.key)}
+              onClick={() => {
+                setDateFilter(df.key);
+                if (df.key === 'this-month') setSelectedMonth(curMonthAbbr);
+              }}
               style={{
                 padding: '5px 12px', borderRadius: 20, fontSize: 12, fontFamily: 'inherit',
                 border: dateFilter === df.key ? '2px solid #2d2a26' : '1px solid #e8e4dc',
@@ -725,15 +790,29 @@ export default function ExpenseTracker({
         {/* Month pills (hidden while searching) */}
         {!isSearching && (
           <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginBottom: 14 }}>
-            {MONTHS.map(m => (
-              <button key={m} onClick={() => { setSelectedMonth(m); setVisibleCount(PAGE_SIZE); }} style={{
-                padding: '5px 11px', borderRadius: 20, fontSize: 12, fontFamily: 'inherit',
-                border: m === selectedMonth ? '2px solid #2d2a26' : '1px solid #e8e4dc',
-                background: m === selectedMonth ? '#2d2a26' : '#fff',
-                color: m === selectedMonth ? '#fff' : m === curMonthAbbr ? '#7eb5d6' : '#6b6660',
-                cursor: 'pointer', fontWeight: (m === selectedMonth || m === curMonthAbbr) ? 600 : 400,
-              }}>{m}</button>
-            ))}
+            {(() => {
+              const highlightedMonths = getHighlightedMonths(dateFilter);
+              return MONTHS.map(m => {
+                const calIdx = ALL_MONTHS.indexOf(m);
+                const isSelected = m === selectedMonth && dateFilter === 'this-month';
+                const isInRange = highlightedMonths.has(calIdx) && dateFilter !== 'this-month';
+                return (
+                  <button
+                    key={m}
+                    onClick={() => { setSelectedMonth(m); setDateFilter('this-month'); setVisibleCount(PAGE_SIZE); }}
+                    style={{
+                      padding: '5px 11px', borderRadius: 20, fontSize: 12, fontFamily: 'inherit',
+                      background: isSelected ? '#1a1714' : isInRange ? '#e8f0f7' : 'transparent',
+                      color: isSelected ? '#fff' : isInRange ? '#5B9BD5' : '#6b6660',
+                      border: isSelected ? '1px solid #1a1714' : isInRange ? '1px solid #c5ddf0' : '1px solid #e8e4dc',
+                      cursor: 'pointer',
+                      fontWeight: (isSelected || isInRange) ? 600 : 400,
+                      transition: 'all 0.15s',
+                    }}
+                  >{m}</button>
+                );
+              });
+            })()}
           </div>
         )}
 
@@ -801,12 +880,14 @@ export default function ExpenseTracker({
           </div>
         )}
 
-        {!isSearching && (monthExpenses.length === 0 && recurringPlaceholders.length === 0 ? (
+        {!isSearching && (tableExpenses.length === 0 && (dateFilter !== 'this-month' || recurringPlaceholders.length === 0) ? (
           <div style={{
             textAlign: 'center', padding: '28px 20px', color: '#b0aa9f', fontSize: 13,
             background: '#fdfcfa', borderRadius: 10, border: '1px dashed #e8e4dc',
           }}>
-            No expenses logged for {selectedMonth}. Click '+ Add Expense' to get started.
+            {dateFilter === 'this-month'
+              ? `No expenses logged for ${selectedMonth}. Click '+ Add Expense' to get started.`
+              : 'No expenses for the selected period.'}
           </div>
         ) : (
           <>
@@ -843,7 +924,7 @@ export default function ExpenseTracker({
                   </tr>
                 </thead>
                 <tbody>
-                  {recurringPlaceholders.map(ph => {
+                  {dateFilter === 'this-month' && recurringPlaceholders.map(ph => {
                     const isConfirmed = (ph.confirmedMonths || []).includes(ph._monthKey);
                     const phFlag = getCurrencyFlag(ph.currency);
                     const catColor = categories.find(c => c.name === ph.category)?.color || '#b0aa9f';
@@ -1173,17 +1254,17 @@ export default function ExpenseTracker({
             </div>
 
             {/* Empty state when only placeholders exist */}
-            {monthExpenses.length === 0 && recurringPlaceholders.length > 0 && (
+            {dateFilter === 'this-month' && monthExpenses.length === 0 && recurringPlaceholders.length > 0 && (
               <div style={{ textAlign: 'center', padding: '16px 20px', color: '#b0aa9f', fontSize: 13, background: '#fdfcfa', borderRadius: 10, border: '1px dashed #e8e4dc', marginTop: 8 }}>
                 No expenses logged yet. {recurringPlaceholders.length} recurring expense{recurringPlaceholders.length !== 1 ? 's' : ''} expected this month — confirm them above when ready.
               </div>
             )}
 
             {/* Pagination */}
-            {monthExpenses.length > visibleCount && (
+            {tableExpenses.length > visibleCount && (
               <div style={{ textAlign: 'center', marginTop: 14 }}>
                 <p style={{ fontSize: 12, color: '#b0aa9f', marginBottom: 6 }}>
-                  Showing {Math.min(visibleCount, monthExpenses.length)} of {monthExpenses.length}
+                  Showing {Math.min(visibleCount, tableExpenses.length)} of {tableExpenses.length}
                 </p>
                 <button
                   onClick={() => setVisibleCount(prev => prev + PAGE_SIZE)}

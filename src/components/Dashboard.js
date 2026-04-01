@@ -266,21 +266,64 @@ export default function Dashboard({
         </div>
       )}
 
+      {/* Net Worth Headline */}
+      <div style={{
+        marginBottom: 24,
+        padding: '20px 24px',
+        background: '#fff',
+        border: '1px solid #e8e4dc',
+        borderRadius: 14,
+        display: 'flex',
+        alignItems: 'flex-end',
+        justifyContent: 'space-between',
+      }}>
+        <div>
+          <p style={{
+            fontSize: 11, fontWeight: 600, letterSpacing: '0.1em',
+            color: '#9e9890', marginBottom: 6, textTransform: 'uppercase',
+          }}>Net Worth</p>
+          <p style={{
+            fontFamily: 'Lora, serif', fontSize: 42, fontWeight: 400,
+            color: '#1a1714', lineHeight: 1, letterSpacing: '-0.5px',
+          }}>{f(netWorth)}</p>
+        </div>
+        {momChange && (
+          <div style={{ textAlign: 'right' }}>
+            <p style={{ fontSize: 11, color: '#9e9890', marginBottom: 4, letterSpacing: '0.05em' }}>
+              vs last month
+            </p>
+            <p style={{ fontSize: 16, fontWeight: 600, color: momChange.diff >= 0 ? '#6dbb8a' : '#D96B6B' }}>
+              {momChange.diff >= 0 ? '+' : ''}{f(momChange.diff)}
+            </p>
+            {momChange.pct !== null && (
+              <p style={{ fontSize: 12, color: momChange.diff >= 0 ? '#6dbb8a' : '#D96B6B', marginTop: 2 }}>
+                {momChange.pct >= 0 ? '+' : ''}{momChange.pct.toFixed(1)}%
+              </p>
+            )}
+          </div>
+        )}
+      </div>
+
       {/* KPI Cards */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 10, marginBottom: 20 }}>
-        {/* Card 1: Net Worth */}
+        {/* Card 1: VS Last Month */}
         <div style={{ ...s.card, padding: '14px 16px', position: 'relative', overflow: 'hidden' }}>
-          <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: '#7eb5d6', opacity: 0.7 }} />
-          <div style={{ marginTop: 4, marginBottom: 6 }}><span style={s.label}>NET WORTH</span></div>
-          <p style={{ fontSize: 19, fontWeight: 600, color: '#1a1714', marginBottom: 2 }}>{f(netWorth)}</p>
+          <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: momChange && momChange.diff >= 0 ? '#6dbb8a' : '#D96B6B', opacity: 0.7 }} />
+          <div style={{ marginTop: 4, marginBottom: 6 }}><span style={s.label}>VS LAST MONTH</span></div>
           {momChange ? (
-            <p style={{ fontSize: 12, color: momChange.diff >= 0 ? '#2d9e6b' : '#c94040', fontWeight: 600 }}>
-              {momChange.pct !== null
-                ? `${momChange.pct >= 0 ? '+' : ''}${momChange.pct.toFixed(1)}% since last month`
-                : `${momChange.diff >= 0 ? '+' : ''}${f(momChange.diff)} since last month`}
-            </p>
+            <>
+              <p style={{ fontSize: 19, fontWeight: 600, color: momChange.diff >= 0 ? '#2d9e6b' : '#c94040', marginBottom: 2 }}>
+                {momChange.diff >= 0 ? '+' : ''}{f(momChange.diff)}
+              </p>
+              <p style={{ fontSize: 12, color: momChange.diff >= 0 ? '#2d9e6b' : '#c94040', fontWeight: 600 }}>
+                {momChange.pct !== null ? `${momChange.pct.toFixed(1)}% since last month` : 'since last month'}
+              </p>
+            </>
           ) : (
-            <p style={{ fontSize: 12, color: '#b0aa9f' }}>&nbsp;</p>
+            <>
+              <p style={{ fontSize: 19, fontWeight: 600, color: '#d5d0c8', marginBottom: 2 }}>—</p>
+              <p style={{ fontSize: 11, color: '#b0aa9f' }}>log 2+ months</p>
+            </>
           )}
         </div>
 

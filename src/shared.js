@@ -40,12 +40,41 @@ export const pasteNumericOnly = (e) => {
 // Constants
 // ─────────────────────────────────────────────
 export const ALL_MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-export const TABS = ['dashboard','plan','tracker','net worth','settings'];
+export const TABS = ['dashboard','plan','tracker','settings'];
 
-export const EXPENSE_CATEGORY_COLORS = [
-  '#7eb5d6','#7ec8a0','#e8a598','#d6a8c8','#fdba74',
-  '#f9a8d4','#b5a8d6','#e8c55a','#84a98c','#b0aa9f',
+export const CATEGORY_COLOURS = [
+  '#5B9BD5', // blue
+  '#6dbb8a', // green
+  '#E8A838', // amber
+  '#D96B6B', // coral
+  '#9B8EC4', // purple
+  '#4ABFBF', // teal
+  '#E8784A', // orange
+  '#A8C97A', // lime
+  '#D4739A', // pink
+  '#6B9EC4', // steel blue
+  '#C4A86B', // tan
+  '#7BC4A8', // mint
+  '#C47B9E', // mauve
+  '#8BC46B', // olive
+  '#C4986B', // sand
+  '#6B8EC4', // periwinkle
+  '#C4C46B', // yellow-green
+  '#9EC47B', // sage
+  '#C46B6B', // rose
+  '#6BC4C4', // aqua
 ];
+
+// For backwards compat (Settings color picker still references this)
+export const EXPENSE_CATEGORY_COLORS = CATEGORY_COLOURS;
+
+export const assignCategoryColours = (categories) => {
+  const sorted = [...categories].sort((a, b) => a.name.localeCompare(b.name));
+  return sorted.map((cat, index) => ({
+    ...cat,
+    color: CATEGORY_COLOURS[index % CATEGORY_COLOURS.length],
+  }));
+};
 export const CAT_COLORS = { Savings:'#5B9BD5', Investments:'#6dbb8a', Needs:'#E8A838', Wants:'#D96B6B' };
 export const CATEGORIES = ['Savings','Investments','Needs','Wants'];
 
@@ -198,19 +227,19 @@ export const makeDefaultState = () => ({
   ],
   // Expenses
   expenses: [],
-  expenseCategories: [
-    { id:1,  name:'Rent',          color:'#7eb5d6', type:'Need' },
-    { id:2,  name:'Groceries',     color:'#7ec8a0', type:'Need' },
-    { id:3,  name:'Food',          color:'#e8a598', type:'Want' },
-    { id:4,  name:'Transport',     color:'#d6a8c8', type:'Need' },
-    { id:5,  name:'Utilities',     color:'#fdba74', type:'Need' },
-    { id:6,  name:'Shopping',      color:'#f9a8d4', type:'Want' },
-    { id:7,  name:'Entertainment', color:'#b5a8d6', type:'Want' },
-    { id:8,  name:'Travel',        color:'#60a5c8', type:'Want' },
-    { id:9,  name:'Drinks',        color:'#e8c55a', type:'Want' },
-    { id:10, name:'Health',        color:'#84a98c', type:'Need' },
-    { id:11, name:'Other',         color:'#b0aa9f', type:null  },
-  ],
+  expenseCategories: assignCategoryColours([
+    { id:1,  name:'Rent',          color:'', type:'Need' },
+    { id:2,  name:'Groceries',     color:'', type:'Need' },
+    { id:3,  name:'Food',          color:'', type:'Want' },
+    { id:4,  name:'Transport',     color:'', type:'Need' },
+    { id:5,  name:'Utilities',     color:'', type:'Need' },
+    { id:6,  name:'Shopping',      color:'', type:'Want' },
+    { id:7,  name:'Entertainment', color:'', type:'Want' },
+    { id:8,  name:'Travel',        color:'', type:'Want' },
+    { id:9,  name:'Drinks',        color:'', type:'Want' },
+    { id:10, name:'Health',        color:'', type:'Need' },
+    { id:11, name:'Other',         color:'', type:null  },
+  ]),
   paymentMethods: [],
   // Auto-computed actuals from expenses (separate from manually entered actuals)
   expenseAutoActuals: {},

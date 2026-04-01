@@ -1,6 +1,12 @@
 import { useState, useRef } from 'react';
 import { s, getCurrencyFlag, DelBtn, TypeBadge } from '../shared';
 
+const PILLAR_NAMES = {
+  budget: 'Budget',
+  investments: 'Investments',
+  habits: 'Habits',
+};
+
 // ── Date helpers ──────────────────────────────────────────────────────────────
 const formatDisplayDate = (isoDate) => {
   if (!isoDate) return '';
@@ -123,13 +129,13 @@ function TradeBadge({ action }) {
 
 // ── Shared table styles ───────────────────────────────────────────────────────
 const TH = {
-  fontSize: 10, color: '#9e9890', fontWeight: 600, letterSpacing: '0.1em',
+  fontSize: 10, color: '#9e9890', fontWeight: 500, letterSpacing: '0.08em',
   padding: '6px 10px', textAlign: 'left',
-  background: '#fafaf8', borderBottom: '1px solid #f0ece4',
+  borderBottom: '1px solid #f0ece4',
 };
 const TD = {
   fontSize: 13, color: '#2d2a26', padding: '8px 10px',
-  borderBottom: '1px solid #f7f5f0',
+  borderBottom: '1px solid #f9f7f3',
 };
 const inlineInput = {
   background: 'transparent', border: 'none',
@@ -163,11 +169,11 @@ function DepositsSection({ account, deposits, onUpdate }) {
   const sorted = [...deposits].sort((a, b) => b.date.localeCompare(a.date));
 
   return (
-    <div style={{ marginBottom: 36 }}>
-      <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.12em', color: '#1a1714', margin: '0 0 2px' }}>DEPOSITS</p>
+    <div style={{ ...s.card, marginBottom: 20 }}>
+      <p style={{ fontSize: 10, fontWeight: 600, letterSpacing: '0.12em', color: '#9e9890', margin: '0 0 4px', textTransform: 'uppercase' }}>Deposits</p>
       <p style={{ fontSize: 12, color: '#9e9890', margin: '0 0 12px' }}>Cash deposited into this account.</p>
 
-      <div style={{ border: '1px solid #e8e4dc', borderRadius: 10, overflow: 'hidden', marginBottom: 8 }}>
+      <div style={{ border: '1px solid #e8e4dc', borderRadius: 14, overflow: 'hidden', marginBottom: 8 }}>
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
           <thead>
             <tr>
@@ -276,12 +282,12 @@ function TradesSection({ account, trades, onUpdate }) {
   const qtyDp  = isCrypto ? 8 : 4;
 
   return (
-    <div>
-      <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.12em', color: '#1a1714', margin: '0 0 2px' }}>TRADES</p>
+    <div style={{ ...s.card, marginBottom: 20 }}>
+      <p style={{ fontSize: 10, fontWeight: 600, letterSpacing: '0.12em', color: '#9e9890', margin: '0 0 4px', textTransform: 'uppercase' }}>Trades</p>
       <p style={{ fontSize: 12, color: '#9e9890', margin: '0 0 2px' }}>Assets bought and sold in this account.</p>
       <p style={{ fontSize: 11, color: '#b0aa9f', margin: '0 0 12px' }}>All amounts in {account.currency}</p>
 
-      <div style={{ border: '1px solid #e8e4dc', borderRadius: 10, overflow: 'auto', marginBottom: 8 }}>
+      <div style={{ border: '1px solid #e8e4dc', borderRadius: 14, overflow: 'auto', marginBottom: 8 }}>
         <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 600 }}>
           <thead>
             <tr>
@@ -406,12 +412,12 @@ function OverviewTab({
         <div style={{ ...s.card, textAlign: 'center', padding: '32px 24px' }}>
           <p style={{ fontSize: 13, color: '#9e9890', lineHeight: 1.6 }}>
             No investment accounts found. Add accounts in{' '}
-            <strong>Finance → Settings → Accounts</strong> and set their type to Investment or Crypto.
+            <strong>{PILLAR_NAMES.budget} → Settings → Accounts</strong> and set their type to Investment or Crypto.
           </p>
         </div>
       ) : (
         <>
-          <div style={{ border: '1px solid #e8e4dc', borderRadius: 10, overflow: 'auto' }}>
+          <div style={{ border: '1px solid #e8e4dc', borderRadius: 14, overflow: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 540 }}>
               <thead>
                 <tr>
@@ -453,7 +459,7 @@ function OverviewTab({
                                 padding: '4px 8px', borderRadius: 5, whiteSpace: 'nowrap',
                                 boxShadow: '0 2px 8px rgba(0,0,0,0.15)', pointerEvents: 'none', zIndex: 10,
                               }}>
-                                Log balances in Finance → Tracker → Balances
+                                Log balances in {PILLAR_NAMES.budget} → Tracker → Balances
                               </div>
                             )}
                           </span>
@@ -484,13 +490,13 @@ function InvestmentsSettingsTab({ allInvestmentAccounts, investmentAccountVisibi
     <div>
       {/* Visibility section */}
       <div style={{ ...s.card, marginBottom: 20 }}>
-        <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.12em', color: '#1a1714', margin: '0 0 4px' }}>ACCOUNTS IN INVESTMENTS</p>
+        <p style={{ fontSize: 10, fontWeight: 600, letterSpacing: '0.12em', color: '#9e9890', margin: '0 0 4px', textTransform: 'uppercase' }}>Accounts in Investments</p>
         <p style={{ fontSize: 13, color: '#9e9890', margin: '0 0 16px' }}>
           Choose which accounts appear as tabs in the Investments pillar.
         </p>
 
         {allInvestmentAccounts.length === 0 ? (
-          <p style={{ fontSize: 13, color: '#9e9890' }}>No investment accounts. Add them in Finance → Settings → Accounts.</p>
+          <p style={{ fontSize: 13, color: '#9e9890' }}>No investment accounts. Add them in {PILLAR_NAMES.budget} → Settings → Accounts.</p>
         ) : (
           <>
             {allInvestmentAccounts.map((acc, i) => {
@@ -502,7 +508,6 @@ function InvestmentsSettingsTab({ allInvestmentAccounts, investmentAccountVisibi
                   borderBottom: i < allInvestmentAccounts.length - 1 ? '1px solid #f0ece4' : 'none',
                 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                    <TypeBadge type={acc.type} />
                     <span style={{ fontSize: 14, color: '#1a1714' }}>{acc.name}</span>
                     <span style={{ fontSize: 12, color: '#9e9890' }}>{getCurrencyFlag(acc.currency)} {acc.currency}</span>
                   </div>
@@ -527,7 +532,7 @@ function InvestmentsSettingsTab({ allInvestmentAccounts, investmentAccountVisibi
               );
             })}
             <p style={{ fontSize: 11, color: '#b0aa9f', margin: '12px 0 0' }}>
-              To add or remove accounts, go to Finance → Settings → Accounts
+              To add or remove accounts, go to {PILLAR_NAMES.budget} → Settings → Accounts
             </p>
           </>
         )}
@@ -535,7 +540,7 @@ function InvestmentsSettingsTab({ allInvestmentAccounts, investmentAccountVisibi
 
       {/* Base currency note */}
       <div style={{ ...s.card }}>
-        <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.12em', color: '#1a1714', marginBottom: 4 }}>BASE CURRENCY</p>
+        <p style={{ fontSize: 10, fontWeight: 600, letterSpacing: '0.12em', color: '#9e9890', marginBottom: 4, textTransform: 'uppercase' }}>Base Currency</p>
         <p style={{ fontSize: 13, color: '#9e9890', margin: 0 }}>
           Investment totals are shown in each account's local currency. No conversion is applied.
         </p>

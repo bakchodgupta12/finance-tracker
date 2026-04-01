@@ -3,7 +3,7 @@ import { hashPassword, verifyPassword } from '../supabase';
 import {
   s, Lbl, Inp, FG, Toast, Divider, DelBtn, AddBtn, TypeBadge, Select,
   CURRENCIES, ACCOUNT_TYPES, ALL_MONTHS, capitalize,
-  EXPENSE_CATEGORY_COLORS, fmt, getCurrency,
+  EXPENSE_CATEGORY_COLORS, CATEGORY_COLOURS, fmt, getCurrency,
 } from '../shared';
 
 const SUB_TABS = [
@@ -245,7 +245,8 @@ export default function Settings({ state, set, onDeleteAccount, onDeleteYear, on
               );
             })}
             <AddBtn onClick={() => {
-              const nextColor = EXPENSE_CATEGORY_COLORS[categories.length % EXPENSE_CATEGORY_COLORS.length];
+              const usedColors = new Set((categories || []).map(c => c.color));
+              const nextColor = CATEGORY_COLOURS.find(col => !usedColors.has(col)) || CATEGORY_COLOURS[0];
               set('expenseCategories', prev => [...(prev || []), { id: Date.now(), name: 'New Category', color: nextColor, type: null }]);
             }} label="+ Add category" />
           </div>
