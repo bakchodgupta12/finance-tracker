@@ -18,6 +18,16 @@ const PERIODS = [
 ];
 
 // ── Helper ─────────────────────────────────────────────────────────────────────
+function parseExpenseDate(dateStr) {
+  if (!dateStr) return null;
+  const parts = dateStr.split('-');
+  if (parts.length !== 3) return null;
+  if (parts[0].length === 4) {
+    return new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+  }
+  return new Date(Number(parts[2]), Number(parts[1]) - 1, Number(parts[0]));
+}
+
 function hexToRgb(hex) {
   const r = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
   return r ? { r: parseInt(r[1], 16), g: parseInt(r[2], 16), b: parseInt(r[3], 16) } : { r: 0, g: 0, b: 0 };
@@ -170,7 +180,8 @@ function buildReportData(state, periodMonths, healthScore, baseIncome, allocByCa
   const getPeriodExpenses = () => {
     return (state.expenses || []).filter(exp => {
       if (!exp.date) return false;
-      const d = new Date(exp.date);
+      const d = parseExpenseDate(exp.date);
+      if (!d) return false;
       const abbr = ALL_MONTHS[d.getMonth()];
       if (!periodMonths.includes(abbr)) return false;
       const mIdx = d.getMonth();
@@ -195,9 +206,12 @@ function buildReportData(state, periodMonths, healthScore, baseIncome, allocByCa
   const monthlySpendTrend = periodMonths.map(m => {
     const mIdx = ALL_MONTHS.indexOf(m);
     const yr = mIdx >= yearStartMonth ? selectedYear : selectedYear + 1;
-    const prefix = `${yr}-${String(mIdx + 1).padStart(2, '0')}`;
     const total = (state.expenses || [])
-      .filter(e => e.date?.startsWith(prefix))
+      .filter(e => {
+        if (!e.date) return false;
+        const d = parseExpenseDate(e.date);
+        return d && d.getFullYear() === yr && d.getMonth() === mIdx;
+      })
       .reduce((sum, e) => sum + (toHome(Number(e.amount) || 0, e.currency) || 0), 0);
     return { month: m, total: Math.round(total) };
   }).filter(d => d.total > 0);

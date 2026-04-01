@@ -141,16 +141,17 @@ export default function ExpenseTracker({
     return h ?? Number(exp.amount);
   };
 
-  // ── Analytics data ───────────────────────────────────────────────────────
-  // Parse YYYY-MM-DD (or DD-MM-YYYY) as local midnight, avoiding UTC offset bugs
-  const parseExpDate = (dateStr) => {
+  // ── Date parsing ─────────────────────────────────────────────────────────
+  // Handles both DD-MM-YYYY (display/storage) and YYYY-MM-DD (legacy/picker)
+  const parseExpenseDate = (dateStr) => {
     if (!dateStr) return null;
     const parts = dateStr.split('-');
     if (parts.length !== 3) return null;
     if (parts[0].length === 4) {
+      // YYYY-MM-DD
       return new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
     }
-    // DD-MM-YYYY fallback
+    // DD-MM-YYYY
     return new Date(Number(parts[2]), Number(parts[1]) - 1, Number(parts[0]));
   };
 
@@ -161,7 +162,7 @@ export default function ExpenseTracker({
       case 'this-month':
         return exps.filter(e => {
           if (!e.date) return false;
-          const d = parseExpDate(e.date);
+          const d = parseExpenseDate(e.date);
           return d && d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
         });
       case 'last-3': {
@@ -169,7 +170,7 @@ export default function ExpenseTracker({
         cutoff.setDate(cutoff.getDate() - 90);
         return exps.filter(e => {
           if (!e.date) return false;
-          const d = parseExpDate(e.date);
+          const d = parseExpenseDate(e.date);
           return d && d >= cutoff && d <= startOfToday;
         });
       }
@@ -178,29 +179,29 @@ export default function ExpenseTracker({
         cutoff.setDate(cutoff.getDate() - 180);
         return exps.filter(e => {
           if (!e.date) return false;
-          const d = parseExpDate(e.date);
+          const d = parseExpenseDate(e.date);
           return d && d >= cutoff && d <= startOfToday;
         });
       }
       case 'this-year':
         return exps.filter(e => {
           if (!e.date) return false;
-          const d = parseExpDate(e.date);
+          const d = parseExpenseDate(e.date);
           return d && d.getFullYear() === now.getFullYear() && d <= startOfToday;
         });
       case 'all':
         return exps.filter(e => {
           if (!e.date) return false;
-          const d = parseExpDate(e.date);
+          const d = parseExpenseDate(e.date);
           return d && d <= startOfToday;
         });
       case 'custom':
         if (!cStart || !cEnd) return exps.filter(e => Boolean(e.date));
         return exps.filter(e => {
           if (!e.date) return false;
-          const d = parseExpDate(e.date);
-          const s = parseExpDate(cStart);
-          const en = parseExpDate(cEnd);
+          const d = parseExpenseDate(e.date);
+          const s = parseExpenseDate(cStart);
+          const en = parseExpenseDate(cEnd);
           return d && s && en && d >= s && d <= en;
         });
       default:
@@ -234,7 +235,7 @@ export default function ExpenseTracker({
       return highlighted;
     }
     if (filter === 'all') {
-      expenses.forEach(e => { if (e.date) highlighted.add(new Date(e.date).getMonth()); });
+      expenses.forEach(e => { if (e.date) { const d = parseExpenseDate(e.date); if (d) highlighted.add(d.getMonth()); } });
       return highlighted;
     }
     return highlighted;
@@ -274,8 +275,11 @@ export default function ExpenseTracker({
       const result = [];
       for (let day = 1; day <= daysInMonth; day++) {
         if (day <= todayDate) {
-          const dateStr = `${year}-${pad(month + 1)}-${pad(day)}`;
-          const total = expenses.filter(e => e.date === dateStr).reduce((sum, e) => sum + toHomeAmt(e), 0);
+          const total = expenses.filter(e => {
+            if (!e.date) return false;
+            const d = parseExpenseDate(e.date);
+            return d && d.getFullYear() === year && d.getMonth() === month && d.getDate() === day;
+          }).reduce((sum, e) => sum + toHomeAmt(e), 0);
           result.push({ day: String(day), total: Math.round(total) });
         } else {
           result.push({ day: String(day), total: 0 });
@@ -288,12 +292,10 @@ export default function ExpenseTracker({
     const expByMonth = {};
     filteredExpenses.forEach(e => {
       if (!e.date) return;
-      // Normalise to YYYY-MM-DD if stored as DD-MM-YYYY
-      const parts = e.date.split('-');
-      const yyyyMM = parts[0].length === 4
-        ? `${parts[0]}-${parts[1]}`
-        : `${parts[2]}-${parts[1]}`;
-      expByMonth[yyyyMM] = (expByMonth[yyyyMM] || 0) + toHomeAmt(e);
+      const d = parseExpenseDate(e.date);
+      if (!d) return;
+      const key = `${d.getFullYear()}-${pad(d.getMonth() + 1)}`;
+      expByMonth[key] = (expByMonth[key] || 0) + toHomeAmt(e);
     });
 
     // Determine inclusive month range to display
@@ -361,17 +363,30 @@ export default function ExpenseTracker({
 
   // ── Month transaction data ────────────────────────────────────────────────
   const monthExpenses = useMemo(() => {
-    const mIdx    = ALL_MONTHS.indexOf(selectedMonth);
-    const prefix  = `${selectedYear}-${String(mIdx + 1).padStart(2, '0')}`;
+    const mIdx = ALL_MONTHS.indexOf(selectedMonth);
     return expenses
-      .filter(e => e.date.startsWith(prefix))
-      .sort((a, b) => b.date.localeCompare(a.date) || b.id.localeCompare(a.id));
+      .filter(e => {
+        if (!e.date) return false;
+        const d = parseExpenseDate(e.date);
+        return d && d.getFullYear() === selectedYear && d.getMonth() === mIdx;
+      })
+      .sort((a, b) => {
+        const da = parseExpenseDate(a.date);
+        const db = parseExpenseDate(b.date);
+        if (!da || !db) return 0;
+        return db - da || b.id.localeCompare(a.id);
+      });
   }, [expenses, selectedMonth, selectedYear]);
 
   // When range filter active, transaction table shows analytics-filtered set
   const tableExpenses = useMemo(() => {
     if (dateFilter === 'this-month') return monthExpenses;
-    return [...filteredExpenses].sort((a, b) => b.date.localeCompare(a.date) || b.id.localeCompare(a.id));
+    return [...filteredExpenses].sort((a, b) => {
+      const da = parseExpenseDate(a.date);
+      const db = parseExpenseDate(b.date);
+      if (!da || !db) return 0;
+      return db - da || b.id.localeCompare(a.id);
+    });
   }, [dateFilter, monthExpenses, filteredExpenses]);
 
   const visibleExpenses = tableExpenses.slice(0, visibleCount);
@@ -400,12 +415,12 @@ export default function ExpenseTracker({
       if (seen.has(exp.id)) return false;
       seen.add(exp.id);
       if (exp.recurringFrequency === 'yearly') {
-        const origDate = new Date(exp.date);
-        return origDate.getMonth() === mIdx;
+        const origDate = parseExpenseDate(exp.date);
+        return origDate && origDate.getMonth() === mIdx;
       }
       return true;
     }).map(exp => {
-      const origDate = new Date(exp.date);
+      const origDate = parseExpenseDate(exp.date);
       const maxDay = new Date(calYear, mIdx + 1, 0).getDate();
       const day = Math.min(origDate.getDate(), maxDay);
       const expectedDate = `${calYear}-${String(mIdx + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
@@ -418,7 +433,9 @@ export default function ExpenseTracker({
     const autoActuals = {};
     expenses.forEach(exp => {
       if (!exp.date || !exp.amount) return;
-      const mIdx = parseInt(exp.date.split('-')[1], 10) - 1;
+      const parsedDate = parseExpenseDate(exp.date);
+      if (!parsedDate) return;
+      const mIdx = parsedDate.getMonth();
       const abbr = ALL_MONTHS[mIdx];
       const cat = categories.find(c => c.name === exp.category);
       if (!cat?.type) return;
@@ -446,7 +463,12 @@ export default function ExpenseTracker({
         e.description?.toLowerCase().includes(lower) ||
         e.category?.toLowerCase().includes(lower)
       )
-      .sort((a, b) => b.date.localeCompare(a.date))
+      .sort((a, b) => {
+        const da = parseExpenseDate(a.date);
+        const db = parseExpenseDate(b.date);
+        if (!da || !db) return 0;
+        return db - da;
+      })
       .slice(0, 50);
   }, [expenses, searchQuery, isSearching]); // eslint-disable-line
 

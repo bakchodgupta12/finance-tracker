@@ -645,7 +645,10 @@ export default function ActualsMonth({
                             <p style={{ fontSize: 14, fontWeight: 500, color: actual > 0 ? '#1a1714' : '#b0aa9f', paddingTop: 2 }}>
                               {actual > 0 ? `${currency.symbol}${new Intl.NumberFormat(currency.locale, { maximumFractionDigits: 0 }).format(actual)}` : '—'}
                             </p>
-                            <p style={{ fontSize: 10, color: '#b0aa9f', marginTop: 3 }}>AUTO from expenses</p>
+                            <p style={{ fontSize: 10, marginTop: 3 }}>
+                              <span style={{ color: '#5B9BD5', fontWeight: 600 }}>AUTO</span>
+                              <span style={{ color: '#b0aa9f' }}> from expenses</span>
+                            </p>
                           </>
                         ) : (() => {
                           const autoVal   = autoActualVal;
