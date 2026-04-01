@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { jsPDF } from 'jspdf';
-import { ALL_MONTHS } from '../shared';
+import { ALL_MONTHS, parseExpenseDate } from '../shared';
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 const RATING_COLORS = {
@@ -18,16 +18,6 @@ const PERIODS = [
 ];
 
 // ── Helper ─────────────────────────────────────────────────────────────────────
-function parseExpenseDate(dateStr) {
-  if (!dateStr) return null;
-  const parts = dateStr.split('-');
-  if (parts.length !== 3) return null;
-  if (parts[0].length === 4) {
-    return new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
-  }
-  return new Date(Number(parts[2]), Number(parts[1]) - 1, Number(parts[0]));
-}
-
 function hexToRgb(hex) {
   const r = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
   return r ? { r: parseInt(r[1], 16), g: parseInt(r[2], 16), b: parseInt(r[3], 16) } : { r: 0, g: 0, b: 0 };

@@ -4,7 +4,7 @@ import {
   LineChart, Line,
   PieChart, Pie, Cell,
 } from 'recharts';
-import { s, Lbl, DelBtn, Select, CURRENCIES, getCurrency, getCurrencyFlag, ALL_MONTHS, blockNonNumeric, pasteNumericOnly, fmtChart } from '../shared';
+import { s, Lbl, DelBtn, Select, CURRENCIES, getCurrency, getCurrencyFlag, ALL_MONTHS, blockNonNumeric, pasteNumericOnly, fmtChart, parseExpenseDate } from '../shared';
 
 // ── Recurring icon ────────────────────────────────────────────────────────────
 const RecurringIcon = ({ active }) => (
@@ -27,7 +27,10 @@ function getAutoSuggest(description, expenses) {
   // Exact match first
   const exact = expenses.filter(e => e.description.toLowerCase() === lower);
   if (exact.length) {
-    const latest = exact.reduce((a, b) => (a.date > b.date ? a : b));
+    const latest = exact.reduce((a, b) => {
+      const da = parseExpenseDate(a.date), db = parseExpenseDate(b.date);
+      return (db && da && db > da) ? b : a;
+    });
     return { category: latest.category, paidBy: latest.paidBy };
   }
 
@@ -38,7 +41,10 @@ function getAutoSuggest(description, expenses) {
       e.description.toLowerCase().startsWith(firstWord)
     );
     if (prefix.length) {
-      const latest = prefix.reduce((a, b) => (a.date > b.date ? a : b));
+      const latest = prefix.reduce((a, b) => {
+        const da = parseExpenseDate(a.date), db = parseExpenseDate(b.date);
+        return (db && da && db > da) ? b : a;
+      });
       return { category: latest.category, paidBy: latest.paidBy };
     }
   }
@@ -139,20 +145,6 @@ export default function ExpenseTracker({
     if (exp.currency === homeCurrency) return Number(exp.amount);
     const h = toHome(Number(exp.amount), exp.currency);
     return h ?? Number(exp.amount);
-  };
-
-  // ── Date parsing ─────────────────────────────────────────────────────────
-  // Handles both DD-MM-YYYY (display/storage) and YYYY-MM-DD (legacy/picker)
-  const parseExpenseDate = (dateStr) => {
-    if (!dateStr) return null;
-    const parts = dateStr.split('-');
-    if (parts.length !== 3) return null;
-    if (parts[0].length === 4) {
-      // YYYY-MM-DD
-      return new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
-    }
-    // DD-MM-YYYY
-    return new Date(Number(parts[2]), Number(parts[1]) - 1, Number(parts[0]));
   };
 
   const getFilteredExpenses = (exps, filter, cStart, cEnd) => {
@@ -609,7 +601,11 @@ export default function ExpenseTracker({
       const unique = [...new Set(
         others
           .filter(e => e.description.toLowerCase().startsWith(lower))
-          .sort((a, b) => b.date.localeCompare(a.date))
+          .sort((a, b) => {
+            const da = parseExpenseDate(a.date), db = parseExpenseDate(b.date);
+            if (!da || !db) return 0;
+            return db - da;
+          })
           .map(e => e.description),
       )].slice(0, 5);
       setSuggestions(unique);

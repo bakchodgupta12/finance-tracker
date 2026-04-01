@@ -1,6 +1,23 @@
 import React, { useState, useEffect, useRef } from 'react';
 
 // ─────────────────────────────────────────────
+// Date parsing
+// ─────────────────────────────────────────────
+// Handles both DD-MM-YYYY (manual entry / display) and YYYY-MM-DD (date-picker output)
+// Always uses local-time constructor to avoid UTC midnight day-shift bugs.
+export function parseExpenseDate(dateStr) {
+  if (!dateStr) return null;
+  const parts = dateStr.split('-');
+  if (parts.length !== 3) return null;
+  if (parts[0].length === 4) {
+    // YYYY-MM-DD
+    return new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+  }
+  // DD-MM-YYYY
+  return new Date(Number(parts[2]), Number(parts[1]) - 1, Number(parts[0]));
+}
+
+// ─────────────────────────────────────────────
 // Input handlers
 // ─────────────────────────────────────────────
 export const blockNonNumeric = (e) => {
