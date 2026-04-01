@@ -276,7 +276,10 @@ export default function Dashboard({
         display: 'flex',
         alignItems: 'flex-end',
         justifyContent: 'space-between',
+        position: 'relative',
+        overflow: 'hidden',
       }}>
+        <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: '#5B9BD5' }} />
         <div>
           <p style={{
             fontSize: 11, fontWeight: 600, letterSpacing: '0.1em',

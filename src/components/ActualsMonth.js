@@ -638,7 +638,22 @@ export default function ActualsMonth({
                         {(() => {
                           const autoVal = state.expenseAutoActuals?.[selectedMonth]?.[cat];
                           const manualVal = getActual(selectedMonth, cat);
+                          const isNeedsOrWants = cat === 'Needs' || cat === 'Wants';
                           const isAutoFilled = (manualVal === '' || manualVal === undefined) && autoVal !== undefined;
+                          if (isNeedsOrWants) {
+                            const displayVal = autoVal !== undefined ? autoVal : 0;
+                            return (
+                              <>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+                                  <p style={{ fontSize: 10, color: '#b0aa9f' }}>Actual</p>
+                                  <span style={{ fontSize: 9, color: '#7eb5d6', letterSpacing: '0.05em', fontWeight: 600 }}>AUTO</span>
+                                </div>
+                                <p style={{ fontSize: 14, fontWeight: 500, color: displayVal > 0 ? '#1a1714' : '#b0aa9f', paddingTop: 2 }}>
+                                  {displayVal > 0 ? `${currency.symbol}${new Intl.NumberFormat(currency.locale, { maximumFractionDigits: 0 }).format(displayVal)}` : '—'}
+                                </p>
+                              </>
+                            );
+                          }
                           return (
                             <>
                               <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>

@@ -157,7 +157,8 @@ export default function ExpenseTracker({
         cutoff.setDate(cutoff.getDate() - 90);
         return exps.filter(e => {
           if (!e.date) return false;
-          return new Date(e.date) >= cutoff;
+          const d = new Date(e.date);
+          return d >= cutoff && d <= startOfToday;
         });
       }
       case 'last-6': {
@@ -165,16 +166,18 @@ export default function ExpenseTracker({
         cutoff.setDate(cutoff.getDate() - 180);
         return exps.filter(e => {
           if (!e.date) return false;
-          return new Date(e.date) >= cutoff;
+          const d = new Date(e.date);
+          return d >= cutoff && d <= startOfToday;
         });
       }
       case 'this-year':
         return exps.filter(e => {
           if (!e.date) return false;
-          return new Date(e.date).getFullYear() === now.getFullYear();
+          const d = new Date(e.date);
+          return d.getFullYear() === now.getFullYear() && d <= startOfToday;
         });
       case 'all':
-        return exps.filter(e => Boolean(e.date));
+        return exps.filter(e => e.date && new Date(e.date) <= startOfToday);
       case 'custom':
         if (!cStart || !cEnd) return exps.filter(e => Boolean(e.date));
         return exps.filter(e => {
@@ -316,20 +319,6 @@ export default function ExpenseTracker({
 
   // Reset pagination when filter changes
   useEffect(() => { setVisibleCount(PAGE_SIZE); }, [dateFilter]); // eslint-disable-line
-
-  const monthTotal = useMemo(
-    () => monthExpenses.reduce((sum, e) => sum + toHomeAmt(e), 0),
-    [monthExpenses], // eslint-disable-line
-  );
-
-  const monthCatTotals = useMemo(() => {
-    const totals = {};
-    monthExpenses.forEach(e => {
-      const cat = e.category || 'Other';
-      totals[cat] = (totals[cat] || 0) + toHomeAmt(e);
-    });
-    return Object.entries(totals).sort((a, b) => b[1] - a[1]);
-  }, [monthExpenses]); // eslint-disable-line
 
   const isSelectedMonthFuture = (() => {
     const yearStartMonth = state.yearStartMonth ?? 0;
@@ -654,9 +643,9 @@ export default function ExpenseTracker({
                       Recurring this period: <strong>{f(analyticsStats.recurringTotal)}</strong> across {analyticsStats.recurringCount} item{analyticsStats.recurringCount !== 1 ? 's' : ''}
                     </p>
                   )}
-                  {/* Monthly spend chart */}
+                  {/* Spend trend chart */}
                   <div style={{ marginBottom: 20 }}>
-                    <Lbl>MONTHLY SPEND</Lbl>
+                    <Lbl>SPEND TREND</Lbl>
                     <div style={{ marginTop: 10 }}>
                       <ResponsiveContainer width="100%" height={140}>
                         <LineChart data={barChartData}>
@@ -668,7 +657,7 @@ export default function ExpenseTracker({
                             labelStyle={{ color: '#2d2a26', fontSize: 12 }}
                             contentStyle={{ border: '1px solid #e8e4dc', borderRadius: 8, fontSize: 12 }}
                           />
-                          <Line type="monotone" dataKey="total" stroke="#e8a598" strokeWidth={2} dot={false} activeDot={{ r: 4, fill: '#e8a598' }} />
+                          <Line type="monotone" dataKey="total" stroke="#e8a598" strokeWidth={2} dot={barChartData.length <= 1 ? { r: 4, fill: '#e8a598' } : false} activeDot={{ r: 4, fill: '#e8a598' }} />
                         </LineChart>
                       </ResponsiveContainer>
                     </div>
@@ -727,8 +716,8 @@ export default function ExpenseTracker({
                     <div style={{ marginTop: 4 }}>
                       <Lbl>SPEND BY PAYMENT METHOD</Lbl>
                       <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'flex-start', gap: 20, marginTop: 10 }}>
-                        <PieChart width={168} height={168}>
-                          <Pie data={pmChartData} cx={78} cy={78} innerRadius={42} outerRadius={72} paddingAngle={2} dataKey="value">
+                        <PieChart width={220} height={220}>
+                          <Pie data={pmChartData} cx={104} cy={104} innerRadius={54} outerRadius={94} paddingAngle={2} dataKey="value">
                             {pmChartData.map((entry, i) => <Cell key={i} fill={entry.color} />)}
                           </Pie>
                         </PieChart>
@@ -1276,43 +1265,6 @@ export default function ExpenseTracker({
               </div>
             )}
 
-            {/* Monthly summary */}
-            <div style={{ marginTop: 16, padding: '14px 0', background: '#f9f7f3', borderRadius: 10 }}>
-              <div style={{ display: 'flex', alignItems: 'center', marginBottom: monthTotal > 0 ? 10 : 0 }}>
-                <span style={{ fontSize: 12, color: '#6b6660', fontWeight: 600, flex: 1, paddingLeft: 16 }}>Total spend this month</span>
-                <span style={{ fontSize: 14, fontWeight: 700, color: '#1a1714', width: 80, textAlign: 'right', flexShrink: 0 }}>{f(monthTotal)}</span>
-                <span style={{ display: 'inline-block', width: 498, flexShrink: 0 }} />
-              </div>
-              {monthTotal > 0 && monthCatTotals.length > 0 && (
-                <>
-                  {/* Proportional bar */}
-                  <div style={{ height: 10, display: 'flex', borderRadius: 6, overflow: 'hidden', gap: 1, marginBottom: 8, marginLeft: 16, marginRight: 16 }}>
-                    {monthCatTotals.map(([cat, amt]) => {
-                      const color = categories.find(c => c.name === cat)?.color || '#b0aa9f';
-                      return (
-                        <div
-                          key={cat}
-                          title={`${cat}: ${f(amt)} (${((amt / monthTotal) * 100).toFixed(1)}%)`}
-                          style={{ width: `${(amt / monthTotal) * 100}%`, background: color, minWidth: 2 }}
-                        />
-                      );
-                    })}
-                  </div>
-                  {/* Legend */}
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px 12px', paddingLeft: 16 }}>
-                    {monthCatTotals.slice(0, 5).map(([cat, amt]) => {
-                      const color = categories.find(c => c.name === cat)?.color || '#b0aa9f';
-                      return (
-                        <span key={cat} style={{ fontSize: 11, color: '#6b6660', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                          <span style={{ width: 7, height: 7, borderRadius: 2, background: color, display: 'inline-block' }} />
-                          {cat} {f(amt)}
-                        </span>
-                      );
-                    })}
-                  </div>
-                </>
-              )}
-            </div>
           </>
         ))}
       </div>

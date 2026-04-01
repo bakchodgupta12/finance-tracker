@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react';
-import { s, getCurrencyFlag, DelBtn, TypeBadge } from '../shared';
+import { s, getCurrencyFlag, DelBtn } from '../shared';
 
 const PILLAR_NAMES = {
   budget: 'Budget',
@@ -417,12 +417,11 @@ function OverviewTab({
         </div>
       ) : (
         <>
-          <div style={{ border: '1px solid #e8e4dc', borderRadius: 14, overflow: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 540 }}>
+          <div style={{ ...s.card, padding: 0, overflow: 'auto', marginBottom: 20 }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 460 }}>
               <thead>
                 <tr>
                   <th style={TH}>Account</th>
-                  <th style={TH}>Type</th>
                   <th style={TH}>Currency</th>
                   <th style={TH}>Latest Balance</th>
                   <th style={TH}>Total Deposited</th>
@@ -440,7 +439,6 @@ function OverviewTab({
                   return (
                     <tr key={acc.id}>
                       <td style={{ ...TD, fontWeight: 500 }}>{acc.name}</td>
-                      <td style={TD}><TypeBadge type={acc.type} /></td>
                       <td style={TD}>{getCurrencyFlag(acc.currency)} {acc.currency}</td>
                       <td style={{ ...TD }}>
                         {latestBal !== null ? (
