@@ -324,8 +324,10 @@ export default function App() {
       const migratedData = {
         ...(existingData.expenseCategories ? {
           ...existingData,
-          expenseCategories: existingData.expenseCategories.map(cat =>
-            cat.type !== undefined ? cat : { ...cat, type: DEFAULT_CAT_TYPES[cat.name] || null }
+          expenseCategories: assignCategoryColours(
+            existingData.expenseCategories.map(cat =>
+              cat.type !== undefined ? cat : { ...cat, type: DEFAULT_CAT_TYPES[cat.name] || null }
+            )
           ),
         } : existingData),
         expenses: (existingData.expenses || []).map(e => {
@@ -336,12 +338,6 @@ export default function App() {
           return m;
         }),
       };
-      if (migratedData.expenseCategories) {
-        migratedData = {
-          ...migratedData,
-          expenseCategories: assignCategoryColours(migratedData.expenseCategories),
-        };
-      }
       const sanitizedData = sanitizeNumericFields(migratedData);
       const cleanedData = sanitiseFutureSnapshots(sanitizedData);
       setState({ ...makeDefaultState(), ...cleanedData, userId });
