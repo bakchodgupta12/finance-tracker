@@ -132,9 +132,9 @@ const ChevronRight = (
 );
 
 const PILLARS = [
-  { id: 'finance',     label: 'Finance',     icon: WalletIcon  },
+  { id: 'finance',     label: 'Budget',      icon: WalletIcon  },
   { id: 'investments', label: 'Investments', icon: TrendingIcon },
-  { id: 'life',        label: 'Life',        icon: SunIcon      },
+  { id: 'life',        label: 'Habits',      icon: SunIcon      },
 ];
 
 // ─────────────────────────────────────────────
@@ -148,7 +148,7 @@ function LifeComingSoon() {
     }}>
       <div style={{ fontSize: 48 }}>🌱</div>
       <h2 style={{ fontFamily: 'Lora, serif', fontSize: 24, fontWeight: 400, color: '#1a1714', margin: 0 }}>
-        Life Tracker
+        Habits
       </h2>
       <p style={{ fontSize: 14, color: '#9e9890', textAlign: 'center', maxWidth: 300, margin: 0 }}>
         Daily habits, goals, and life tracking. Coming soon.
