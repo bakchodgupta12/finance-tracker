@@ -627,7 +627,7 @@ export default function ActualsMonth({
                       {hasActual && (
                         <span style={{ fontSize: 12, fontWeight: 600, color: isGood ? '#2d9e6b' : '#c94040' }}>
                           {isNeedsOrWants
-                            ? `${(plan - actual) >= 0 ? '+' : '-'}${f(Math.abs(plan - actual))}`
+                            ? (() => { const d = plan - actual; return `${f(Math.abs(d))} ${d >= 0 ? 'remaining' : 'overspent'}`; })()
                             : `${diff >= 0 ? '+' : ''}${f(diff)}`
                           }
                         </span>
@@ -641,16 +641,11 @@ export default function ActualsMonth({
                       <div>
                         {isNeedsOrWants ? (
                           <>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
-                              <p style={{ fontSize: 10, color: '#b0aa9f' }}>Actual</p>
-                              <span style={{ fontSize: 9, color: '#7eb5d6', letterSpacing: '0.05em', fontWeight: 600 }}>AUTO</span>
-                            </div>
+                            <p style={{ fontSize: 10, color: '#b0aa9f', marginBottom: 2 }}>Actual</p>
                             <p style={{ fontSize: 14, fontWeight: 500, color: actual > 0 ? '#1a1714' : '#b0aa9f', paddingTop: 2 }}>
                               {actual > 0 ? `${currency.symbol}${new Intl.NumberFormat(currency.locale, { maximumFractionDigits: 0 }).format(actual)}` : '—'}
                             </p>
-                            {actual > 0 && (
-                              <p style={{ fontSize: 10, color: '#b0aa9f', marginTop: 3 }}>from expenses</p>
-                            )}
+                            <p style={{ fontSize: 10, color: '#b0aa9f', marginTop: 3 }}>AUTO from expenses</p>
                           </>
                         ) : (() => {
                           const autoVal   = autoActualVal;

@@ -324,7 +324,7 @@ export default function Dashboard({
             </>
           ) : (
             <>
-              <p style={{ fontSize: 19, fontWeight: 600, color: '#d5d0c8', marginBottom: 2 }}>—</p>
+              <p style={{ fontSize: 19, fontWeight: 600, color: '#b0aa9f', marginBottom: 2 }}>—</p>
               <p style={{ fontSize: 11, color: '#b0aa9f' }}>log 2+ months</p>
             </>
           )}
@@ -334,7 +334,7 @@ export default function Dashboard({
         <div style={{ ...s.card, padding: '14px 16px', position: 'relative', overflow: 'hidden' }}>
           <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: '#7ec8a0', opacity: 0.7 }} />
           <div style={{ marginTop: 4, marginBottom: 6 }}><span style={s.label}>TOTAL SAVINGS</span></div>
-          <p style={{ fontSize: 19, fontWeight: 600, color: '#1a1714', marginBottom: 2 }}>
+          <p style={{ fontSize: 19, fontWeight: 600, color: ytdSavings > 0 ? '#1a1714' : '#b0aa9f', marginBottom: 2 }}>
             {ytdSavings > 0 ? f(ytdSavings) : '—'}
           </p>
           <p style={{ fontSize: 11, color: '#b0aa9f' }}>this year so far</p>
@@ -344,7 +344,7 @@ export default function Dashboard({
         <div style={{ ...s.card, padding: '14px 16px', position: 'relative', overflow: 'hidden' }}>
           <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: '#b5a8d6', opacity: 0.7 }} />
           <div style={{ marginTop: 4, marginBottom: 6 }}><span style={s.label}>TOTAL INVESTED</span></div>
-          <p style={{ fontSize: 19, fontWeight: 600, color: '#1a1714', marginBottom: 2 }}>
+          <p style={{ fontSize: 19, fontWeight: 600, color: ytdInvested > 0 ? '#1a1714' : '#b0aa9f', marginBottom: 2 }}>
             {ytdInvested > 0 ? f(ytdInvested) : '—'}
           </p>
           <p style={{ fontSize: 11, color: '#b0aa9f' }}>this year so far</p>
@@ -356,7 +356,7 @@ export default function Dashboard({
           <div style={{ marginTop: 4, marginBottom: 6 }}><span style={s.label}>GOAL</span></div>
           {goalPct === null ? (
             <>
-              <p style={{ fontSize: 19, fontWeight: 600, color: '#d5d0c8', marginBottom: 2 }}>—</p>
+              <p style={{ fontSize: 19, fontWeight: 600, color: '#b0aa9f', marginBottom: 2 }}>—</p>
               <p
                 onClick={() => navigate('plan', 'goals')}
                 style={{ fontSize: 11, color: '#7eb5d6', cursor: 'pointer', fontWeight: 600 }}

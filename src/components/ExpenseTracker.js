@@ -269,12 +269,17 @@ export default function ExpenseTracker({
     if (dateFilter === 'this-month') {
       const year  = today.getFullYear();
       const month = today.getMonth();
-      const daysUpToToday = today.getDate();
+      const todayDate   = today.getDate();
+      const daysInMonth = new Date(year, month + 1, 0).getDate();
       const result = [];
-      for (let day = 1; day <= daysUpToToday; day++) {
-        const dateStr = `${year}-${pad(month + 1)}-${pad(day)}`;
-        const total = expenses.filter(e => e.date === dateStr).reduce((sum, e) => sum + toHomeAmt(e), 0);
-        result.push({ day: String(day), total: Math.round(total) });
+      for (let day = 1; day <= daysInMonth; day++) {
+        if (day <= todayDate) {
+          const dateStr = `${year}-${pad(month + 1)}-${pad(day)}`;
+          const total = expenses.filter(e => e.date === dateStr).reduce((sum, e) => sum + toHomeAmt(e), 0);
+          result.push({ day: String(day), total: Math.round(total) });
+        } else {
+          result.push({ day: String(day), total: 0 });
+        }
       }
       return result;
     }
@@ -711,7 +716,7 @@ export default function ExpenseTracker({
                             labelStyle={{ color: '#2d2a26', fontSize: 12 }}
                             contentStyle={{ border: '1px solid #e8e4dc', borderRadius: 8, fontSize: 12 }}
                           />
-                          <Line type="monotone" dataKey="total" stroke="#e8a598" strokeWidth={2} dot={barChartData.length <= 1 ? { r: 4, fill: '#e8a598' } : false} activeDot={{ r: 4, fill: '#e8a598' }} />
+                          <Line type="monotone" dataKey="total" stroke="#e8a598" strokeWidth={2} dot={false} activeDot={{ r: 4, fill: '#e8a598' }} />
                         </LineChart>
                       </ResponsiveContainer>
                     </div>
@@ -770,11 +775,13 @@ export default function ExpenseTracker({
                     <div style={{ marginTop: 4 }}>
                       <Lbl>SPEND BY PAYMENT METHOD</Lbl>
                       <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'flex-start', gap: 20, marginTop: 10 }}>
-                        <PieChart width={260} height={260}>
-                          <Pie data={pmChartData} cx={124} cy={124} innerRadius={62} outerRadius={112} paddingAngle={2} dataKey="value">
-                            {pmChartData.map((entry, i) => <Cell key={i} fill={entry.color} />)}
-                          </Pie>
-                        </PieChart>
+                        <div style={{ width: '50%', display: 'flex', alignItems: 'flex-start', justifyContent: 'flex-start', overflow: 'hidden' }}>
+                          <PieChart width={260} height={260}>
+                            <Pie data={pmChartData} cx={124} cy={124} innerRadius={62} outerRadius={112} paddingAngle={2} dataKey="value">
+                              {pmChartData.map((entry, i) => <Cell key={i} fill={entry.color} />)}
+                            </Pie>
+                          </PieChart>
+                        </div>
                         <div style={{ alignSelf: 'flex-start', marginTop: 0, flex: 1 }}>
                           <table style={{ fontSize: 12, borderCollapse: 'collapse', width: '100%' }}>
                             <thead>
