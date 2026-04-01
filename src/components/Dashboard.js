@@ -286,7 +286,7 @@ export default function Dashboard({
             color: '#9e9890', marginBottom: 6, textTransform: 'uppercase',
           }}>Net Worth</p>
           <p style={{
-            fontFamily: 'Lora, serif', fontSize: 42, fontWeight: 400,
+            fontFamily: 'inherit', fontSize: 38, fontWeight: 700,
             color: '#1a1714', lineHeight: 1, letterSpacing: '-0.5px',
           }}>{f(netWorth)}</p>
         </div>

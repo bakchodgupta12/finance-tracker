@@ -221,10 +221,6 @@ export default function ActualsMonth({
 
   return (
     <div>
-      <div style={{ marginBottom: 8 }}>
-        <p style={{ fontFamily: 'Lora, serif', fontSize: 20, color: '#1a1714', marginBottom: 4 }}>Tracker — {selectedYear}</p>
-      </div>
-
       {/* Sub-tab nav */}
       <div style={{ display: 'flex', gap: 0, marginBottom: 20, borderBottom: '1px solid #e8e4dc' }}>
         {SUB_TABS.map(t => (
@@ -609,12 +605,17 @@ export default function ActualsMonth({
             <Lbl>CATEGORIES — {selectedMonth.toUpperCase()}</Lbl>
             <div style={{ marginTop: 12 }}>
               {CATEGORIES.map(cat => {
-                const plan     = planned[cat];
-                const actual   = Number(getActual(selectedMonth, cat)) || 0;
-                const hasActual = getActual(selectedMonth, cat) !== '' && actual > 0;
-                const diff     = actual - plan;
-                const isGood   = (cat === 'Savings' || cat === 'Investments') ? actual >= plan : actual <= plan;
-                const progress = plan > 0 ? Math.min((actual / plan) * 100, 150) : 0;
+                const plan          = planned[cat];
+                const isNeedsOrWants = cat === 'Needs' || cat === 'Wants';
+                const autoActualVal  = state.expenseAutoActuals?.[selectedMonth]?.[cat];
+                // For Needs/Wants use auto-computed value; otherwise use manual actuals
+                const actual = isNeedsOrWants
+                  ? (autoActualVal !== undefined ? Number(autoActualVal) : 0)
+                  : (Number(getActual(selectedMonth, cat)) || 0);
+                const hasActual = actual > 0;
+                const diff      = actual - plan;
+                const isGood    = (cat === 'Savings' || cat === 'Investments') ? actual >= plan : actual <= plan;
+                const progress  = plan > 0 ? Math.min((actual / plan) * 100, 150) : 0;
 
                 return (
                   <div key={cat} style={{ marginBottom: 16, padding: '12px 14px', background: '#fdfcfa', borderRadius: 10, border: '1px solid #f0ece4' }}>
@@ -625,7 +626,10 @@ export default function ActualsMonth({
                       </div>
                       {hasActual && (
                         <span style={{ fontSize: 12, fontWeight: 600, color: isGood ? '#2d9e6b' : '#c94040' }}>
-                          {diff >= 0 ? '+' : ''}{f(diff)}
+                          {isNeedsOrWants
+                            ? `${(plan - actual) >= 0 ? '+' : '-'}${f(Math.abs(plan - actual))}`
+                            : `${diff >= 0 ? '+' : ''}${f(diff)}`
+                          }
                         </span>
                       )}
                     </div>
@@ -635,25 +639,23 @@ export default function ActualsMonth({
                         <p style={{ fontSize: 14, fontWeight: 500, color: '#9e9890' }}>{f(plan)}</p>
                       </div>
                       <div>
-                        {(() => {
-                          const autoVal = state.expenseAutoActuals?.[selectedMonth]?.[cat];
+                        {isNeedsOrWants ? (
+                          <>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+                              <p style={{ fontSize: 10, color: '#b0aa9f' }}>Actual</p>
+                              <span style={{ fontSize: 9, color: '#7eb5d6', letterSpacing: '0.05em', fontWeight: 600 }}>AUTO</span>
+                            </div>
+                            <p style={{ fontSize: 14, fontWeight: 500, color: actual > 0 ? '#1a1714' : '#b0aa9f', paddingTop: 2 }}>
+                              {actual > 0 ? `${currency.symbol}${new Intl.NumberFormat(currency.locale, { maximumFractionDigits: 0 }).format(actual)}` : '—'}
+                            </p>
+                            {actual > 0 && (
+                              <p style={{ fontSize: 10, color: '#b0aa9f', marginTop: 3 }}>from expenses</p>
+                            )}
+                          </>
+                        ) : (() => {
+                          const autoVal   = autoActualVal;
                           const manualVal = getActual(selectedMonth, cat);
-                          const isNeedsOrWants = cat === 'Needs' || cat === 'Wants';
                           const isAutoFilled = (manualVal === '' || manualVal === undefined) && autoVal !== undefined;
-                          if (isNeedsOrWants) {
-                            const displayVal = autoVal !== undefined ? autoVal : 0;
-                            return (
-                              <>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
-                                  <p style={{ fontSize: 10, color: '#b0aa9f' }}>Actual</p>
-                                  <span style={{ fontSize: 9, color: '#7eb5d6', letterSpacing: '0.05em', fontWeight: 600 }}>AUTO</span>
-                                </div>
-                                <p style={{ fontSize: 14, fontWeight: 500, color: displayVal > 0 ? '#1a1714' : '#b0aa9f', paddingTop: 2 }}>
-                                  {displayVal > 0 ? `${currency.symbol}${new Intl.NumberFormat(currency.locale, { maximumFractionDigits: 0 }).format(displayVal)}` : '—'}
-                                </p>
-                              </>
-                            );
-                          }
                           return (
                             <>
                               <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>

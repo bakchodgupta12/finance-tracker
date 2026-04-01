@@ -142,6 +142,18 @@ export default function ExpenseTracker({
   };
 
   // ── Analytics data ───────────────────────────────────────────────────────
+  // Parse YYYY-MM-DD (or DD-MM-YYYY) as local midnight, avoiding UTC offset bugs
+  const parseExpDate = (dateStr) => {
+    if (!dateStr) return null;
+    const parts = dateStr.split('-');
+    if (parts.length !== 3) return null;
+    if (parts[0].length === 4) {
+      return new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+    }
+    // DD-MM-YYYY fallback
+    return new Date(Number(parts[2]), Number(parts[1]) - 1, Number(parts[0]));
+  };
+
   const getFilteredExpenses = (exps, filter, cStart, cEnd) => {
     const now = new Date();
     const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -149,16 +161,16 @@ export default function ExpenseTracker({
       case 'this-month':
         return exps.filter(e => {
           if (!e.date) return false;
-          const d = new Date(e.date);
-          return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+          const d = parseExpDate(e.date);
+          return d && d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
         });
       case 'last-3': {
         const cutoff = new Date(startOfToday);
         cutoff.setDate(cutoff.getDate() - 90);
         return exps.filter(e => {
           if (!e.date) return false;
-          const d = new Date(e.date);
-          return d >= cutoff && d <= startOfToday;
+          const d = parseExpDate(e.date);
+          return d && d >= cutoff && d <= startOfToday;
         });
       }
       case 'last-6': {
@@ -166,24 +178,30 @@ export default function ExpenseTracker({
         cutoff.setDate(cutoff.getDate() - 180);
         return exps.filter(e => {
           if (!e.date) return false;
-          const d = new Date(e.date);
-          return d >= cutoff && d <= startOfToday;
+          const d = parseExpDate(e.date);
+          return d && d >= cutoff && d <= startOfToday;
         });
       }
       case 'this-year':
         return exps.filter(e => {
           if (!e.date) return false;
-          const d = new Date(e.date);
-          return d.getFullYear() === now.getFullYear() && d <= startOfToday;
+          const d = parseExpDate(e.date);
+          return d && d.getFullYear() === now.getFullYear() && d <= startOfToday;
         });
       case 'all':
-        return exps.filter(e => e.date && new Date(e.date) <= startOfToday);
+        return exps.filter(e => {
+          if (!e.date) return false;
+          const d = parseExpDate(e.date);
+          return d && d <= startOfToday;
+        });
       case 'custom':
         if (!cStart || !cEnd) return exps.filter(e => Boolean(e.date));
         return exps.filter(e => {
           if (!e.date) return false;
-          const d = new Date(e.date);
-          return d >= new Date(cStart) && d <= new Date(cEnd);
+          const d = parseExpDate(e.date);
+          const s = parseExpDate(cStart);
+          const en = parseExpDate(cEnd);
+          return d && s && en && d >= s && d <= en;
         });
       default:
         return exps.filter(e => Boolean(e.date));
@@ -247,29 +265,65 @@ export default function ExpenseTracker({
   }, [filteredExpenses]); // eslint-disable-line
 
   const barChartData = useMemo(() => {
+    const pad = n => String(n).padStart(2, '0');
     if (dateFilter === 'this-month') {
-      const year = today.getFullYear();
+      const year  = today.getFullYear();
       const month = today.getMonth();
       const daysUpToToday = today.getDate();
       const result = [];
       for (let day = 1; day <= daysUpToToday; day++) {
-        const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+        const dateStr = `${year}-${pad(month + 1)}-${pad(day)}`;
         const total = expenses.filter(e => e.date === dateStr).reduce((sum, e) => sum + toHomeAmt(e), 0);
         result.push({ day: String(day), total: Math.round(total) });
       }
       return result;
     }
-    const monthTotals = {};
-    MONTHS.forEach(m => { monthTotals[m] = 0; });
+
+    // Monthly grouping — group by YYYY-MM key
+    const expByMonth = {};
     filteredExpenses.forEach(e => {
-      const mIdx = parseInt(e.date.split('-')[1], 10) - 1;
-      const abbr = ALL_MONTHS[mIdx];
-      if (abbr in monthTotals) monthTotals[abbr] += toHomeAmt(e);
+      if (!e.date) return;
+      // Normalise to YYYY-MM-DD if stored as DD-MM-YYYY
+      const parts = e.date.split('-');
+      const yyyyMM = parts[0].length === 4
+        ? `${parts[0]}-${parts[1]}`
+        : `${parts[2]}-${parts[1]}`;
+      expByMonth[yyyyMM] = (expByMonth[yyyyMM] || 0) + toHomeAmt(e);
     });
-    return MONTHS
-      .map(m => ({ month: m, total: Math.round(monthTotals[m] || 0) }))
-      .filter(d => d.total > 0);
-  }, [filteredExpenses, dateFilter, selectedYear, MONTHS]); // eslint-disable-line
+
+    // Determine inclusive month range to display
+    let startY, startM, endY, endM;
+    if (dateFilter === 'last-3') {
+      const cutoff = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+      cutoff.setDate(cutoff.getDate() - 90);
+      startY = cutoff.getFullYear(); startM = cutoff.getMonth() + 1;
+      endY = today.getFullYear();   endM = today.getMonth() + 1;
+    } else if (dateFilter === 'last-6') {
+      const cutoff = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+      cutoff.setDate(cutoff.getDate() - 180);
+      startY = cutoff.getFullYear(); startM = cutoff.getMonth() + 1;
+      endY = today.getFullYear();   endM = today.getMonth() + 1;
+    } else if (dateFilter === 'this-year') {
+      startY = today.getFullYear(); startM = 1;
+      endY = today.getFullYear();   endM = today.getMonth() + 1;
+    } else {
+      // 'all' or 'custom' — span actual data range
+      const keys = Object.keys(expByMonth).sort();
+      if (keys.length === 0) return [];
+      [startY, startM] = keys[0].split('-').map(Number);
+      [endY,   endM]   = keys[keys.length - 1].split('-').map(Number);
+    }
+
+    const result = [];
+    let y = startY, m = startM;
+    while (y < endY || (y === endY && m <= endM)) {
+      const key = `${y}-${pad(m)}`;
+      result.push({ month: ALL_MONTHS[m - 1], total: Math.round(expByMonth[key] || 0) });
+      m++;
+      if (m > 12) { m = 1; y++; }
+    }
+    return result;
+  }, [filteredExpenses, dateFilter, expenses]); // eslint-disable-line
 
   const catChartData = useMemo(() => {
     const { catTotals, total } = analyticsStats;
@@ -716,8 +770,8 @@ export default function ExpenseTracker({
                     <div style={{ marginTop: 4 }}>
                       <Lbl>SPEND BY PAYMENT METHOD</Lbl>
                       <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'flex-start', gap: 20, marginTop: 10 }}>
-                        <PieChart width={220} height={220}>
-                          <Pie data={pmChartData} cx={104} cy={104} innerRadius={54} outerRadius={94} paddingAngle={2} dataKey="value">
+                        <PieChart width={260} height={260}>
+                          <Pie data={pmChartData} cx={124} cy={124} innerRadius={62} outerRadius={112} paddingAngle={2} dataKey="value">
                             {pmChartData.map((entry, i) => <Cell key={i} fill={entry.color} />)}
                           </Pie>
                         </PieChart>
