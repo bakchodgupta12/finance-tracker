@@ -117,7 +117,7 @@ export default function ActualsMonth({
   toHome, selectedYear, modules, trackerTargetSubTab, setTrackerTargetSubTab,
 }) {
   const [selectedMonth, setSelectedMonth] = useState(getCurrentMonthAbbr());
-  const [trackerTab, setTrackerTab]       = useState('balances');
+  const [trackerTab, setTrackerTab]       = useState('expenses');
 
   // Respond to external navigation requests (e.g. from Dashboard checklist)
   useEffect(() => {
@@ -129,15 +129,15 @@ export default function ActualsMonth({
 
   const mods = modules || { income: true, expenses: true };
 
-  // Available sub-tabs (Balances always shown)
+  // Available sub-tabs (Expenses first, Income second, Balances third)
   const SUB_TABS = [
-    { id: 'balances',  label: 'Balances' },
-    ...(mods.income   ? [{ id: 'income',   label: 'Income' }]   : []),
     ...(mods.expenses ? [{ id: 'expenses', label: 'Expenses' }] : []),
+    ...(mods.income   ? [{ id: 'income',   label: 'Income' }]   : []),
+    { id: 'balances',  label: 'Balances' },
   ];
 
-  // If current tab was hidden by toggling a module, fall back to balances
-  const activeTab = SUB_TABS.find(t => t.id === trackerTab) ? trackerTab : 'balances';
+  // If current tab was hidden by toggling a module, fall back to expenses
+  const activeTab = SUB_TABS.find(t => t.id === trackerTab) ? trackerTab : 'expenses';
 
   const getActual = (month, key) => state.actuals[month]?.[key] ?? '';
   const setActual = (month, key, val) => set('actuals', prev => ({

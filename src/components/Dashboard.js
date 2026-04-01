@@ -459,19 +459,6 @@ export default function Dashboard({
         selectedYear={selectedYear}
       />
 
-      {/* Prompt to log actuals */}
-      {!hasActualsThisMonth && (
-        <div
-          onClick={() => navigate('tracker', 'income')}
-          style={{
-            ...s.card, textAlign: 'center', padding: '16px',
-            cursor: 'pointer', border: '1px dashed #d8d4cc', background: '#fdfcfa'
-          }}
-        >
-          <p style={{ fontSize: 13, color: '#9e9890' }}>No actuals logged for {currentMonth} yet.</p>
-          <p style={{ fontSize: 13, color: '#7eb5d6', fontWeight: 600, marginTop: 4 }}>Log this month's actuals →</p>
-        </div>
-      )}
     </div>
   );
 }

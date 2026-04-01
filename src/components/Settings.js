@@ -8,7 +8,6 @@ import {
 
 const SUB_TABS = [
   { id: 'profile',       label: 'Profile' },
-  { id: 'modules',       label: 'Modules' },
   { id: 'accounts',      label: 'Accounts' },
   { id: 'categories',    label: 'Categories' },
   { id: 'payment',       label: 'Payment' },
@@ -144,36 +143,6 @@ export default function Settings({ state, set, onDeleteAccount, onDeleteYear, on
         </div>
       )}
 
-      {/* ── Modules ── */}
-      {subTab === 'modules' && (
-        <div style={{ maxWidth: 680 }}>
-          <div style={s.card}>
-            <Lbl>MODULES</Lbl>
-            <p style={{ fontSize: 12, color: '#b0aa9f', marginBottom: 20 }}>
-              Toggle features on or off. Toggling off hides the tab but does not delete any data.
-            </p>
-            <Toggle
-              label="Income Tracker"
-              desc="Log and categorise your monthly income"
-              checked={!!modules.income}
-              onChange={v => setModule('income', v)}
-            />
-            <Toggle
-              label="Expense Tracker"
-              desc="Track every transaction with categories"
-              checked={!!modules.expenses}
-              onChange={v => setModule('expenses', v)}
-            />
-            <Toggle
-              label="Trades Tracker"
-              desc="Monitor your investments and trades"
-              checked={!!modules.trades}
-              onChange={v => setModule('trades', v)}
-            />
-          </div>
-        </div>
-      )}
-
       {/* ── Accounts ── */}
       {subTab === 'accounts' && (
         <div style={{ maxWidth: 680 }}>
@@ -215,7 +184,6 @@ export default function Settings({ state, set, onDeleteAccount, onDeleteYear, on
               Used in the Expenses tracker.
             </p>
             {categories.map(cat => {
-              const inUse = isCatInUse(cat.name);
               const isPickerOpen = colorPickId === cat.id;
               return (
                 <div key={cat.id} style={{ marginBottom: 10 }}>
@@ -271,11 +239,7 @@ export default function Settings({ state, set, onDeleteAccount, onDeleteYear, on
                       <option value="Want">Want</option>
                     </Select>
                     {/* Delete */}
-                    {inUse ? (
-                      <span title="Remove from expenses first" style={{ fontSize: 12, color: '#d5d0c8', cursor: 'not-allowed', padding: '0 4px' }}>×</span>
-                    ) : (
-                      <DelBtn onClick={() => set('expenseCategories', prev => prev.filter(c => c.id !== cat.id))} />
-                    )}
+                    <DelBtn onClick={() => set('expenseCategories', prev => prev.filter(c => c.id !== cat.id))} />
                   </div>
                 </div>
               );
