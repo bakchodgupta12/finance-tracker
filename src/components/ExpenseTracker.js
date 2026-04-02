@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect, Fragment, useRef } from 'react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   LineChart, Line,
-  PieChart, Pie, Cell,
+  PieChart, Pie, Cell, Sector,
 } from 'recharts';
 import { s, Lbl, DelBtn, Select, CURRENCIES, getCurrency, getCurrencyFlag, ALL_MONTHS, blockNonNumeric, pasteNumericOnly, fmtChart, parseExpenseDate } from '../shared';
 
@@ -57,6 +57,55 @@ const formatDisplayDate = (isoDate) => {
   return `${day}-${month}-${year}`;
 };
 
+// "Apr 1" format for view-mode table cells — uses T00:00:00 to stay in local time
+const formatExpenseDisplayDate = (dateStr) => {
+  if (!dateStr) return '';
+  const d = new Date(dateStr + 'T00:00:00');
+  if (isNaN(d.getTime())) return dateStr;
+  return `${d.toLocaleString('default', { month: 'short' })} ${d.getDate()}`;
+};
+
+// Builds daily totals for This Month chart from scratch
+function buildThisMonthDailyData(allExpenses, fxRates, homeCurrency) {
+  const now = new Date();
+  const currentMonth = now.getMonth();
+  const currentYear  = now.getFullYear();
+  const today        = now.getDate();
+
+  const days = [];
+  for (let d = 1; d <= today; d++) {
+    days.push({ day: d, label: String(d), total: 0 });
+  }
+
+  (allExpenses || []).forEach(expense => {
+    if (expense.isPlaceholder === true) return;
+    if (!expense.date) return;
+    const expDate = new Date(expense.date + 'T00:00:00');
+    if (isNaN(expDate.getTime())) return;
+    if (expDate.getMonth() !== currentMonth) return;
+    if (expDate.getFullYear() !== currentYear) return;
+    const dayOfMonth = expDate.getDate();
+    const dayEntry   = days.find(d => d.day === dayOfMonth);
+    if (!dayEntry) return;
+    const amount = parseFloat(expense.amount) || 0;
+    let converted = amount;
+    if (expense.currency && expense.currency !== homeCurrency && fxRates && fxRates[expense.currency]) {
+      converted = amount * fxRates[expense.currency];
+    }
+    dayEntry.total += converted;
+  });
+
+  return days;
+}
+
+const renderActivePayShape = (props) => {
+  const { cx, cy, innerRadius, outerRadius, startAngle, endAngle, fill } = props;
+  return (
+    <Sector cx={cx} cy={cy} innerRadius={innerRadius} outerRadius={outerRadius + 5}
+      startAngle={startAngle} endAngle={endAngle} fill={fill} />
+  );
+};
+
 function DateInput({ value, onChange }) {
   const hiddenRef = useRef(null);
   const displayValue = value && /^\d{4}-\d{2}-\d{2}$/.test(value)
@@ -108,7 +157,7 @@ const DATE_FILTERS = [
 ];
 
 export default function ExpenseTracker({
-  state, set, f, currency, toHome, selectedYear, MONTHS,
+  state, set, f, currency, toHome, fxRates, selectedYear, MONTHS,
 }) {
   const today         = new Date();
   const todayStr      = today.toISOString().split('T')[0];
@@ -132,7 +181,8 @@ export default function ExpenseTracker({
   // recurring: id of expense showing frequency prompt (monthly/yearly)
   const [showFrequencyPrompt, setShowFrequencyPrompt] = useState(null);
   // hover tracking for view-mode rows (to show inactive recurring icon)
-  const [hoveredRowId, setHoveredRowId] = useState(null);
+  const [hoveredRowId,    setHoveredRowId]    = useState(null);
+  const [activePayIndex,  setActivePayIndex]  = useState(null);
 
   const expenses       = state.expenses        || [];
   const categories     = state.expenseCategories || [];
@@ -258,29 +308,16 @@ export default function ExpenseTracker({
     return { total, catTotals, count: filteredExpenses.length, topCat, recurringTotal, recurringCount };
   }, [filteredExpenses]); // eslint-disable-line
 
+  // ── This Month daily chart — built separately from scratch ─────────────────
+  const thisMonthData = useMemo(
+    () => buildThisMonthDailyData(state.expenses, fxRates, state.currencyCode),
+    [state.expenses, fxRates, state.currencyCode], // eslint-disable-line
+  );
+
   const barChartData = useMemo(() => {
+    // 'this-month' is handled by thisMonthData / buildThisMonthDailyData
+    if (dateFilter === 'this-month') return [];
     const pad = n => String(n).padStart(2, '0');
-    if (dateFilter === 'this-month') {
-      const year  = today.getFullYear();
-      const month = today.getMonth();
-      const todayDate   = today.getDate();
-      const daysInMonth = new Date(year, month + 1, 0).getDate();
-      const result = [];
-      for (let day = 1; day <= daysInMonth; day++) {
-        if (day <= todayDate) {
-          // filteredExpenses is already scoped to this month — only check the day
-          const total = filteredExpenses.reduce((sum, e) => {
-            const d = parseExpenseDate(e.date);
-            if (!d || d.getDate() !== day) return sum;
-            return sum + toHomeAmt(e);
-          }, 0);
-          result.push({ day: String(day), total: Math.round(total) });
-        } else {
-          result.push({ day: String(day), total: 0 });
-        }
-      }
-      return result;
-    }
 
     // Monthly grouping — group by YYYY-MM key
     const expByMonth = {};
@@ -326,7 +363,7 @@ export default function ExpenseTracker({
     return result;
   }, [filteredExpenses, dateFilter]); // eslint-disable-line
 
-  // ── STEP 1 diagnostic logs — remove after verifying fix ──────────────────
+  // ── Diagnostic logs — remove after verifying fix ─────────────────────────
   // Log 1: what expenses exist at all
   console.log('ALL EXPENSES:', expenses?.length, expenses?.slice(0, 3).map(e => ({
     date: e.date, amount: e.amount, currency: e.currency,
@@ -334,8 +371,11 @@ export default function ExpenseTracker({
   })));
   // Log 2: what the analytics filter produces
   console.log('FILTERED EXPENSES:', filteredExpenses?.length, filteredExpenses);
-  // Log 3: what the chart data array looks like
-  console.log('CHART DATA:', barChartData);
+  // Log 3: this month chart verification — total must match Total Spend summary
+  console.log(
+    'THIS MONTH CHART — days built:', thisMonthData.length,
+    'total across all days:', thisMonthData.reduce((s, d) => s + d.total, 0),
+  );
   // Log 4: what month/year is being targeted
   console.log('TARGET:', {
     selectedMonth,
@@ -371,6 +411,7 @@ export default function ExpenseTracker({
       .map(([name, value], i) => ({
         name, value: Math.round(value),
         pct: total > 0 ? ((value / total) * 100).toFixed(1) : '0',
+        percentage: total > 0 ? (value / total) * 100 : 0,
         color: PM_COLORS[i % PM_COLORS.length],
       }));
   }, [filteredExpenses]); // eslint-disable-line
@@ -746,19 +787,48 @@ export default function ExpenseTracker({
                   <div style={{ marginBottom: 20 }}>
                     <Lbl>SPEND TREND</Lbl>
                     <div style={{ marginTop: 10 }}>
-                      <ResponsiveContainer width="100%" height={140}>
-                        <LineChart data={barChartData}>
-                          <CartesianGrid strokeDasharray="3 3" stroke="#f0ece4" />
-                          <XAxis dataKey={dateFilter === 'this-month' ? 'day' : 'month'} stroke="#e8e4dc" tick={{ fill: '#b0aa9f', fontSize: 11 }} />
-                          <YAxis stroke="#e8e4dc" tick={{ fill: '#b0aa9f', fontSize: 11 }} tickFormatter={v => fmtChart(v, currency.symbol)} />
-                          <Tooltip
-                            formatter={val => [fmtChart(val, currency.symbol), 'Spend']}
-                            labelStyle={{ color: '#2d2a26', fontSize: 12 }}
-                            contentStyle={{ border: '1px solid #e8e4dc', borderRadius: 8, fontSize: 12 }}
-                          />
-                          <Line type="monotone" dataKey="total" stroke="#e8a598" strokeWidth={2} dot={false} activeDot={{ r: 4, fill: '#e8a598' }} />
-                        </LineChart>
-                      </ResponsiveContainer>
+                      {dateFilter === 'this-month' ? (
+                        <ResponsiveContainer width="100%" height={200}>
+                          <LineChart data={thisMonthData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                            <CartesianGrid strokeDasharray="3 3" stroke="#f0ece4" vertical={false} />
+                            <XAxis dataKey="label" tick={{ fill: '#b0aa9f', fontSize: 11 }} axisLine={false} tickLine={false} interval={3} />
+                            <YAxis tick={{ fill: '#b0aa9f', fontSize: 11 }} axisLine={false} tickLine={false}
+                              tickFormatter={v => fmtChart(v, currency.symbol)} domain={[0, 'auto']} width={55} />
+                            <Tooltip
+                              cursor={{ stroke: '#e8e4dc', strokeWidth: 1, strokeDasharray: '4 4' }}
+                              content={({ active, payload, label }) => {
+                                if (!active || !payload?.length) return null;
+                                const val = payload[0]?.value ?? 0;
+                                const monthName = new Date().toLocaleString('default', { month: 'long' });
+                                return (
+                                  <div style={{ background: '#fff', border: '1px solid #e8e4dc', borderRadius: 8, padding: '8px 12px', fontSize: 12, boxShadow: '0 2px 8px rgba(0,0,0,0.08)' }}>
+                                    <div style={{ color: '#9e9890', marginBottom: 4, fontSize: 11 }}>{monthName} {label}</div>
+                                    <div style={{ fontWeight: 600, color: '#1a1714', fontSize: 13 }}>
+                                      {currency.symbol}{val.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                                    </div>
+                                  </div>
+                                );
+                              }}
+                            />
+                            <Line type="monotone" dataKey="total" stroke="#e8a598" strokeWidth={2} dot={false}
+                              activeDot={{ r: 4, fill: '#e8a598', stroke: '#fff', strokeWidth: 2 }} />
+                          </LineChart>
+                        </ResponsiveContainer>
+                      ) : (
+                        <ResponsiveContainer width="100%" height={140}>
+                          <LineChart data={barChartData}>
+                            <CartesianGrid strokeDasharray="3 3" stroke="#f0ece4" />
+                            <XAxis dataKey="month" stroke="#e8e4dc" tick={{ fill: '#b0aa9f', fontSize: 11 }} />
+                            <YAxis stroke="#e8e4dc" tick={{ fill: '#b0aa9f', fontSize: 11 }} tickFormatter={v => fmtChart(v, currency.symbol)} />
+                            <Tooltip
+                              formatter={val => [fmtChart(val, currency.symbol), 'Spend']}
+                              labelStyle={{ color: '#2d2a26', fontSize: 12 }}
+                              contentStyle={{ border: '1px solid #e8e4dc', borderRadius: 8, fontSize: 12 }}
+                            />
+                            <Line type="monotone" dataKey="total" stroke="#e8a598" strokeWidth={2} dot={false} activeDot={{ r: 4, fill: '#e8a598' }} />
+                          </LineChart>
+                        </ResponsiveContainer>
+                      )}
                     </div>
                   </div>
 
@@ -768,7 +838,7 @@ export default function ExpenseTracker({
                       <Lbl>SPEND BY CATEGORY</Lbl>
                       <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'flex-start', gap: 20, marginTop: 10 }}>
                         <ResponsiveContainer width="50%" height={Math.max(160, catChartData.length * 26)}>
-                          <BarChart data={catChartData} layout="vertical" maxBarSize={16}>
+                          <BarChart data={catChartData} layout="vertical" maxBarSize={16} style={{ cursor: 'default' }}>
                             <CartesianGrid strokeDasharray="3 3" stroke="#f0ece4" horizontal={false} />
                             <XAxis type="number" stroke="#e8e4dc" tick={{ fill: '#b0aa9f', fontSize: 11 }} tickFormatter={v => fmtChart(v, currency.symbol)} />
                             <YAxis type="category" dataKey="name" stroke="#e8e4dc" tick={{ fill: '#b0aa9f', fontSize: 11 }} width={80} />
@@ -776,7 +846,7 @@ export default function ExpenseTracker({
                               formatter={val => [fmtChart(val, currency.symbol), 'Total']}
                               contentStyle={{ border: '1px solid #e8e4dc', borderRadius: 8, fontSize: 12 }}
                             />
-                            <Bar dataKey="value" radius={[0, 4, 4, 0]} maxBarSize={16}>
+                            <Bar dataKey="value" radius={[0, 4, 4, 0]} maxBarSize={16} background={{ fill: 'transparent' }}>
                               {catChartData.map((entry, i) => <Cell key={i} fill={entry.color} />)}
                             </Bar>
                           </BarChart>
@@ -817,9 +887,32 @@ export default function ExpenseTracker({
                       <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'flex-start', gap: 20, marginTop: 10 }}>
                         <div style={{ width: '50%', display: 'flex', alignItems: 'flex-start', justifyContent: 'flex-start', overflow: 'hidden' }}>
                           <PieChart width={260} height={260}>
-                            <Pie data={pmChartData} cx={124} cy={124} innerRadius={62} outerRadius={112} paddingAngle={2} dataKey="value">
+                            <Pie
+                              data={pmChartData} cx={124} cy={124}
+                              innerRadius={62} outerRadius={112} paddingAngle={2} dataKey="value"
+                              activeIndex={activePayIndex}
+                              activeShape={renderActivePayShape}
+                              onMouseEnter={(_, index) => setActivePayIndex(index)}
+                              onMouseLeave={() => setActivePayIndex(null)}
+                            >
                               {pmChartData.map((entry, i) => <Cell key={i} fill={entry.color} />)}
                             </Pie>
+                            <Tooltip
+                              content={({ active, payload }) => {
+                                if (!active || !payload?.length) return null;
+                                const entry = payload[0].payload;
+                                return (
+                                  <div style={{ background: '#fff', border: '1px solid #e8e4dc', borderRadius: 8, padding: '8px 12px', fontSize: 12, boxShadow: '0 2px 8px rgba(0,0,0,0.08)' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                                      <div style={{ width: 8, height: 8, borderRadius: '50%', background: entry.color }} />
+                                      <span style={{ fontWeight: 600, color: '#1a1714', fontSize: 13 }}>{entry.name}</span>
+                                    </div>
+                                    <div style={{ color: '#6b6660' }}>{currency.symbol}{entry.value?.toLocaleString(undefined, { maximumFractionDigits: 0 })}</div>
+                                    <div style={{ color: '#9e9890', marginTop: 2, fontSize: 11 }}>{entry.percentage?.toFixed(1)}% of total</div>
+                                  </div>
+                                );
+                              }}
+                            />
                           </PieChart>
                         </div>
                         <div style={{ alignSelf: 'flex-start', marginTop: 0, flex: 1 }}>
@@ -941,7 +1034,7 @@ export default function ExpenseTracker({
                       const catColor = categories.find(c => c.name === exp.category)?.color || '#b0aa9f';
                       return (
                         <tr key={exp.id} style={{ borderBottom: '1px solid #f9f7f3' }}>
-                          <td style={tdSt}>{formatDisplayDate(exp.date)}</td>
+                          <td style={tdSt}>{formatExpenseDisplayDate(exp.date)}</td>
                           <td style={{ ...tdSt, fontWeight: 500 }}>{exp.description || <span style={{ color: '#d5d0c8' }}>—</span>}</td>
                           <td style={{ ...tdSt, fontWeight: 600, textAlign: 'right' }}>
                             {exp.amount ? `${accCur.symbol}${Number(exp.amount).toLocaleString()}` : <span style={{ color: '#d5d0c8' }}>—</span>}
@@ -1020,7 +1113,7 @@ export default function ExpenseTracker({
                     const catColor = categories.find(c => c.name === ph.category)?.color || '#b0aa9f';
                     return (
                       <tr key={`ph-${ph.id}`} style={{ borderBottom: '1px solid #f0ece4', opacity: isConfirmed ? 1 : 0.5, background: isConfirmed ? '' : '#f9f7f3' }}>
-                        <td style={tdSt}>{formatDisplayDate(ph._expectedDate)}</td>
+                        <td style={tdSt}>{formatExpenseDisplayDate(ph._expectedDate)}</td>
                         <td style={{ width: 16, padding: 0, border: 'none' }} />
                         <td style={{ ...tdSt, paddingLeft: 0, fontWeight: 500, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis', maxWidth: 0 }}>
                           {ph.description || <span style={{ color: '#d5d0c8' }}>—</span>}
@@ -1256,7 +1349,7 @@ export default function ExpenseTracker({
                           onMouseEnter={e => { e.currentTarget.style.background = '#fdfcfa'; setHoveredRowId(exp.id); }}
                           onMouseLeave={e => { e.currentTarget.style.background = ''; setHoveredRowId(null); }}
                         >
-                          <td style={tdSt}>{formatDisplayDate(exp.date)}</td>
+                          <td style={tdSt}>{formatExpenseDisplayDate(exp.date)}</td>
                           <td style={{ width: 16, padding: 0, border: 'none' }} />
                           <td style={{ ...tdSt, paddingLeft: 0, fontWeight: 500, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis', maxWidth: 0 }}>
                             {exp.description || <span style={{ color: '#d5d0c8' }}>—</span>}
