@@ -115,7 +115,7 @@ function BalanceCell({ value, onChange, prefix = '', balanceIndex }) {
 // ── Main component ────────────────────────────────────────────────────────────
 export default function ActualsMonth({
   state, set, f, currency, MONTHS, baseIncome, allocByCat,
-  toHome, selectedYear, modules, trackerTargetSubTab, setTrackerTargetSubTab,
+  toHome, fxRates, selectedYear, modules, trackerTargetSubTab, setTrackerTargetSubTab,
 }) {
   const [selectedMonth, setSelectedMonth] = useState(getCurrentMonthAbbr());
   const [trackerTab, setTrackerTab]       = useState('expenses');
@@ -697,7 +697,7 @@ export default function ActualsMonth({
       {activeTab === 'expenses' && (
         <ExpenseTracker
           state={state} set={set} f={f} currency={currency}
-          toHome={toHome} selectedYear={selectedYear} MONTHS={MONTHS}
+          toHome={toHome} fxRates={fxRates} selectedYear={selectedYear} MONTHS={MONTHS}
         />
       )}
 
