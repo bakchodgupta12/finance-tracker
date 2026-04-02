@@ -141,10 +141,11 @@ export default function ExpenseTracker({
 
   // ── Helpers ──────────────────────────────────────────────────────────────
   const toHomeAmt = exp => {
-    if (!exp.amount) return 0;
-    if (exp.currency === homeCurrency) return Number(exp.amount);
-    const h = toHome(Number(exp.amount), exp.currency);
-    return h ?? Number(exp.amount);
+    const n = parseFloat(exp.amount) || 0;
+    if (!n) return 0;
+    if (exp.currency === homeCurrency) return n;
+    const h = toHome(n, exp.currency);
+    return h ?? n;
   };
 
   const getFilteredExpenses = (exps, filter, cStart, cEnd) => {
@@ -267,11 +268,12 @@ export default function ExpenseTracker({
       const result = [];
       for (let day = 1; day <= daysInMonth; day++) {
         if (day <= todayDate) {
-          const total = expenses.filter(e => {
-            if (!e.date) return false;
+          // filteredExpenses is already scoped to this month — only check the day
+          const total = filteredExpenses.reduce((sum, e) => {
             const d = parseExpenseDate(e.date);
-            return d && d.getFullYear() === year && d.getMonth() === month && d.getDate() === day;
-          }).reduce((sum, e) => sum + toHomeAmt(e), 0);
+            if (!d || d.getDate() !== day) return sum;
+            return sum + toHomeAmt(e);
+          }, 0);
           result.push({ day: String(day), total: Math.round(total) });
         } else {
           result.push({ day: String(day), total: 0 });
@@ -322,7 +324,27 @@ export default function ExpenseTracker({
       if (m > 12) { m = 1; y++; }
     }
     return result;
-  }, [filteredExpenses, dateFilter, expenses]); // eslint-disable-line
+  }, [filteredExpenses, dateFilter]); // eslint-disable-line
+
+  // ── STEP 1 diagnostic logs — remove after verifying fix ──────────────────
+  // Log 1: what expenses exist at all
+  console.log('ALL EXPENSES:', expenses?.length, expenses?.slice(0, 3).map(e => ({
+    date: e.date, amount: e.amount, currency: e.currency,
+    isPlaceholder: e.isPlaceholder, description: e.description,
+  })));
+  // Log 2: what the analytics filter produces
+  console.log('FILTERED EXPENSES:', filteredExpenses?.length, filteredExpenses);
+  // Log 3: what the chart data array looks like
+  console.log('CHART DATA:', barChartData);
+  // Log 4: what month/year is being targeted
+  console.log('TARGET:', {
+    selectedMonth,
+    selectedMonthIndex: ALL_MONTHS.indexOf(selectedMonth),
+    selectedYear,
+    currentMonth: new Date().getMonth(),
+    currentYear: new Date().getFullYear(),
+  });
+  // ─────────────────────────────────────────────────────────────────────────
 
   const catChartData = useMemo(() => {
     const { catTotals, total } = analyticsStats;
