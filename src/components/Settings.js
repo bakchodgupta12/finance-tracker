@@ -226,7 +226,12 @@ export default function Settings({ state, set, onDeleteAccount, onDeleteYear, on
                           zIndex: 100,
                         }}>
                           {CATEGORY_COLOURS.map(colour => {
-                            const isUsedByOther = categories.some(c => c.id !== cat.id && c.color === colour);
+                            const isUsedByOther = categories.some(c =>
+                              c.id !== cat.id &&
+                              c.color === colour &&
+                              c.color !== null &&
+                              c.color !== undefined
+                            );
                             const isCurrentColour = cat.color === colour;
                             return (
                               <div

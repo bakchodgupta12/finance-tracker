@@ -60,6 +60,7 @@ export const ALL_MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep'
 export const TABS = ['dashboard','plan','tracker','settings'];
 
 export const CATEGORY_COLOURS = [
+  // Vivid distinct colours (15)
   '#E05C5C', // red
   '#E8943A', // orange
   '#E8C83A', // yellow
@@ -74,7 +75,13 @@ export const CATEGORY_COLOURS = [
   '#5EC88A', // mint
   '#C8C25E', // olive
   '#8EC85E', // lime
-  '#C85E5E', // rose
+  '#C85E6B', // rose
+  // Softer/muted shades (5)
+  '#A8C4D8', // dusty blue
+  '#B8D4A8', // sage green
+  '#D4B8A8', // blush
+  '#C8B8D8', // lavender
+  '#D4C8A8', // sand
 ];
 
 // For backwards compat (Settings color picker still references this)
