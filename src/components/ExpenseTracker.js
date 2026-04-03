@@ -66,7 +66,7 @@ const formatExpenseDisplayDate = (dateStr) => {
 };
 
 // Builds daily totals for This Month chart from scratch
-function buildThisMonthDailyData(allExpenses, fxRates, homeCurrency) {
+function buildThisMonthDailyData(allExpenses, fxRates, homeCurrency, toHome) {
   const now = new Date();
   const currentMonth = now.getMonth();
   const currentYear  = now.getFullYear();
@@ -88,10 +88,7 @@ function buildThisMonthDailyData(allExpenses, fxRates, homeCurrency) {
     const dayEntry   = days.find(d => d.day === dayOfMonth);
     if (!dayEntry) return;
     const amount = parseFloat(expense.amount) || 0;
-    let converted = amount;
-    if (expense.currency && expense.currency !== homeCurrency && fxRates && fxRates[expense.currency]) {
-      converted = amount * fxRates[expense.currency];
-    }
+    const converted = toHome(amount, expense.currency) ?? amount;
     dayEntry.total += converted;
   });
 
@@ -310,8 +307,8 @@ export default function ExpenseTracker({
 
   // ── This Month daily chart — built separately from scratch ─────────────────
   const thisMonthData = useMemo(
-    () => buildThisMonthDailyData(state.expenses, fxRates, state.currencyCode),
-    [state.expenses, fxRates, state.currencyCode], // eslint-disable-line
+    () => buildThisMonthDailyData(state.expenses, fxRates, state.currencyCode, toHome),
+    [state.expenses, fxRates, state.currencyCode, toHome], // eslint-disable-line
   );
 
   const barChartData = useMemo(() => {
