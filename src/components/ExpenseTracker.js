@@ -180,6 +180,7 @@ export default function ExpenseTracker({
   // hover tracking for view-mode rows (to show inactive recurring icon)
   const [hoveredRowId,    setHoveredRowId]    = useState(null);
   const [activePayIndex,  setActivePayIndex]  = useState(null);
+  const [activeCatIndex,  setActiveCatIndex]  = useState(null);
 
   const expenses       = state.expenses        || [];
   const categories     = state.expenseCategories || [];
@@ -843,8 +844,17 @@ export default function ExpenseTracker({
                               formatter={val => [fmtChart(val, currency.symbol), 'Total']}
                               contentStyle={{ border: '1px solid #e8e4dc', borderRadius: 8, fontSize: 12 }}
                             />
-                            <Bar dataKey="value" radius={[0, 4, 4, 0]} maxBarSize={16} background={{ fill: 'transparent' }}>
-                              {catChartData.map((entry, i) => <Cell key={i} fill={entry.color} />)}
+                            <Bar dataKey="value" radius={[0, 4, 4, 0]} maxBarSize={16} background={{ fill: 'transparent' }}
+                              onMouseEnter={(_, index) => setActiveCatIndex(index)}
+                              onMouseLeave={() => setActiveCatIndex(null)}
+                            >
+                              {catChartData.map((entry, i) => (
+                                <Cell
+                                  key={i}
+                                  fill={entry.color}
+                                  opacity={activeCatIndex === null ? 1 : activeCatIndex === i ? 1 : 0.4}
+                                />
+                              ))}
                             </Bar>
                           </BarChart>
                         </ResponsiveContainer>
