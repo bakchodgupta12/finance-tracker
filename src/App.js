@@ -229,12 +229,11 @@ export default function App() {
     const code = state.currencyCode || 'GBP';
     if (fxCacheRef.current[code]) { setFxRates(fxCacheRef.current[code]); return; }
     setFxLoading(true);
-    fetchFxRates(code).then(({ rates, source }) => {
+    fetchFxRates(code).then(rates => {
       fxCacheRef.current[code] = rates;
       setFxRates(rates);
       setFxLoading(false);
-      console.log('FX source:', source === 'exchangerate-api' ? 'ExchangeRate-API' : source === 'frankfurter' ? 'frankfurter fallback' : 'empty (no rates)');
-      if (source === 'exchangerate-api') {
+      if (rates && Object.keys(rates).length > 0) {
         const month = new Date().toISOString().slice(0, 7);
         set('fxApiCallsThisMonth', prev => {
           const p = prev || { month: '', count: 0 };
