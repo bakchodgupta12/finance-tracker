@@ -132,28 +132,32 @@ export async function deleteYearData(userId, year) {
   await supabase.from('tracker_data').delete().eq('user_id', userId).eq('year', year);
 }
 
-// Fetch live FX rates — base currency to all others
-// Primary: ExchangeRate-API; fallback: frankfurter.app
-// Returns { rates: {}, source: 'exchangerate-api'|'frankfurter'|'empty' }
-export async function fetchFxRates(baseCurrency = 'GBP') {
+export async function fetchFxRates(baseCurrency = 'HKD') {
   try {
-    const res = await fetch(`https://v6.exchangerate-api.com/v6/latest/${baseCurrency}`);
+    // Call our own serverless function
+    // instead of external API directly
+    const res = await fetch(
+      `/api/fx-rates?base=${baseCurrency}`
+    );
+
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
     const json = await res.json();
-    if (json.result === 'success' && json.conversion_rates) {
-      return { rates: json.conversion_rates, source: 'exchangerate-api' };
+
+    if (json.rates && Object.keys(json.rates).length > 0) {
+      console.log(
+        'FX rates loaded successfully:',
+        Object.keys(json.rates).length,
+        'currencies, sample THB:',
+        json.rates.THB
+      );
+      return json.rates;
     }
-    console.log('ExchangeRate-API response status:', res.status, '| result:', json.result || 'missing', '| error:', json['error-type'] || 'none');
+
+    throw new Error('Empty rates returned');
+
   } catch (err) {
-    console.log('ExchangeRate-API fetch error:', err.message);
+    console.error('FX fetch failed:', err.message);
+    return {};
   }
-  // Fallback to frankfurter
-  console.log('Falling back to frankfurter.app...');
-  try {
-    const res = await fetch(`https://api.frankfurter.app/latest?from=${baseCurrency}`);
-    const json = await res.json();
-    return { rates: json.rates || {}, source: 'frankfurter' };
-  } catch (err) {
-    console.log('Frankfurter fetch error:', err.message);
-  }
-  return { rates: {}, source: 'empty' };
 }
