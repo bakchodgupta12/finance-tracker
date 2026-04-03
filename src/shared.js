@@ -60,37 +60,56 @@ export const ALL_MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep'
 export const TABS = ['dashboard','plan','tracker','settings'];
 
 export const CATEGORY_COLOURS = [
-  '#5B9BD5', // blue
-  '#6dbb8a', // green
-  '#E8A838', // amber
-  '#D96B6B', // coral
-  '#9B8EC4', // purple
-  '#4ABFBF', // teal
-  '#E8784A', // orange
-  '#A8C97A', // lime
-  '#D4739A', // pink
-  '#6B9EC4', // steel blue
-  '#C4A86B', // tan
-  '#7BC4A8', // mint
-  '#C47B9E', // mauve
-  '#8BC46B', // olive
-  '#C4986B', // sand
-  '#6B8EC4', // periwinkle
-  '#C4C46B', // yellow-green
-  '#9EC47B', // sage
-  '#C46B6B', // rose
-  '#6BC4C4', // aqua
+  // Vivid distinct colours (15)
+  '#E05C5C', // red
+  '#E8943A', // orange
+  '#E8C83A', // yellow
+  '#6BBF5E', // green
+  '#3AAD9E', // teal
+  '#3A7EC8', // blue
+  '#6B5EC8', // indigo
+  '#A85EC8', // purple
+  '#C85E9E', // pink
+  '#C8855E', // brown
+  '#5E9EC8', // sky blue
+  '#5EC88A', // mint
+  '#C8C25E', // olive
+  '#8EC85E', // lime
+  '#C85E6B', // rose
+  // Softer/muted shades (5)
+  '#A8C4D8', // dusty blue
+  '#B8D4A8', // sage green
+  '#D4B8A8', // blush
+  '#C8B8D8', // lavender
+  '#D4C8A8', // sand
 ];
 
 // For backwards compat (Settings color picker still references this)
 export const EXPENSE_CATEGORY_COLORS = CATEGORY_COLOURS;
 
 export const assignCategoryColours = (categories) => {
-  const sorted = [...categories].sort((a, b) => a.name.localeCompare(b.name));
-  return sorted.map((cat, index) => ({
-    ...cat,
-    color: CATEGORY_COLOURS[index % CATEGORY_COLOURS.length],
-  }));
+  const usedColours = new Set(
+    categories
+      .filter(c => c.color)
+      .map(c => c.color)
+  );
+
+  const getNextAvailable = () => {
+    for (const colour of CATEGORY_COLOURS) {
+      if (!usedColours.has(colour)) {
+        usedColours.add(colour);
+        return colour;
+      }
+    }
+    // All used — fallback to first
+    return CATEGORY_COLOURS[0];
+  };
+
+  return categories.map(cat => {
+    if (cat.color) return cat; // keep existing
+    const assigned = getNextAvailable();
+    return { ...cat, color: assigned };
+  });
 };
 export const CAT_COLORS = { Savings:'#5B9BD5', Investments:'#6dbb8a', Needs:'#E8A838', Wants:'#D96B6B' };
 export const CATEGORIES = ['Savings','Investments','Needs','Wants'];

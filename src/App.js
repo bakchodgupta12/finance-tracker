@@ -324,11 +324,15 @@ export default function App() {
       const migratedData = {
         ...(existingData.expenseCategories ? {
           ...existingData,
-          expenseCategories: assignCategoryColours(
-            existingData.expenseCategories.map(cat =>
+          expenseCategories: (() => {
+            const typeMigrated = existingData.expenseCategories.map(cat =>
               cat.type !== undefined ? cat : { ...cat, type: DEFAULT_CAT_TYPES[cat.name] || null }
-            )
-          ),
+            );
+            // Only assign colours to categories that are missing one (legacy data).
+            // Never overwrite colours that were manually saved by the user.
+            const hasMissing = typeMigrated.some(c => !c.color);
+            return hasMissing ? assignCategoryColours(typeMigrated) : typeMigrated;
+          })(),
         } : existingData),
         expenses: (existingData.expenses || []).map(e => {
           let m = 'recurring' in e ? e : { ...e, recurring: false };
