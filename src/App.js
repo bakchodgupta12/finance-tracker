@@ -14,6 +14,26 @@ import Tracker from './components/ActualsMonth';
 import Settings from './components/Settings';
 import Investments from './components/Investments';
 
+const RefreshIcon = ({ spinning }) => (
+  <svg
+    width="14"
+    height="14"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    style={{
+      animation: spinning ? 'spin 0.8s linear infinite' : 'none',
+      display: 'block',
+    }}
+  >
+    <polyline points="23 4 23 10 17 10"/>
+    <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
+  </svg>
+);
+
 // ─────────────────────────────────────────────
 // Sanitise numeric fields loaded from storage
 // ─────────────────────────────────────────────
@@ -163,6 +183,7 @@ export default function App() {
   const [saveStatus, setSaveStatus]   = useState('idle');
   const [lastSavedAt, setLastSavedAt] = useState(null);
   const [displayTime, setDisplayTime] = useState('');
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [loaded, setLoaded]           = useState(false);
   const [fxRates, setFxRates]         = useState({});
   const [fxLoading, setFxLoading]     = useState(false);
@@ -381,6 +402,31 @@ export default function App() {
     await saveData(onboardingData.userId, currentYear, newState);
   }, [onboardingData]);
 
+  // Soft refresh — re-fetch FX rates and user data
+  const handleRefresh = async () => {
+    if (isRefreshing) return;
+    setIsRefreshing(true);
+    try {
+      const freshRates = await fetchFxRates(state.currencyCode);
+      if (freshRates && Object.keys(freshRates).length > 0) {
+        setFxRates(freshRates);
+      }
+      const { data } = await loadData(state.userId);
+      if (data) {
+        setState(prev => ({
+          ...makeDefaultState(),
+          ...sanitizeNumericFields(data),
+          userId: prev.userId,
+        }));
+      }
+      setLastSavedAt(new Date());
+    } catch (err) {
+      console.error('Refresh failed:', err);
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
   // Switch year
   const switchYear = useCallback(async (year) => {
     if (year === selectedYear) return;
@@ -553,7 +599,7 @@ export default function App() {
 
   return (
     <div style={{ minHeight: '100vh', background: '#f7f5f0', fontFamily: "'DM Sans', sans-serif", color: '#2d2a26' }}>
-      <style>{`@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }`}</style>
+      <style>{`@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } } @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
 
       {/* ── New Year Confirmation Modal ── */}
       {showNewYearConfirm && (
@@ -662,31 +708,55 @@ export default function App() {
             >+ New Year</button>
           </div>
 
-          {/* Save status */}
-          {saveStatus === 'saving' && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: '#9e9890' }}>
-              <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#b0aa9f', animation: 'pulse 1s infinite' }} />
-              Saving…
-            </div>
-          )}
-          {saveStatus === 'saved' && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: '#9e9890' }}>
-              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#6dbb8a" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <polyline points="20 6 9 17 4 12"/>
-              </svg>
-              Saved · {displayTime}
-            </div>
-          )}
-          {saveStatus === 'error' && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: '#c94040' }}>
-              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#c94040" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="12" cy="12" r="10"/>
-                <line x1="12" y1="8" x2="12" y2="12"/>
-                <line x1="12" y1="16" x2="12.01" y2="16"/>
-              </svg>
-              Save failed · Retrying…
-            </div>
-          )}
+          {/* Refresh + Save status */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <button
+              onClick={handleRefresh}
+              disabled={isRefreshing}
+              title="Refresh data and FX rates"
+              style={{
+                background: 'none',
+                border: 'none',
+                cursor: isRefreshing ? 'default' : 'pointer',
+                color: isRefreshing ? '#7eb5d6' : '#9e9890',
+                padding: 4,
+                borderRadius: 6,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                transition: 'color 0.15s',
+                lineHeight: 1,
+              }}
+              onMouseEnter={e => { if (!isRefreshing) e.currentTarget.style.color = '#1a1714'; }}
+              onMouseLeave={e => { if (!isRefreshing) e.currentTarget.style.color = '#9e9890'; }}
+            >
+              <RefreshIcon spinning={isRefreshing} />
+            </button>
+            {saveStatus === 'saving' && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: '#9e9890' }}>
+                <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#b0aa9f', animation: 'pulse 1s infinite' }} />
+                Saving…
+              </div>
+            )}
+            {saveStatus === 'saved' && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: '#9e9890' }}>
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#6dbb8a" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="20 6 9 17 4 12"/>
+                </svg>
+                Saved · {displayTime}
+              </div>
+            )}
+            {saveStatus === 'error' && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: '#c94040' }}>
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#c94040" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="10"/>
+                  <line x1="12" y1="8" x2="12" y2="12"/>
+                  <line x1="12" y1="16" x2="12.01" y2="16"/>
+                </svg>
+                Save failed · Retrying…
+              </div>
+            )}
+          </div>
 
           {yearLoading && <span style={{ fontSize: 11, color: '#b0aa9f' }}>Loading…</span>}
         </div>

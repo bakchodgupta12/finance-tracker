@@ -147,7 +147,6 @@ export default function Settings({ state, set, onDeleteAccount, onDeleteYear, on
               return (
                 <p style={{ fontSize: 12, color, marginTop: 12, fontWeight: 500 }}>
                   FX API: {count} / 1,500 calls this month
-                  <span style={{ display: 'block', fontSize: 11, fontWeight: 400, color: '#b0aa9f', marginTop: 1 }}>Source: ExchangeRate-API (via proxy)</span>
                   {count >= 1400 && <span style={{ display: 'block', fontSize: 11, fontWeight: 400, color: '#D96B6B', marginTop: 2 }}>Approaching free tier limit. Rates may fall back to backup source.</span>}
                 </p>
               );
