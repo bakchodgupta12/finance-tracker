@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { hashPassword, verifyPassword } from '../supabase';
 import {
   s, Lbl, Inp, FG, Toast, Divider, DelBtn, AddBtn, TypeBadge, Select,
@@ -63,6 +63,18 @@ export default function Settings({ state, set, onDeleteAccount, onDeleteYear, on
   const [confirmDeleteYear, setConfirmDeleteYear] = useState(null);
   // Color picker open state (category id or null)
   const [colorPickId, setColorPickId] = useState(null);
+  const colorPickerRef = useRef(null);
+
+  useEffect(() => {
+    if (!colorPickId) return;
+    const handleClickOutside = (e) => {
+      if (colorPickerRef.current && !colorPickerRef.current.contains(e.target)) {
+        setColorPickId(null);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [colorPickId]);
 
   const expenses       = state.expenses        || [];
   const categories     = state.expenseCategories || [];
@@ -189,7 +201,7 @@ export default function Settings({ state, set, onDeleteAccount, onDeleteYear, on
                 <div key={cat.id} style={{ marginBottom: 10 }}>
                   <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                     {/* Color dot */}
-                    <div style={{ position: 'relative', flexShrink: 0 }}>
+                    <div ref={isPickerOpen ? colorPickerRef : null} style={{ position: 'relative', flexShrink: 0 }}>
                       <button
                         onClick={() => setColorPickId(isPickerOpen ? null : cat.id)}
                         style={{
@@ -200,25 +212,46 @@ export default function Settings({ state, set, onDeleteAccount, onDeleteYear, on
                       />
                       {isPickerOpen && (
                         <div style={{
-                          position: 'absolute', top: 28, left: 0, zIndex: 20,
-                          background: '#fff', border: '1px solid #e8e4dc', borderRadius: 10,
-                          padding: '10px', boxShadow: '0 4px 16px rgba(0,0,0,0.08)',
-                          display: 'flex', flexWrap: 'wrap', gap: 6, width: 136,
+                          display: 'grid',
+                          gridTemplateColumns: 'repeat(5, 1fr)',
+                          gap: 6,
+                          padding: 8,
+                          background: '#fff',
+                          border: '1px solid #e8e4dc',
+                          borderRadius: 10,
+                          boxShadow: '0 4px 16px rgba(0,0,0,0.1)',
+                          position: 'absolute',
+                          top: 28,
+                          left: 0,
+                          zIndex: 100,
                         }}>
-                          {EXPENSE_CATEGORY_COLORS.map(col => (
-                            <button
-                              key={col}
-                              onClick={() => {
-                                set('expenseCategories', prev => prev.map(c => c.id === cat.id ? { ...c, color: col } : c));
-                                setColorPickId(null);
-                              }}
-                              style={{
-                                width: 22, height: 22, borderRadius: '50%', background: col, border: 'none',
-                                cursor: 'pointer', outline: cat.color === col ? '2px solid #2d2a26' : 'none',
-                                outlineOffset: 2,
-                              }}
-                            />
-                          ))}
+                          {CATEGORY_COLOURS.map(colour => {
+                            const isUsedByOther = categories.some(c => c.id !== cat.id && c.color === colour);
+                            const isCurrentColour = cat.color === colour;
+                            return (
+                              <div
+                                key={colour}
+                                onClick={() => {
+                                  if (!isUsedByOther) {
+                                    set('expenseCategories', prev => prev.map(c => c.id === cat.id ? { ...c, color: colour } : c));
+                                    setColorPickId(null);
+                                  }
+                                }}
+                                style={{
+                                  width: 28,
+                                  height: 28,
+                                  borderRadius: '50%',
+                                  background: colour,
+                                  cursor: isUsedByOther ? 'not-allowed' : 'pointer',
+                                  opacity: isUsedByOther ? 0.25 : 1,
+                                  border: isCurrentColour ? '2px solid #1a1714' : '2px solid transparent',
+                                  transition: 'transform 0.1s',
+                                  transform: isCurrentColour ? 'scale(1.15)' : 'scale(1)',
+                                }}
+                                title={isUsedByOther ? 'Used by another category' : colour}
+                              />
+                            );
+                          })}
                         </div>
                       )}
                     </div>
