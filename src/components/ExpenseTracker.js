@@ -22,7 +22,7 @@ const RecurringIcon = ({ active }) => (
 function getAutoSuggest(description, expenses) {
   if (!description || !expenses.length) return null;
   const lower = description.toLowerCase().trim();
-  if (!lower) return null;
+  if (!lower || lower.length < 2) return null;
 
   // Exact match first
   const exact = expenses.filter(e => e.description.toLowerCase() === lower);
@@ -31,7 +31,7 @@ function getAutoSuggest(description, expenses) {
       const da = parseExpenseDate(a.date), db = parseExpenseDate(b.date);
       return (db && da && db > da) ? b : a;
     });
-    return { category: latest.category, paidBy: latest.paidBy };
+    return { category: latest.category, paidBy: latest.paidBy, currency: latest.currency || null };
   }
 
   // Prefix match on first word
@@ -45,11 +45,17 @@ function getAutoSuggest(description, expenses) {
         const da = parseExpenseDate(a.date), db = parseExpenseDate(b.date);
         return (db && da && db > da) ? b : a;
       });
-      return { category: latest.category, paidBy: latest.paidBy };
+      return { category: latest.category, paidBy: latest.paidBy, currency: latest.currency || null };
     }
   }
   return null;
 }
+
+// ── Amount formatter ─────────────────────────────────────────────────────────
+const formatAmount = (amount) => {
+  const n = parseFloat(amount) || 0;
+  return n.toFixed(2);
+};
 
 const formatDisplayDate = (isoDate) => {
   if (!isoDate) return '';
@@ -171,7 +177,7 @@ export default function ExpenseTracker({
   const [suggestions,   setSuggestions]   = useState([]);
   const [showSugg,      setShowSugg]      = useState(false);
   // track which fields were auto-filled (reset on editingId change)
-  const [autoFilled,    setAutoFilled]    = useState({ category: false, paidBy: false });
+  const [autoFilled,    setAutoFilled]    = useState({ category: false, paidBy: false, currency: false });
   const [searchQuery,   setSearchQuery]   = useState('');
   // recurring: id of expense awaiting "remove from subscriptions?" prompt
   const [removeSubPrompt,    setRemoveSubPrompt]    = useState(null);
@@ -545,7 +551,7 @@ export default function ExpenseTracker({
     };
     set('expenses', prev => [newExp, ...(prev || [])]);
     setEditingId(id);
-    setAutoFilled({ category: false, paidBy: false });
+    setAutoFilled({ category: false, paidBy: false, currency: false });
     setVisibleCount(prev => Math.max(prev, PAGE_SIZE));
   };
 
@@ -559,7 +565,7 @@ export default function ExpenseTracker({
 
   const startEdit = id => {
     setEditingId(id);
-    setAutoFilled({ category: false, paidBy: false });
+    setAutoFilled({ category: false, paidBy: false, currency: false });
     setSuggestions([]);
     setShowSugg(false);
   };
@@ -645,14 +651,15 @@ export default function ExpenseTracker({
     updateExp(id, 'description', value);
     const others = expenses.filter(e => e.id !== id);
 
-    // Background auto-fill category + paidBy
+    // Background auto-fill category + paidBy + currency
     const suggest = getAutoSuggest(value, others);
     if (suggest && value.trim()) {
       updateExp(id, 'category', suggest.category);
       updateExp(id, 'paidBy',   suggest.paidBy);
-      setAutoFilled({ category: true, paidBy: true });
+      if (suggest.currency) updateExp(id, 'currency', suggest.currency);
+      setAutoFilled({ category: true, paidBy: true, currency: !!suggest.currency });
     } else {
-      setAutoFilled({ category: false, paidBy: false });
+      setAutoFilled({ category: false, paidBy: false, currency: false });
     }
 
     // Dropdown suggestions
@@ -683,7 +690,8 @@ export default function ExpenseTracker({
     if (suggest) {
       updateExp(id, 'category', suggest.category);
       updateExp(id, 'paidBy',   suggest.paidBy);
-      setAutoFilled({ category: true, paidBy: true });
+      if (suggest.currency) updateExp(id, 'currency', suggest.currency);
+      setAutoFilled({ category: true, paidBy: true, currency: !!suggest.currency });
     }
     setShowSugg(false);
   };
@@ -1034,7 +1042,7 @@ export default function ExpenseTracker({
                           <td style={tdSt}>{formatExpenseDisplayDate(exp.date)}</td>
                           <td style={{ ...tdSt, fontWeight: 500 }}>{exp.description || <span style={{ color: '#d5d0c8' }}>—</span>}</td>
                           <td style={{ ...tdSt, fontWeight: 600, textAlign: 'right' }}>
-                            {exp.amount ? `${accCur.symbol}${Number(exp.amount).toLocaleString()}` : <span style={{ color: '#d5d0c8' }}>—</span>}
+                            {exp.amount ? `${accCur.symbol}${formatAmount(exp.amount)}` : <span style={{ color: '#d5d0c8' }}>—</span>}
                           </td>
                           <td style={{ ...tdSt, color: '#9e9890' }}>
                             {flag && <span style={{ marginRight: 4 }}>{flag}</span>}{exp.currency}
@@ -1116,7 +1124,7 @@ export default function ExpenseTracker({
                           {ph.description || <span style={{ color: '#d5d0c8' }}>—</span>}
                         </td>
                         <td style={{ ...tdSt, paddingLeft: 0, fontWeight: 600, textAlign: 'right' }}>
-                          {ph.amount ? Number(ph.amount).toLocaleString() : <span style={{ color: '#d5d0c8' }}>—</span>}
+                          {ph.amount ? formatAmount(ph.amount) : <span style={{ color: '#d5d0c8' }}>—</span>}
                         </td>
                         <td style={{ width: 16, padding: 0, border: 'none' }} />
                         <td style={{ ...tdSt, paddingLeft: 0, color: '#9e9890' }}>
@@ -1226,8 +1234,8 @@ export default function ExpenseTracker({
                           <td style={{ padding: '5px 0' }}>
                             <Select
                               value={exp.currency}
-                              onChange={e => updateExp(exp.id, 'currency', e.target.value)}
-                              style={{ fontSize: 13, padding: '4px 8px' }}
+                              onChange={e => { updateExp(exp.id, 'currency', e.target.value); setAutoFilled(p => ({ ...p, currency: false })); }}
+                              style={{ fontSize: 13, padding: '4px 8px', background: autoFilled.currency ? autoFillBg : undefined }}
                             >
                               {CURRENCIES.map(c => <option key={c.code} value={c.code}>{c.code}</option>)}
                             </Select>
@@ -1353,7 +1361,7 @@ export default function ExpenseTracker({
                           </td>
                           <td style={{ ...tdSt, paddingLeft: 0, fontWeight: 600, textAlign: 'right' }}>
                             {exp.amount
-                              ? Number(exp.amount).toLocaleString()
+                              ? formatAmount(exp.amount)
                               : <span style={{ color: '#d5d0c8' }}>—</span>}
                           </td>
                           <td style={{ width: 16, padding: 0, border: 'none' }} />
