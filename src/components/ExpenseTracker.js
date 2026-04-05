@@ -178,8 +178,9 @@ export default function ExpenseTracker({
   // recurring: id of expense showing frequency prompt (monthly/yearly)
   const [showFrequencyPrompt, setShowFrequencyPrompt] = useState(null);
   // hover tracking for view-mode rows (to show inactive recurring icon)
-  const [hoveredRowId,    setHoveredRowId]    = useState(null);
-  const [activePayIndex,  setActivePayIndex]  = useState(null);
+  const [hoveredRowId,      setHoveredRowId]      = useState(null);
+  const [activePayIndex,    setActivePayIndex]    = useState(null);
+  const [showSpendTooltip,  setShowSpendTooltip]  = useState(false);
 
   const expenses       = state.expenses        || [];
   const categories     = state.expenseCategories || [];
@@ -440,6 +441,20 @@ export default function ExpenseTracker({
       return db - da || b.id.localeCompare(a.id);
     });
   }, [dateFilter, monthExpenses, filteredExpenses]);
+
+  const currencyBreakdown = useMemo(() =>
+    filteredExpenses
+      .filter(e => !e.isPlaceholder)
+      .reduce((acc, e) => {
+        const curr = e.currency || state.currencyCode;
+        const amt = parseFloat(e.amount) || 0;
+        if (!acc[curr]) acc[curr] = 0;
+        acc[curr] += amt;
+        return acc;
+      }, {}),
+  [filteredExpenses, state.currencyCode]); // eslint-disable-line
+
+  const showBreakdown = Object.keys(currencyBreakdown).length > 1;
 
   const visibleExpenses = tableExpenses.slice(0, visibleCount);
 
@@ -739,16 +754,95 @@ export default function ExpenseTracker({
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
           <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap' }}>
             <div>
-              <p style={{ fontSize: 10, color: '#b0aa9f', letterSpacing: '0.08em', fontWeight: 600, marginBottom: 2 }}>TOTAL SPEND</p>
-              <p style={{ fontSize: 17, fontWeight: 600, color: '#1a1714' }}>{f(analyticsStats.total)}</p>
+              <p style={{ fontSize: 10, color: '#9e9890', letterSpacing: '0.08em', fontWeight: 500, marginBottom: 2, textTransform: 'uppercase' }}>TOTAL SPEND</p>
+              <div
+                style={{ position: 'relative', display: 'inline-block' }}
+                onMouseEnter={() => setShowSpendTooltip(true)}
+                onMouseLeave={() => setShowSpendTooltip(false)}
+              >
+                <span style={{
+                  fontSize: 20,
+                  fontWeight: 700,
+                  color: '#1a1714',
+                  borderBottom: showBreakdown ? '1px dashed #d0ccc5' : 'none',
+                  cursor: 'default',
+                }}>
+                  {f(analyticsStats.total)}
+                </span>
+                {showSpendTooltip && showBreakdown && (
+                  <div style={{
+                    position: 'absolute',
+                    top: 'calc(100% + 8px)',
+                    left: '50%',
+                    transform: 'translateX(-50%)',
+                    background: '#fff',
+                    border: '1px solid #e8e4dc',
+                    borderRadius: 10,
+                    padding: '10px 14px',
+                    boxShadow: '0 4px 20px rgba(0,0,0,0.08)',
+                    zIndex: 50,
+                    minWidth: 200,
+                    whiteSpace: 'nowrap',
+                  }}>
+                    <div style={{
+                      position: 'absolute',
+                      top: -5,
+                      left: '50%',
+                      transform: 'translateX(-50%) rotate(45deg)',
+                      width: 8,
+                      height: 8,
+                      background: '#fff',
+                      border: '1px solid #e8e4dc',
+                      borderRight: 'none',
+                      borderBottom: 'none',
+                    }} />
+                    <p style={{
+                      fontSize: 10,
+                      fontWeight: 600,
+                      letterSpacing: '0.08em',
+                      color: '#9e9890',
+                      marginBottom: 8,
+                      textTransform: 'uppercase',
+                    }}>
+                      By Currency
+                    </p>
+                    {Object.entries(currencyBreakdown).map(([curr, amt]) => (
+                      <div key={curr} style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        gap: 16,
+                        padding: '3px 0',
+                        borderBottom: '1px solid #f9f7f3',
+                        fontSize: 12,
+                      }}>
+                        <span style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#6b6660' }}>
+                          {getCurrencyFlag(curr)}
+                          <span>{curr}</span>
+                        </span>
+                        <span style={{ fontWeight: 600, color: '#1a1714' }}>
+                          {amt.toFixed(2)}
+                        </span>
+                      </div>
+                    ))}
+                    <div style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      marginTop: 6,
+                      paddingTop: 6,
+                      borderTop: '1px solid #e8e4dc',
+                      fontSize: 12,
+                    }}>
+                      <span style={{ color: '#9e9890' }}>Total ({state.currencyCode})</span>
+                      <span style={{ fontWeight: 700, color: '#1a1714' }}>{f(analyticsStats.total)}</span>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
             <div>
-              <p style={{ fontSize: 10, color: '#b0aa9f', letterSpacing: '0.08em', fontWeight: 600, marginBottom: 2 }}>TOP CATEGORY</p>
-              <p style={{ fontSize: 14, fontWeight: 600, color: '#4a4643' }}>{analyticsStats.topCat}</p>
-            </div>
-            <div>
-              <p style={{ fontSize: 10, color: '#b0aa9f', letterSpacing: '0.08em', fontWeight: 600, marginBottom: 2 }}>TRANSACTIONS</p>
-              <p style={{ fontSize: 14, fontWeight: 600, color: '#4a4643' }}>{analyticsStats.count}</p>
+              <p style={{ fontSize: 10, color: '#9e9890', letterSpacing: '0.08em', fontWeight: 500, marginBottom: 2, textTransform: 'uppercase' }}>TOP CATEGORY</p>
+              <p style={{ fontSize: 20, fontWeight: 700, color: '#1a1714' }}>{analyticsStats.topCat}</p>
             </div>
           </div>
           <button
