@@ -932,52 +932,70 @@ export default function ExpenseTracker({
                   </div>
 
                   {/* Category breakdown */}
-                  {catChartData.length > 0 && (
-                    <div style={{ marginBottom: 20 }}>
-                      <Lbl>SPEND BY CATEGORY</Lbl>
-                      <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'flex-start', gap: 20, marginTop: 10 }}>
-                        <ResponsiveContainer width="50%" height={Math.max(160, catChartData.length * 26)}>
-                          <BarChart data={catChartData} layout="vertical" maxBarSize={16} style={{ cursor: 'default' }}>
-                            <CartesianGrid strokeDasharray="3 3" stroke="#f0ece4" horizontal={false} />
-                            <XAxis type="number" stroke="#e8e4dc" tick={{ fill: '#b0aa9f', fontSize: 11 }} tickFormatter={v => fmtChart(v, currency.symbol)} />
-                            <YAxis type="category" dataKey="name" stroke="#e8e4dc" tick={{ fill: '#b0aa9f', fontSize: 11 }} width={80} />
-                            <Tooltip
-                              formatter={val => [fmtChart(val, currency.symbol), 'Total']}
-                              contentStyle={{ border: '1px solid #e8e4dc', borderRadius: 8, fontSize: 12 }}
-                            />
-                            <Bar dataKey="value" radius={[0, 4, 4, 0]} maxBarSize={16} background={{ fill: 'transparent' }}>
-                              {catChartData.map((entry, i) => <Cell key={i} fill={entry.color} />)}
-                            </Bar>
-                          </BarChart>
-                        </ResponsiveContainer>
-                        <div style={{ alignSelf: 'flex-start', marginTop: 0, flex: 1 }}>
-                          <table style={{ fontSize: 12, borderCollapse: 'collapse', width: '100%' }}>
-                            <thead>
-                              <tr>
-                                {['Category', 'Total', '%'].map(h => (
-                                  <th key={h} style={thSt}>{h.toUpperCase()}</th>
-                                ))}
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {catChartData.map((row, i) => (
-                                <tr key={i} style={{ borderBottom: '1px solid #f9f7f3' }}>
-                                  <td style={tdSt}>
-                                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                                      <span style={{ width: 8, height: 8, borderRadius: 2, background: row.color, display: 'inline-block', flexShrink: 0 }} />
-                                      {row.name}
-                                    </span>
-                                  </td>
-                                  <td style={tdSt}>{f(row.value)}</td>
-                                  <td style={{ ...tdSt, color: '#9e9890' }}>{row.pct}%</td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
+                  {(() => {
+                    const categoryData = Object.entries(
+                      filteredExpenses
+                        .filter(e => !e.isPlaceholder && e.category)
+                        .reduce((acc, e) => {
+                          const cat = e.category;
+                          const amt = toHomeAmt(e);
+                          if (!acc[cat]) acc[cat] = 0;
+                          acc[cat] += amt;
+                          return acc;
+                        }, {})
+                    )
+                      .map(([name, total]) => {
+                        const catObj = state.expenseCategories?.find(c => c.name === name);
+                        return { name, total, color: catObj?.color || '#e8a598' };
+                      })
+                      .sort((a, b) => b.total - a.total);
+
+                    if (categoryData.length === 0) return null;
+
+                    const grandTotal = categoryData.reduce((s, c) => s + c.total, 0);
+                    const maxTotal = categoryData[0]?.total || 1;
+
+                    return (
+                      <div style={{ marginBottom: 20 }}>
+                        <p style={{
+                          fontSize: 10,
+                          fontWeight: 600,
+                          letterSpacing: '0.08em',
+                          color: '#9e9890',
+                          textTransform: 'uppercase',
+                          marginBottom: 10,
+                        }}>
+                          Spend by Category
+                        </p>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6, paddingBottom: 6, borderBottom: '1px solid #f0ece4' }}>
+                          <div style={{ width: 8, flexShrink: 0 }} />
+                          <div style={{ flex: 1 }} />
                         </div>
+                        {categoryData.map(cat => {
+                          const pct = grandTotal > 0 ? ((cat.total / grandTotal) * 100).toFixed(1) : '0.0';
+                          const barPct = (cat.total / maxTotal) * 100;
+                          return (
+                            <div key={cat.name} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '6px 0', borderBottom: '1px solid #f9f7f3' }}>
+                              <div style={{ width: 8, height: 8, borderRadius: '50%', background: cat.color, flexShrink: 0 }} />
+                              <div style={{ width: 130, flexShrink: 0 }}>
+                                <div style={{ fontSize: 13, color: '#1a1714', overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis', lineHeight: 1.3 }}>
+                                  {cat.name}
+                                </div>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 2 }}>
+                                  <span style={{ fontSize: 12, fontWeight: 700, color: cat.color, whiteSpace: 'nowrap' }}>{f(cat.total)}</span>
+                                  <span style={{ color: '#d0ccc5', fontSize: 11 }}>·</span>
+                                  <span style={{ fontSize: 11, color: '#9e9890', whiteSpace: 'nowrap' }}>{pct}%</span>
+                                </div>
+                              </div>
+                              <div style={{ flex: 1, height: 10, background: '#f0ede8', borderRadius: 5, overflow: 'hidden' }}>
+                                <div style={{ width: `${barPct}%`, height: '100%', background: cat.color, borderRadius: 5, transition: 'width 0.3s ease' }} />
+                              </div>
+                            </div>
+                          );
+                        })}
                       </div>
-                    </div>
-                  )}
+                    );
+                  })()}
 
                   {/* Payment method breakdown */}
                   {pmChartData.length > 0 && !(pmChartData.length === 1 && pmChartData[0].name === 'Unassigned') && (
