@@ -969,9 +969,6 @@ export default function ExpenseTracker({
                         </p>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6, paddingBottom: 6, borderBottom: '1px solid #f0ece4' }}>
                           <div style={{ width: 8, flexShrink: 0 }} />
-                          <div style={{ width: 130, flexShrink: 0, fontSize: 10, fontWeight: 600, letterSpacing: '0.08em', color: '#9e9890', textTransform: 'uppercase' }}>
-                            Category
-                          </div>
                           <div style={{ flex: 1 }} />
                         </div>
                         {categoryData.map(cat => {
