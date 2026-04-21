@@ -334,7 +334,13 @@ function buildReportData(state, periodMonths, healthScore, baseIncome, allocByCa
     totalExpenses,
     comparison,
     spendByCategory,
-    subscriptions: state.subscriptions,
+    allExpenses: periodExpenses.map(e => ({
+      description: e.description,
+      amount: Math.round(toHome(Number(e.amount) || 0, e.currency) || 0),
+      category: e.category,
+      date: e.date,
+    })),
+    allSubscriptions: state.subscriptions || [],
     monthlySpendTrend,
     diningVsGroceries: { dining: Math.round(diningTotal), groceries: Math.round(groceriesTotal), ratio: groceriesTotal > 0 ? (diningTotal / groceriesTotal).toFixed(2) : null },
     allocationAdherence,
@@ -1026,14 +1032,25 @@ export default function HealthCheckup({
     const displayName   = (state.displayName?.trim()) ||
       (state.userId ? state.userId.charAt(0).toUpperCase() + state.userId.slice(1).toLowerCase() : '');
 
+    const dataSummary = `DATA SUMMARY: ${reportData.allExpenses?.length || 0} expenses, ${reportData.allSubscriptions?.length || 0} subscriptions. These are ALL the transactions that exist. There are no others.`;
+
     const prompt = `You are a direct, honest financial advisor reviewing someone's personal finances. Your job is to tell them exactly what the numbers mean and what they should do — no fluff, no corporate speak, no sugarcoating.
 
 CRITICAL: Complete every sentence fully. Never truncate any field. Never end a sentence with a comma or mid-word. Every string in the JSON must be a complete, grammatically correct sentence or list item.
 
-Only reference subscriptions and expenses that appear in the data below. Do not invent or assume any transactions.
+${dataSummary}
 
 Here is their financial data for ${reportData.period.label}:
 ${JSON.stringify(reportData, null, 2)}
+
+STRICT DATA RULE — THIS IS MANDATORY:
+You may ONLY reference transactions, subscriptions, and expenses that are explicitly listed in the allExpenses and allSubscriptions arrays in the data above.
+
+If allSubscriptions is empty or has fewer than 3 items, do not invent additional subscriptions. Only list what is there.
+
+Do not infer, assume, or create any transaction that does not appear verbatim in the data. If you are unsure whether a transaction exists, do not mention it.
+
+Before writing any money leak or subscription audit item, verify it exists in allExpenses or allSubscriptions. If it does not exist in those arrays, do not include it.
 
 Write a financial health report with exactly these sections. Respond in JSON with this structure:
 {
