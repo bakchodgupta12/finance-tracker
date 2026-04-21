@@ -325,6 +325,18 @@ function generatePDF(aiContent, reportData, currency, displayName) {
   doc.text(reportData.healthScore.rating, circleX, circleY + 11, { align: 'center' });
   y = circleY + circleR + 14;
 
+  // punchySummary — italic grey text below circle
+  if (aiContent.punchySummary) {
+    doc.setFont('helvetica', 'italic');
+    doc.setFontSize(12);
+    doc.setTextColor(100, 96, 90);
+    const summaryLines = doc.splitTextToSize(aiContent.punchySummary, usableW);
+    doc.text(summaryLines, margin, y);
+    y += summaryLines.length * 7 + 10;
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(26, 23, 20);
+  }
+
   // Score breakdown box
   const boxH = 46;
   doc.setFillColor(255, 255, 255);
@@ -548,11 +560,13 @@ function generatePDF(aiContent, reportData, currency, displayName) {
     doc.setFontSize(11);
     doc.setTextColor(sc.r, sc.g, sc.b);
     doc.text(section.label, margin, y);
+    y += 5;
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(9);
-    doc.setTextColor(158, 152, 144);
-    doc.text(section.effort, margin + doc.getTextWidth(section.label) + 5, y);
+    doc.setTextColor(180, 170, 160);
+    doc.text(section.effort, margin, y);
     y += 8;
+    doc.setTextColor(26, 23, 20);
 
     items.forEach((item, i) => {
       if (y > pageH - margin - 18) { doc.addPage(); y = margin + 8; }
@@ -775,11 +789,16 @@ export default function HealthCheckup({
 
     const prompt = `You are a direct, honest financial advisor reviewing someone's personal finances. Your job is to tell them exactly what the numbers mean and what they should do — no fluff, no corporate speak, no sugarcoating.
 
+CRITICAL: Complete every sentence fully. Never truncate any field. Never end a sentence with a comma or mid-word. Every string in the JSON must be a complete, grammatically correct sentence or list item.
+
+Only reference subscriptions and expenses that appear in the data below. Do not invent or assume any transactions.
+
 Here is their financial data for ${reportData.period.label}:
 ${JSON.stringify(reportData, null, 2)}
 
 Write a financial health report with exactly these sections. Respond in JSON with this structure:
 {
+  "punchySummary": "One or two punchy lines summarising the key financial story. Use real numbers. Be direct.",
   "keyFindings": [
     "Finding 1 — one punchy sentence with a specific number",
     "Finding 2",
