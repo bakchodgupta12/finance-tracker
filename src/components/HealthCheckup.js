@@ -235,6 +235,21 @@ function buildReportData(state, periodMonths, healthScore, baseIncome, allocByCa
     }
   }
 
+  // Spend by category (for PDF bar chart)
+  const catTotals = {};
+  periodExpenses.forEach(e => {
+    const cat = e.category || 'Other';
+    catTotals[cat] = (catTotals[cat] || 0) + (toHome(Number(e.amount) || 0, e.currency) || 0);
+  });
+  const categoryColorMap = {};
+  (state.expenseCategories || []).forEach(c => {
+    if (c.name) categoryColorMap[c.name] = c.color || '#E8A598';
+  });
+  const spendByCategory = Object.entries(catTotals)
+    .map(([name, total]) => ({ name, total: Math.round(total), color: categoryColorMap[name] || '#E8A598' }))
+    .sort((a, b) => b.total - a.total)
+    .slice(0, 8);
+
   // Top 5 expenses by home-currency amount
   const topExpenses = [...periodExpenses]
     .sort((a, b) => (toHome(Number(b.amount) || 0, b.currency) || 0) - (toHome(Number(a.amount) || 0, a.currency) || 0))
@@ -318,6 +333,7 @@ function buildReportData(state, periodMonths, healthScore, baseIncome, allocByCa
     topExpenses,
     totalExpenses,
     comparison,
+    spendByCategory,
     subscriptions: state.subscriptions,
     monthlySpendTrend,
     diningVsGroceries: { dining: Math.round(diningTotal), groceries: Math.round(groceriesTotal), ratio: groceriesTotal > 0 ? (diningTotal / groceriesTotal).toFixed(2) : null },
@@ -524,6 +540,59 @@ function generatePDF(aiContent, reportData, currency, displayName) {
       doc.text('No previous period data to compare.', margin, y);
       y += 10;
     }
+  }
+
+  // ── SPEND BY CATEGORY CHART ────────────────────────────────────────────────
+  if (reportData.spendByCategory?.length > 0) {
+    y += 8;
+    if (y > pageH - margin - 80) { doc.addPage(); y = margin + 8; }
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(11);
+    doc.setTextColor(26, 23, 20);
+    doc.text('SPEND BY CATEGORY', margin, y);
+    y += 5;
+    doc.setDrawColor(232, 228, 220);
+    doc.setLineWidth(0.3);
+    doc.line(margin, y, pageW - margin, y);
+    y += 7;
+
+    const nameColW = 52;
+    const amtColW  = 22;
+    const barAreaW = usableW - nameColW - amtColW;
+    const barX     = margin + nameColW;
+    const maxCatTotal = reportData.spendByCategory[0].total || 1;
+    const barH = 3;
+    const rowH = 8;
+
+    reportData.spendByCategory.forEach(cat => {
+      if (y > pageH - margin - rowH) { doc.addPage(); y = margin + 8; }
+
+      // Category name (left column)
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(9);
+      doc.setTextColor(45, 42, 38);
+      doc.text(String(cat.name || '').slice(0, 22), margin, y + 5.5);
+
+      // Bar track (grey background)
+      doc.setFillColor(240, 237, 232);
+      doc.roundedRect(barX, y + 2, barAreaW, barH, 1, 1, 'F');
+
+      // Bar fill (category colour, proportional to max)
+      const fillW = Math.max((cat.total / maxCatTotal) * barAreaW, 1);
+      const cc = hexToRgb(cat.color || '#E8A598');
+      doc.setFillColor(cc.r, cc.g, cc.b);
+      doc.roundedRect(barX, y + 2, fillW, barH, 1, 1, 'F');
+
+      // Amount (right column)
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(9);
+      doc.setTextColor(45, 42, 38);
+      doc.text(fPDF(cat.total), margin + usableW, y + 5.5, { align: 'right' });
+
+      y += rowH;
+    });
+    y += 4;
   }
 
   y += 6;
@@ -758,25 +827,65 @@ function generatePDF(aiContent, reportData, currency, displayName) {
 
   y += dynBoxH + 16;
 
-  // Net worth goal progress
-  if (reportData.netWorthGoal > 0) {
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(11);
-    doc.setTextColor(26, 23, 20);
-    doc.text(`Your goal: ${fPDF(reportData.netWorthGoal)}`, margin, y);
-    y += 9;
+  // ── Chart A: Net Worth Growth ───────────────────────────────────────────────
+  {
+    if (y > pageH - margin - 40) { doc.addPage(); y = margin + 8; }
 
-    const goalPct = Math.min((reportData.netWorth.end || 0) / reportData.netWorthGoal * 100, 100);
-    doc.setFillColor(240, 236, 228);
-    doc.roundedRect(margin, y, usableW, 6, 2, 2, 'F');
-    doc.setFillColor(rc.r, rc.g, rc.b);
-    if (goalPct > 0) doc.roundedRect(margin, y, usableW * (goalPct / 100), 6, 2, 2, 'F');
-    y += 10;
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(9);
+    doc.setTextColor(158, 152, 144);
+    doc.text('NET WORTH GROWTH', margin, y);
+    y += 6;
+
+    const nwStart    = reportData.netWorth.start;
+    const nwEnd      = reportData.netWorth.end;
+    const grew       = nwEnd >= nwStart;
+    const maxNW      = Math.max(Math.abs(nwStart), Math.abs(nwEnd)) || 1;
+    const nwFillW    = Math.min((Math.abs(nwEnd) / maxNW) * usableW, usableW);
+    const nwBarColor = grew ? { r: 45, g: 158, b: 107 } : { r: 217, g: 107, b: 107 };
+
+    doc.setFillColor(240, 237, 232);
+    doc.roundedRect(margin, y, usableW, 4, 1.5, 1.5, 'F');
+    doc.setFillColor(nwBarColor.r, nwBarColor.g, nwBarColor.b);
+    if (nwFillW > 0) doc.roundedRect(margin, y, nwFillW, 4, 1.5, 1.5, 'F');
+    y += 7;
+
+    const nwSign = reportData.netWorth.changePct >= 0 ? '+' : '';
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+    doc.setTextColor(107, 102, 96);
+    doc.text(`${nwSign}${reportData.netWorth.changePct}% since last period`, margin, y);
+    y += 12;
+  }
+
+  // ── Chart B: Goal Progress ──────────────────────────────────────────────────
+  if (reportData.netWorthGoal > 0) {
+    if (y > pageH - margin - 30) { doc.addPage(); y = margin + 8; }
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(9);
+    doc.setTextColor(158, 152, 144);
+    doc.text('GOAL PROGRESS', margin, y);
+    y += 6;
+
+    const goalPct   = Math.min((reportData.netWorth.end || 0) / reportData.netWorthGoal * 100, 100);
+    const goalFillW = Math.max((goalPct / 100) * usableW, 0);
+    const bc        = hexToRgb('#5B9BD5');
+
+    doc.setFillColor(240, 237, 232);
+    doc.roundedRect(margin, y, usableW, 4, 1.5, 1.5, 'F');
+    doc.setFillColor(bc.r, bc.g, bc.b);
+    if (goalFillW > 0) doc.roundedRect(margin, y, goalFillW, 4, 1.5, 1.5, 'F');
+    y += 7;
 
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(9);
     doc.setTextColor(107, 102, 96);
-    doc.text(`You are ${goalPct.toFixed(0)}% of the way there`, margin, y);
+    doc.text(
+      `${goalPct.toFixed(0)}% of goal  ·  ${fPDF(reportData.netWorth.end)} of ${fPDF(reportData.netWorthGoal)}`,
+      margin, y,
+    );
+    y += 10;
   }
 
   addFooter();
