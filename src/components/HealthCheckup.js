@@ -36,10 +36,17 @@ function getMonthsFromDateRange(start, end) {
 
 // ── Health Score Calculator ───────────────────────────────────────────────────
 function calcHealthScore(state, periodMonths, baseIncome, allocByCat, toHome, totalLiabilities) {
-  // 1. Savings Discipline (35 pts)
-  const savingsMonths = periodMonths.filter(m => {
+  // Months with no actuals data are excluded from scoring entirely
+  const blankMonths  = periodMonths.filter(m => {
     const a = state.actuals?.[m];
-    return a && (Number(a.Savings) > 0 || Number(a.Investments) > 0);
+    return !a || !Object.values(a).some(v => Number(v) > 0);
+  });
+  const activeMonths = periodMonths.filter(m => !blankMonths.includes(m));
+
+  // 1. Savings Discipline (35 pts) — only months that have actual data
+  const savingsMonths = activeMonths.filter(m => {
+    const a = state.actuals[m];
+    return Number(a.Savings) > 0 || Number(a.Investments) > 0;
   });
   let savingsDiscipline = 0;
   if (savingsMonths.length > 0) {
@@ -53,10 +60,10 @@ function calcHealthScore(state, periodMonths, baseIncome, allocByCat, toHome, to
     }
   }
 
-  // 2. Expense Discipline (30 pts)
-  const expenseMonths = periodMonths.filter(m => {
-    const a = state.actuals?.[m];
-    return a && (Number(a.Needs) > 0 || Number(a.Wants) > 0);
+  // 2. Expense Discipline (30 pts) — only months that have actual data
+  const expenseMonths = activeMonths.filter(m => {
+    const a = state.actuals[m];
+    return Number(a.Needs) > 0 || Number(a.Wants) > 0;
   });
   let expenseDiscipline = 0;
   if (expenseMonths.length > 0) {
@@ -70,7 +77,7 @@ function calcHealthScore(state, periodMonths, baseIncome, allocByCat, toHome, to
     }
   }
 
-  // 3. Net Worth Direction (20 pts)
+  // 3. Net Worth Direction (20 pts) — snapshots exist independently of actuals
   let netWorthDirection = 0;
   const snapMonths = periodMonths.filter(m => {
     const snap = state.accountSnapshots?.[m];
@@ -91,21 +98,21 @@ function calcHealthScore(state, periodMonths, baseIncome, allocByCat, toHome, to
     const latest   = calcNW(snapMonths[snapMonths.length - 1]);
     if (earliest !== 0) {
       const changePct = ((latest - earliest) / Math.abs(earliest)) * 100;
-      if (changePct > 5)       netWorthDirection = 20;
-      else if (changePct > 0)  netWorthDirection = 15;
+      if (changePct > 5)        netWorthDirection = 20;
+      else if (changePct > 0)   netWorthDirection = 15;
       else if (changePct >= -1) netWorthDirection = 8;
     } else {
       netWorthDirection = latest > 0 ? 20 : 0;
     }
   }
 
-  // 4. Consistency (15 pts)
-  const monthsWithData = periodMonths.filter(m => {
+  // 4. Consistency (15 pts) — blank months excluded from denominator
+  const monthsWithData = activeMonths.filter(m => {
     const a = state.actuals?.[m];
     return a && Object.values(a).some(v => Number(v) > 0);
   }).length;
-  const consistency = periodMonths.length > 0
-    ? (monthsWithData / periodMonths.length) * 15
+  const consistency = activeMonths.length > 0
+    ? (monthsWithData / activeMonths.length) * 15
     : 0;
 
   const total = Math.round(savingsDiscipline + expenseDiscipline + netWorthDirection + consistency);
@@ -124,6 +131,7 @@ function calcHealthScore(state, periodMonths, baseIncome, allocByCat, toHome, to
       netWorthDirection: Math.round(netWorthDirection),
       consistency:       Math.round(consistency),
     },
+    excludedMonths: blankMonths,
   };
 }
 
@@ -294,9 +302,16 @@ function buildReportData(state, periodMonths, healthScore, baseIncome, allocByCa
     ? periodDates.label
     : `${startMonth} to ${endMonth} ${selectedYear}`;
 
+  const excludedMonthLabels = (healthScore.excludedMonths || []).map(m => {
+    const mIdx = ALL_MONTHS.indexOf(m);
+    const yr = mIdx >= yearStartMonth ? selectedYear : selectedYear + 1;
+    return `${m} ${yr}`;
+  });
+
   return {
     period: { label: periodLabel, startMonth, endMonth },
     healthScore,
+    excludedMonths: excludedMonthLabels,
     netWorth: { start: Math.round(nwStart), end: Math.round(nwEnd), change: Math.round(nwChange), changePct: parseFloat(nwChangePct) },
     savingsRate: { planned: plannedSavingsRate, actual: parseFloat(actualSavingsRate), gap: parseFloat((plannedSavingsRate - parseFloat(actualSavingsRate)).toFixed(1)) },
     expenseBreakdown,
@@ -420,7 +435,22 @@ function generatePDF(aiContent, reportData, currency, displayName) {
   doc.setTextColor(26, 23, 20);
   doc.text('TOTAL SCORE', margin + 8, y);
   doc.text(`${reportData.healthScore.total} / 100`, pageW - margin - 8, y, { align: 'right' });
-  y += 14;
+  y += 10;
+
+  // Excluded month notices
+  if (reportData.excludedMonths?.length > 0) {
+    reportData.excludedMonths.forEach(mLabel => {
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8);
+      doc.setTextColor(176, 170, 159);
+      const nl = doc.splitTextToSize(`Note: ${mLabel} had no logged data and was excluded from scoring.`, usableW - 4);
+      doc.text(nl, margin, y);
+      y += nl.length * 4 + 2;
+    });
+    y += 4;
+  } else {
+    y += 4;
+  }
 
   // First key finding
   if (aiContent.keyFindings?.[0]) {
@@ -591,7 +621,9 @@ function generatePDF(aiContent, reportData, currency, displayName) {
     doc.setFontSize(10);
     doc.setTextColor(45, 42, 38);
     doc.text(grade.category || '', margin, y);
-    const gc = hexToRgb(gradeColors[grade.grade] || '#9e9890');
+    const gc = grade.grade === 'N/A'
+      ? { r: 176, g: 170, b: 159 }
+      : hexToRgb(gradeColors[grade.grade] || '#9e9890');
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(gc.r, gc.g, gc.b);
     doc.text(grade.grade || '', margin + 58, y);
@@ -929,6 +961,7 @@ Write a financial health report with exactly these sections. Respond in JSON wit
     { "category": "Needs", "grade": "C", "comment": "one sentence" },
     { "category": "Wants", "grade": "D", "comment": "one sentence" }
   ],
+  // If a category has insufficient data, set grade to "N/A" and comment to "Insufficient data for this period." Do not assign letter grades without meaningful data.
   "forwardProjection": {
     "currentTrajectory": "At your current rate, you will hit your net worth goal of X by [date/never]. One sentence on what that means.",
     "withActionPlan": "If you implement the painless cuts and behaviour changes above, you would hit your goal by [date] — X months earlier."
