@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { jsPDF } from 'jspdf';
 import { ALL_MONTHS, parseExpenseDate } from '../shared';
 
@@ -703,10 +703,36 @@ export default function HealthCheckup({
   state, set, f, currency, MONTHS, allocByCat, baseIncome,
   toHome, totalLiabilities, selectedYear,
 }) {
-  const [period,       setPeriod]       = useState('last-3');
-  const [loading,      setLoading]      = useState(false);
-  const [loadingMsg2,  setLoadingMsg2]  = useState(false);
-  const [error,        setError]        = useState(null);
+  const [period,        setPeriod]        = useState('last-3');
+  const [loading,       setLoading]       = useState(false);
+  const [loadingMessage, setLoadingMessage] = useState('');
+  const [error,         setError]         = useState(null);
+  const loadingIntervalRef = useRef(null);
+
+  const LOADING_MESSAGES = [
+    'Analysing your finances…',
+    'Calculating your health score…',
+    'Identifying patterns…',
+    'Writing your report…',
+  ];
+
+  const startLoadingMessages = () => {
+    setLoadingMessage(LOADING_MESSAGES[0]);
+    let idx = 1;
+    loadingIntervalRef.current = setInterval(() => {
+      setLoadingMessage(LOADING_MESSAGES[idx % LOADING_MESSAGES.length]);
+      idx++;
+    }, 3000);
+  };
+
+  const stopLoadingMessages = () => {
+    if (loadingIntervalRef.current) {
+      clearInterval(loadingIntervalRef.current);
+      loadingIntervalRef.current = null;
+    }
+  };
+
+  useEffect(() => () => stopLoadingMessages(), []);
 
   // Usage
   const currentMonth  = new Date().toISOString().slice(0, 7);
@@ -737,11 +763,9 @@ export default function HealthCheckup({
 
   const handleGenerate = async () => {
     setLoading(true);
-    setLoadingMsg2(false);
     setError(null);
+    startLoadingMessages();
     onClose();
-
-    const timer = setTimeout(() => setLoadingMsg2(true), 2000);
 
     const periodMonths  = getPeriodMonths(period);
     const healthScore   = calcHealthScore(state, periodMonths, baseIncome, allocByCat, toHome, totalLiabilities);
@@ -798,25 +822,22 @@ Return only valid JSON. No markdown, no explanation outside the JSON.`;
 
     let aiContent;
 
-    // Step 1: Claude API call
+    // Step 1: Claude API call via serverless function
     try {
-      const response = await fetch('https://api.anthropic.com/v1/messages', {
+      const response = await fetch('/api/analyze', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model: 'claude-sonnet-4-6',
-          max_tokens: 2000,
-          messages: [{ role: 'user', content: prompt }],
-        }),
+        body: JSON.stringify({ prompt }),
       });
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const data = await response.json();
-      if (data.error || !data.content?.[0]?.text) throw new Error('Bad response');
-      aiContent = JSON.parse(data.content[0].text);
+      if (!response.ok) throw new Error(data.error || `HTTP ${response.status}`);
+      if (!data.content?.[0]?.text) throw new Error('Bad response');
+      const text = data.content[0].text;
+      const clean = text.replace(/```json/g, '').replace(/```/g, '').trim();
+      aiContent = JSON.parse(clean);
     } catch {
-      clearTimeout(timer);
+      stopLoadingMessages();
       setLoading(false);
-      setLoadingMsg2(false);
       setError('AI analysis unavailable. Please try again in a moment.');
       return;
     }
@@ -828,9 +849,8 @@ Return only valid JSON. No markdown, no explanation outside the JSON.`;
     } catch {
       setError('Could not generate PDF. Please try again.');
     } finally {
-      clearTimeout(timer);
+      stopLoadingMessages();
       setLoading(false);
-      setLoadingMsg2(false);
     }
   };
 
@@ -932,19 +952,19 @@ Return only valid JSON. No markdown, no explanation outside the JSON.`;
           background: '#f7f5f0',
           display: 'flex', flexDirection: 'column',
           alignItems: 'center', justifyContent: 'center',
+          gap: 16,
         }}>
           <style>{`@keyframes hc-pulse { 0%,100% { opacity:1; } 50% { opacity:0.55; } }`}</style>
           <p style={{
-            fontFamily: 'Lora, serif', fontSize: 24, color: '#1a1714',
+            fontFamily: 'Lora, serif', fontSize: 22, color: '#1a1714',
+            fontWeight: 400,
             animation: 'hc-pulse 2s ease-in-out infinite',
           }}>
-            Analysing your finances…
+            {loadingMessage}
           </p>
-          {loadingMsg2 && (
-            <p style={{ fontSize: 13, color: '#9e9890', marginTop: 14 }}>
-              This usually takes 10–15 seconds.
-            </p>
-          )}
+          <p style={{ fontSize: 13, color: '#9e9890' }}>
+            This usually takes 10–15 seconds.
+          </p>
         </div>
       )}
     </>
