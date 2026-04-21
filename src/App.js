@@ -544,7 +544,7 @@ export default function App() {
   const allocByCat  = useMemo(() => {
     const map = {};
     for (const cat of ['Savings', 'Investments', 'Needs', 'Wants'])
-      map[cat] = state.allocation.filter(a => a.category === cat).reduce((s, a) => s + (Number(a.pct) || 0), 0);
+      map[cat] = state.allocation.filter(a => a.category?.toLowerCase() === cat.toLowerCase()).reduce((s, a) => s + (Number(a.pct) || 0), 0);
     return map;
   }, [state.allocation]);
   const totalAllocPct = Object.values(allocByCat).reduce((s, v) => s + (Number(v) || 0), 0);

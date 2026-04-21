@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { jsPDF } from 'jspdf';
 import { ALL_MONTHS, parseExpenseDate } from '../shared';
 
@@ -11,10 +11,10 @@ const RATING_COLORS = {
 };
 
 const PERIODS = [
-  { id: 'last-month', label: 'Last Month' },
-  { id: 'last-3',     label: 'Last 3 Months' },
-  { id: 'last-6',     label: 'Last 6 Months' },
-  { id: 'this-year',  label: 'This Year' },
+  { id: 'thisMonth',   label: 'This Month'    },
+  { id: 'lastMonth',   label: 'Last Month'    },
+  { id: 'last3Months', label: 'Last 3 Months' },
+  { id: 'custom',      label: 'Custom'        },
 ];
 
 // ── Helper ─────────────────────────────────────────────────────────────────────
@@ -23,12 +23,30 @@ function hexToRgb(hex) {
   return r ? { r: parseInt(r[1], 16), g: parseInt(r[2], 16), b: parseInt(r[3], 16) } : { r: 0, g: 0, b: 0 };
 }
 
+function getMonthsFromDateRange(start, end) {
+  const months = [];
+  const d = new Date(start.getFullYear(), start.getMonth(), 1);
+  while (d <= end) {
+    const abbr = ALL_MONTHS[d.getMonth()];
+    if (!months.includes(abbr)) months.push(abbr);
+    d.setMonth(d.getMonth() + 1);
+  }
+  return months;
+}
+
 // ── Health Score Calculator ───────────────────────────────────────────────────
 function calcHealthScore(state, periodMonths, baseIncome, allocByCat, toHome, totalLiabilities) {
-  // 1. Savings Discipline (35 pts)
-  const savingsMonths = periodMonths.filter(m => {
+  // Months with no actuals data are excluded from scoring entirely
+  const blankMonths  = periodMonths.filter(m => {
     const a = state.actuals?.[m];
-    return a && (Number(a.Savings) > 0 || Number(a.Investments) > 0);
+    return !a || !Object.values(a).some(v => Number(v) > 0);
+  });
+  const activeMonths = periodMonths.filter(m => !blankMonths.includes(m));
+
+  // 1. Savings Discipline (35 pts) — only months that have actual data
+  const savingsMonths = activeMonths.filter(m => {
+    const a = state.actuals[m];
+    return Number(a.Savings) > 0 || Number(a.Investments) > 0;
   });
   let savingsDiscipline = 0;
   if (savingsMonths.length > 0) {
@@ -42,10 +60,10 @@ function calcHealthScore(state, periodMonths, baseIncome, allocByCat, toHome, to
     }
   }
 
-  // 2. Expense Discipline (30 pts)
-  const expenseMonths = periodMonths.filter(m => {
-    const a = state.actuals?.[m];
-    return a && (Number(a.Needs) > 0 || Number(a.Wants) > 0);
+  // 2. Expense Discipline (30 pts) — only months that have actual data
+  const expenseMonths = activeMonths.filter(m => {
+    const a = state.actuals[m];
+    return Number(a.Needs) > 0 || Number(a.Wants) > 0;
   });
   let expenseDiscipline = 0;
   if (expenseMonths.length > 0) {
@@ -59,7 +77,7 @@ function calcHealthScore(state, periodMonths, baseIncome, allocByCat, toHome, to
     }
   }
 
-  // 3. Net Worth Direction (20 pts)
+  // 3. Net Worth Direction (20 pts) — snapshots exist independently of actuals
   let netWorthDirection = 0;
   const snapMonths = periodMonths.filter(m => {
     const snap = state.accountSnapshots?.[m];
@@ -80,21 +98,21 @@ function calcHealthScore(state, periodMonths, baseIncome, allocByCat, toHome, to
     const latest   = calcNW(snapMonths[snapMonths.length - 1]);
     if (earliest !== 0) {
       const changePct = ((latest - earliest) / Math.abs(earliest)) * 100;
-      if (changePct > 5)       netWorthDirection = 20;
-      else if (changePct > 0)  netWorthDirection = 15;
+      if (changePct > 5)        netWorthDirection = 20;
+      else if (changePct > 0)   netWorthDirection = 15;
       else if (changePct >= -1) netWorthDirection = 8;
     } else {
       netWorthDirection = latest > 0 ? 20 : 0;
     }
   }
 
-  // 4. Consistency (15 pts)
-  const monthsWithData = periodMonths.filter(m => {
+  // 4. Consistency (15 pts) — blank months excluded from denominator
+  const monthsWithData = activeMonths.filter(m => {
     const a = state.actuals?.[m];
     return a && Object.values(a).some(v => Number(v) > 0);
   }).length;
-  const consistency = periodMonths.length > 0
-    ? (monthsWithData / periodMonths.length) * 15
+  const consistency = activeMonths.length > 0
+    ? (monthsWithData / activeMonths.length) * 15
     : 0;
 
   const total = Math.round(savingsDiscipline + expenseDiscipline + netWorthDirection + consistency);
@@ -113,11 +131,12 @@ function calcHealthScore(state, periodMonths, baseIncome, allocByCat, toHome, to
       netWorthDirection: Math.round(netWorthDirection),
       consistency:       Math.round(consistency),
     },
+    excludedMonths: blankMonths,
   };
 }
 
 // ── Report Data Builder ───────────────────────────────────────────────────────
-function buildReportData(state, periodMonths, healthScore, baseIncome, allocByCat, toHome, totalLiabilities, selectedYear, f) {
+function buildReportData(state, periodMonths, healthScore, baseIncome, allocByCat, toHome, totalLiabilities, selectedYear, f, periodDates) {
   const homeCode = state.currencyCode || 'GBP';
   const yearStartMonth = state.yearStartMonth ?? 0;
   const startMonth = periodMonths[0] || '';
@@ -166,12 +185,15 @@ function buildReportData(state, periodMonths, healthScore, baseIncome, allocByCa
     };
   });
 
-  // Filter expenses to period
+  // Filter expenses to period — use date range when available
   const getPeriodExpenses = () => {
     return (state.expenses || []).filter(exp => {
       if (!exp.date) return false;
       const d = parseExpenseDate(exp.date);
       if (!d) return false;
+      if (periodDates) {
+        return d >= periodDates.start && d <= periodDates.end;
+      }
       const abbr = ALL_MONTHS[d.getMonth()];
       if (!periodMonths.includes(abbr)) return false;
       const mIdx = d.getMonth();
@@ -180,6 +202,53 @@ function buildReportData(state, periodMonths, healthScore, baseIncome, allocByCa
     });
   };
   const periodExpenses = getPeriodExpenses();
+
+  const totalExpenses = Math.round(
+    periodExpenses.reduce((s, e) => s + (toHome(Number(e.amount) || 0, e.currency) || 0), 0)
+  );
+
+  // Period comparison — same duration immediately before current period
+  let comparison = null;
+  if (periodDates) {
+    const duration = periodDates.end.getTime() - periodDates.start.getTime();
+    const prevStart = new Date(periodDates.start.getTime() - duration);
+    const prevEnd   = new Date(periodDates.start.getTime() - 86400000);
+    const prevExpenses = (state.expenses || []).filter(exp => {
+      if (!exp.date) return false;
+      const d = parseExpenseDate(exp.date);
+      if (!d) return false;
+      return d >= prevStart && d <= prevEnd;
+    });
+    if (prevExpenses.length > 0) {
+      const prevTotal = Math.round(
+        prevExpenses.reduce((s, e) => s + (toHome(Number(e.amount) || 0, e.currency) || 0), 0)
+      );
+      comparison = {
+        hasPrevData: true,
+        prevTotal,
+        currentTotal: totalExpenses,
+        change: Math.round(totalExpenses - prevTotal),
+        changePct: prevTotal > 0 ? ((totalExpenses - prevTotal) / prevTotal * 100).toFixed(1) : null,
+      };
+    } else {
+      comparison = { hasPrevData: false };
+    }
+  }
+
+  // Spend by category (for PDF bar chart)
+  const catTotals = {};
+  periodExpenses.forEach(e => {
+    const cat = e.category || 'Other';
+    catTotals[cat] = (catTotals[cat] || 0) + (toHome(Number(e.amount) || 0, e.currency) || 0);
+  });
+  const categoryColorMap = {};
+  (state.expenseCategories || []).forEach(c => {
+    if (c.name) categoryColorMap[c.name] = c.color || '#E8A598';
+  });
+  const spendByCategory = Object.entries(catTotals)
+    .map(([name, total]) => ({ name, total: Math.round(total), color: categoryColorMap[name] || '#E8A598' }))
+    .sort((a, b) => b.total - a.total)
+    .slice(0, 8);
 
   // Top 5 expenses by home-currency amount
   const topExpenses = [...periodExpenses]
@@ -244,14 +313,34 @@ function buildReportData(state, periodMonths, healthScore, baseIncome, allocByCa
     }
   }
 
+  const periodLabel = periodDates
+    ? periodDates.label
+    : `${startMonth} to ${endMonth} ${selectedYear}`;
+
+  const excludedMonthLabels = (healthScore.excludedMonths || []).map(m => {
+    const mIdx = ALL_MONTHS.indexOf(m);
+    const yr = mIdx >= yearStartMonth ? selectedYear : selectedYear + 1;
+    return `${m} ${yr}`;
+  });
+
   return {
-    period: { label: `${startMonth} to ${endMonth} ${selectedYear}`, startMonth, endMonth },
+    period: { label: periodLabel, startMonth, endMonth },
     healthScore,
+    excludedMonths: excludedMonthLabels,
     netWorth: { start: Math.round(nwStart), end: Math.round(nwEnd), change: Math.round(nwChange), changePct: parseFloat(nwChangePct) },
     savingsRate: { planned: plannedSavingsRate, actual: parseFloat(actualSavingsRate), gap: parseFloat((plannedSavingsRate - parseFloat(actualSavingsRate)).toFixed(1)) },
     expenseBreakdown,
     topExpenses,
-    subscriptions: state.subscriptions,
+    totalExpenses,
+    comparison,
+    spendByCategory,
+    allExpenses: periodExpenses.map(e => ({
+      description: e.description,
+      amount: Math.round(toHome(Number(e.amount) || 0, e.currency) || 0),
+      category: e.category,
+      date: e.date,
+    })),
+    allSubscriptions: state.subscriptions || [],
     monthlySpendTrend,
     diningVsGroceries: { dining: Math.round(diningTotal), groceries: Math.round(groceriesTotal), ratio: groceriesTotal > 0 ? (diningTotal / groceriesTotal).toFixed(2) : null },
     allocationAdherence,
@@ -325,6 +414,18 @@ function generatePDF(aiContent, reportData, currency, displayName) {
   doc.text(reportData.healthScore.rating, circleX, circleY + 11, { align: 'center' });
   y = circleY + circleR + 14;
 
+  // punchySummary — italic grey text below circle
+  if (aiContent.punchySummary) {
+    doc.setFont('helvetica', 'italic');
+    doc.setFontSize(12);
+    doc.setTextColor(100, 96, 90);
+    const summaryLines = doc.splitTextToSize(aiContent.punchySummary, usableW);
+    doc.text(summaryLines, margin, y);
+    y += summaryLines.length * 7 + 10;
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(26, 23, 20);
+  }
+
   // Score breakdown box
   const boxH = 46;
   doc.setFillColor(255, 255, 255);
@@ -356,7 +457,22 @@ function generatePDF(aiContent, reportData, currency, displayName) {
   doc.setTextColor(26, 23, 20);
   doc.text('TOTAL SCORE', margin + 8, y);
   doc.text(`${reportData.healthScore.total} / 100`, pageW - margin - 8, y, { align: 'right' });
-  y += 14;
+  y += 10;
+
+  // Excluded month notices
+  if (reportData.excludedMonths?.length > 0) {
+    reportData.excludedMonths.forEach(mLabel => {
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8);
+      doc.setTextColor(176, 170, 159);
+      const nl = doc.splitTextToSize(`Note: ${mLabel} had no logged data and was excluded from scoring.`, usableW - 4);
+      doc.text(nl, margin, y);
+      y += nl.length * 4 + 2;
+    });
+    y += 4;
+  } else {
+    y += 4;
+  }
 
   // First key finding
   if (aiContent.keyFindings?.[0]) {
@@ -407,6 +523,83 @@ function generatePDF(aiContent, reportData, currency, displayName) {
     doc.text(lines, margin, y);
     y += lines.length * 5 + 6;
   });
+
+  // Period comparison
+  if (reportData.comparison) {
+    y += 4;
+    if (reportData.comparison.hasPrevData) {
+      const decreased = reportData.comparison.change <= 0;
+      const arrowColor = decreased ? [45, 158, 107] : [217, 107, 107];
+      const sign = decreased ? '' : '+';
+      const pct  = reportData.comparison.changePct !== null ? `${sign}${reportData.comparison.changePct}%` : '';
+      const fromTo = `${fPDF(reportData.comparison.prevTotal)} → ${fPDF(reportData.comparison.currentTotal)}`;
+      const compText = `vs previous period: ${pct} (${fromTo})`;
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(10);
+      doc.setTextColor(...arrowColor);
+      doc.text(compText, margin, y);
+      y += 10;
+    } else {
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(9);
+      doc.setTextColor(176, 170, 159);
+      doc.text('No previous period data to compare.', margin, y);
+      y += 10;
+    }
+  }
+
+  // ── SPEND BY CATEGORY CHART ────────────────────────────────────────────────
+  if (reportData.spendByCategory?.length > 0) {
+    y += 8;
+    if (y > pageH - margin - 80) { doc.addPage(); y = margin + 8; }
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(11);
+    doc.setTextColor(26, 23, 20);
+    doc.text('SPEND BY CATEGORY', margin, y);
+    y += 5;
+    doc.setDrawColor(232, 228, 220);
+    doc.setLineWidth(0.3);
+    doc.line(margin, y, pageW - margin, y);
+    y += 7;
+
+    const nameColW = 52;
+    const amtColW  = 22;
+    const barAreaW = usableW - nameColW - amtColW;
+    const barX     = margin + nameColW;
+    const maxCatTotal = reportData.spendByCategory[0].total || 1;
+    const barH = 3;
+    const rowH = 8;
+
+    reportData.spendByCategory.forEach(cat => {
+      if (y > pageH - margin - rowH) { doc.addPage(); y = margin + 8; }
+
+      // Category name (left column)
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(9);
+      doc.setTextColor(45, 42, 38);
+      doc.text(String(cat.name || '').slice(0, 22), margin, y + 5.5);
+
+      // Bar track (grey background)
+      doc.setFillColor(240, 237, 232);
+      doc.roundedRect(barX, y + 2, barAreaW, barH, 1, 1, 'F');
+
+      // Bar fill (category colour, proportional to max)
+      const fillW = Math.max((cat.total / maxCatTotal) * barAreaW, 1);
+      const cc = hexToRgb(cat.color || '#E8A598');
+      doc.setFillColor(cc.r, cc.g, cc.b);
+      doc.roundedRect(barX, y + 2, fillW, barH, 1, 1, 'F');
+
+      // Amount (right column)
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(9);
+      doc.setTextColor(45, 42, 38);
+      doc.text(fPDF(cat.total), margin + usableW, y + 5.5, { align: 'right' });
+
+      y += rowH;
+    });
+    y += 4;
+  }
 
   y += 6;
   sectionHeader('MONEY LEAKS IDENTIFIED');
@@ -503,7 +696,9 @@ function generatePDF(aiContent, reportData, currency, displayName) {
     doc.setFontSize(10);
     doc.setTextColor(45, 42, 38);
     doc.text(grade.category || '', margin, y);
-    const gc = hexToRgb(gradeColors[grade.grade] || '#9e9890');
+    const gc = grade.grade === 'N/A'
+      ? { r: 176, g: 170, b: 159 }
+      : hexToRgb(gradeColors[grade.grade] || '#9e9890');
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(gc.r, gc.g, gc.b);
     doc.text(grade.grade || '', margin + 58, y);
@@ -548,11 +743,13 @@ function generatePDF(aiContent, reportData, currency, displayName) {
     doc.setFontSize(11);
     doc.setTextColor(sc.r, sc.g, sc.b);
     doc.text(section.label, margin, y);
+    y += 5;
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(9);
-    doc.setTextColor(158, 152, 144);
-    doc.text(section.effort, margin + doc.getTextWidth(section.label) + 5, y);
+    doc.setTextColor(180, 170, 160);
+    doc.text(section.effort, margin, y);
     y += 8;
+    doc.setTextColor(26, 23, 20);
 
     items.forEach((item, i) => {
       if (y > pageH - margin - 18) { doc.addPage(); y = margin + 8; }
@@ -636,25 +833,65 @@ function generatePDF(aiContent, reportData, currency, displayName) {
 
   y += dynBoxH + 16;
 
-  // Net worth goal progress
-  if (reportData.netWorthGoal > 0) {
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(11);
-    doc.setTextColor(26, 23, 20);
-    doc.text(`Your goal: ${fPDF(reportData.netWorthGoal)}`, margin, y);
-    y += 9;
+  // ── Chart A: Net Worth Growth ───────────────────────────────────────────────
+  {
+    if (y > pageH - margin - 40) { doc.addPage(); y = margin + 8; }
 
-    const goalPct = Math.min((reportData.netWorth.end || 0) / reportData.netWorthGoal * 100, 100);
-    doc.setFillColor(240, 236, 228);
-    doc.roundedRect(margin, y, usableW, 6, 2, 2, 'F');
-    doc.setFillColor(rc.r, rc.g, rc.b);
-    if (goalPct > 0) doc.roundedRect(margin, y, usableW * (goalPct / 100), 6, 2, 2, 'F');
-    y += 10;
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(9);
+    doc.setTextColor(158, 152, 144);
+    doc.text('NET WORTH GROWTH', margin, y);
+    y += 6;
+
+    const nwStart    = reportData.netWorth.start;
+    const nwEnd      = reportData.netWorth.end;
+    const grew       = nwEnd >= nwStart;
+    const maxNW      = Math.max(Math.abs(nwStart), Math.abs(nwEnd)) || 1;
+    const nwFillW    = Math.min((Math.abs(nwEnd) / maxNW) * usableW, usableW);
+    const nwBarColor = grew ? { r: 45, g: 158, b: 107 } : { r: 217, g: 107, b: 107 };
+
+    doc.setFillColor(240, 237, 232);
+    doc.roundedRect(margin, y, usableW, 4, 1.5, 1.5, 'F');
+    doc.setFillColor(nwBarColor.r, nwBarColor.g, nwBarColor.b);
+    if (nwFillW > 0) doc.roundedRect(margin, y, nwFillW, 4, 1.5, 1.5, 'F');
+    y += 7;
+
+    const nwSign = reportData.netWorth.changePct >= 0 ? '+' : '';
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+    doc.setTextColor(107, 102, 96);
+    doc.text(`${nwSign}${reportData.netWorth.changePct}% since last period`, margin, y);
+    y += 12;
+  }
+
+  // ── Chart B: Goal Progress ──────────────────────────────────────────────────
+  if (reportData.netWorthGoal > 0) {
+    if (y > pageH - margin - 30) { doc.addPage(); y = margin + 8; }
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(9);
+    doc.setTextColor(158, 152, 144);
+    doc.text('GOAL PROGRESS', margin, y);
+    y += 6;
+
+    const goalPct   = Math.min((reportData.netWorth.end || 0) / reportData.netWorthGoal * 100, 100);
+    const goalFillW = Math.max((goalPct / 100) * usableW, 0);
+    const bc        = hexToRgb('#5B9BD5');
+
+    doc.setFillColor(240, 237, 232);
+    doc.roundedRect(margin, y, usableW, 4, 1.5, 1.5, 'F');
+    doc.setFillColor(bc.r, bc.g, bc.b);
+    if (goalFillW > 0) doc.roundedRect(margin, y, goalFillW, 4, 1.5, 1.5, 'F');
+    y += 7;
 
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(9);
     doc.setTextColor(107, 102, 96);
-    doc.text(`You are ${goalPct.toFixed(0)}% of the way there`, margin, y);
+    doc.text(
+      `${goalPct.toFixed(0)}% of goal  ·  ${fPDF(reportData.netWorth.end)} of ${fPDF(reportData.netWorthGoal)}`,
+      margin, y,
+    );
+    y += 10;
   }
 
   addFooter();
@@ -703,10 +940,38 @@ export default function HealthCheckup({
   state, set, f, currency, MONTHS, allocByCat, baseIncome,
   toHome, totalLiabilities, selectedYear,
 }) {
-  const [period,       setPeriod]       = useState('last-3');
-  const [loading,      setLoading]      = useState(false);
-  const [loadingMsg2,  setLoadingMsg2]  = useState(false);
-  const [error,        setError]        = useState(null);
+  const [period,        setPeriod]        = useState('last3Months');
+  const [customStart,   setCustomStart]   = useState('');
+  const [customEnd,     setCustomEnd]     = useState('');
+  const [loading,       setLoading]       = useState(false);
+  const [loadingMessage, setLoadingMessage] = useState('');
+  const [error,         setError]         = useState(null);
+  const loadingIntervalRef = useRef(null);
+
+  const LOADING_MESSAGES = [
+    'Analysing your finances…',
+    'Calculating your health score…',
+    'Identifying patterns…',
+    'Writing your report…',
+  ];
+
+  const startLoadingMessages = () => {
+    setLoadingMessage(LOADING_MESSAGES[0]);
+    let idx = 1;
+    loadingIntervalRef.current = setInterval(() => {
+      setLoadingMessage(LOADING_MESSAGES[idx % LOADING_MESSAGES.length]);
+      idx++;
+    }, 3000);
+  };
+
+  const stopLoadingMessages = () => {
+    if (loadingIntervalRef.current) {
+      clearInterval(loadingIntervalRef.current);
+      loadingIntervalRef.current = null;
+    }
+  };
+
+  useEffect(() => () => stopLoadingMessages(), []);
 
   // Usage
   const currentMonth  = new Date().toISOString().slice(0, 7);
@@ -714,48 +979,82 @@ export default function HealthCheckup({
   const usageCount    = usage.month === currentMonth ? usage.count : 0;
 
   // Period helpers
-  const currentMonthAbbr   = ALL_MONTHS[new Date().getMonth()];
-  const currentIdxInMonths = MONTHS.indexOf(currentMonthAbbr);
-  const monthsUpToCurrent  = currentIdxInMonths >= 0 ? MONTHS.slice(0, currentIdxInMonths + 1) : MONTHS;
-
-  const getPeriodMonths = (p) => {
-    switch (p) {
-      case 'last-month': return monthsUpToCurrent.length >= 2 ? [monthsUpToCurrent[monthsUpToCurrent.length - 2]] : [];
-      case 'last-3':     return monthsUpToCurrent.slice(-3);
-      case 'last-6':     return monthsUpToCurrent.slice(-6);
-      case 'this-year':  return [...MONTHS];
-      default:           return [];
+  const getPeriodDates = (p, csStart, csEnd) => {
+    const now = new Date();
+    const y = now.getFullYear();
+    const m = now.getMonth();
+    if (p === 'thisMonth') {
+      const start = new Date(y, m, 1);
+      const end   = new Date(y, m + 1, 0);
+      return { start, end, label: `${ALL_MONTHS[m]} ${y}` };
     }
+    if (p === 'lastMonth') {
+      const lm = m === 0 ? 11 : m - 1;
+      const ly = m === 0 ? y - 1 : y;
+      const start = new Date(ly, lm, 1);
+      const end   = new Date(ly, lm + 1, 0);
+      return { start, end, label: `${ALL_MONTHS[lm]} ${ly}` };
+    }
+    if (p === 'last3Months') {
+      const end   = new Date(y, m + 1, 0);
+      const start = new Date(y, m - 2, 1);
+      const sl = ALL_MONTHS[start.getMonth()];
+      const el = ALL_MONTHS[end.getMonth()];
+      const label = start.getFullYear() === end.getFullYear()
+        ? `${sl}–${el} ${end.getFullYear()}`
+        : `${sl} ${start.getFullYear()}–${el} ${end.getFullYear()}`;
+      return { start, end, label };
+    }
+    if (p === 'custom' && csStart && csEnd) {
+      const start = new Date(csStart);
+      const end   = new Date(csEnd);
+      const fmt = (d) => d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+      return { start, end, label: `${fmt(start)} – ${fmt(end)}` };
+    }
+    return null;
   };
 
-  const getPeriodDateRange = (p) => {
-    const months = getPeriodMonths(p);
-    if (months.length === 0) return '';
-    if (months.length === 1) return `${months[0]} ${selectedYear}`;
-    return `${months[0]} ${selectedYear} — ${months[months.length - 1]} ${selectedYear}`;
+  const getPeriodLabel = (p) => {
+    const dates = getPeriodDates(p, customStart, customEnd);
+    return dates ? dates.label : '';
   };
 
   const handleGenerate = async () => {
     setLoading(true);
-    setLoadingMsg2(false);
     setError(null);
+    startLoadingMessages();
     onClose();
 
-    const timer = setTimeout(() => setLoadingMsg2(true), 2000);
-
-    const periodMonths  = getPeriodMonths(period);
+    const periodDates   = getPeriodDates(period, customStart, customEnd);
+    const periodMonths  = periodDates ? getMonthsFromDateRange(periodDates.start, periodDates.end) : [];
     const healthScore   = calcHealthScore(state, periodMonths, baseIncome, allocByCat, toHome, totalLiabilities);
-    const reportData    = buildReportData(state, periodMonths, healthScore, baseIncome, allocByCat, toHome, totalLiabilities, selectedYear, f);
+    const reportData    = buildReportData(state, periodMonths, healthScore, baseIncome, allocByCat, toHome, totalLiabilities, selectedYear, f, periodDates);
     const displayName   = (state.displayName?.trim()) ||
       (state.userId ? state.userId.charAt(0).toUpperCase() + state.userId.slice(1).toLowerCase() : '');
 
+    const dataSummary = `DATA SUMMARY: ${reportData.allExpenses?.length || 0} expenses, ${reportData.allSubscriptions?.length || 0} subscriptions. These are ALL the transactions that exist. There are no others.`;
+
     const prompt = `You are a direct, honest financial advisor reviewing someone's personal finances. Your job is to tell them exactly what the numbers mean and what they should do — no fluff, no corporate speak, no sugarcoating.
+
+CRITICAL: Complete every sentence fully. Never truncate any field. Never end a sentence with a comma or mid-word. Every string in the JSON must be a complete, grammatically correct sentence or list item.
+
+${dataSummary}
 
 Here is their financial data for ${reportData.period.label}:
 ${JSON.stringify(reportData, null, 2)}
 
+STRICT DATA RULE — THIS IS MANDATORY:
+You may ONLY reference transactions, subscriptions, and expenses that are explicitly listed in the allExpenses and allSubscriptions arrays in the data above.
+
+If allSubscriptions is empty or has fewer than 3 items, do not invent additional subscriptions. Only list what is there.
+
+Do not infer, assume, or create any transaction that does not appear verbatim in the data. If you are unsure whether a transaction exists, do not mention it.
+
+Before writing any money leak or subscription audit item, verify it exists in allExpenses or allSubscriptions. If it does not exist in those arrays, do not include it.
+
 Write a financial health report with exactly these sections. Respond in JSON with this structure:
 {
+  "punchySummary": "One or two punchy lines summarising the key financial story. Use real numbers. Be direct.",
   "keyFindings": [
     "Finding 1 — one punchy sentence with a specific number",
     "Finding 2",
@@ -788,6 +1087,7 @@ Write a financial health report with exactly these sections. Respond in JSON wit
     { "category": "Needs", "grade": "C", "comment": "one sentence" },
     { "category": "Wants", "grade": "D", "comment": "one sentence" }
   ],
+  // If a category has insufficient data, set grade to "N/A" and comment to "Insufficient data for this period." Do not assign letter grades without meaningful data.
   "forwardProjection": {
     "currentTrajectory": "At your current rate, you will hit your net worth goal of X by [date/never]. One sentence on what that means.",
     "withActionPlan": "If you implement the painless cuts and behaviour changes above, you would hit your goal by [date] — X months earlier."
@@ -798,25 +1098,22 @@ Return only valid JSON. No markdown, no explanation outside the JSON.`;
 
     let aiContent;
 
-    // Step 1: Claude API call
+    // Step 1: Claude API call via serverless function
     try {
-      const response = await fetch('https://api.anthropic.com/v1/messages', {
+      const response = await fetch('/api/analyze', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model: 'claude-sonnet-4-6',
-          max_tokens: 2000,
-          messages: [{ role: 'user', content: prompt }],
-        }),
+        body: JSON.stringify({ prompt }),
       });
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const data = await response.json();
-      if (data.error || !data.content?.[0]?.text) throw new Error('Bad response');
-      aiContent = JSON.parse(data.content[0].text);
+      if (!response.ok) throw new Error(data.error || `HTTP ${response.status}`);
+      if (!data.content?.[0]?.text) throw new Error('Bad response');
+      const text = data.content[0].text;
+      const clean = text.replace(/```json/g, '').replace(/```/g, '').trim();
+      aiContent = JSON.parse(clean);
     } catch {
-      clearTimeout(timer);
+      stopLoadingMessages();
       setLoading(false);
-      setLoadingMsg2(false);
       setError('AI analysis unavailable. Please try again in a moment.');
       return;
     }
@@ -828,9 +1125,8 @@ Return only valid JSON. No markdown, no explanation outside the JSON.`;
     } catch {
       setError('Could not generate PDF. Please try again.');
     } finally {
-      clearTimeout(timer);
+      stopLoadingMessages();
       setLoading(false);
-      setLoadingMsg2(false);
     }
   };
 
@@ -869,7 +1165,7 @@ Return only valid JSON. No markdown, no explanation outside the JSON.`;
               Select the period you want to analyse.
             </p>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 20 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 16 }}>
               {PERIODS.map(p => {
                 const isSelected = period === p.id;
                 return (
@@ -886,7 +1182,9 @@ Return only valid JSON. No markdown, no explanation outside the JSON.`;
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                       <div>
                         <p style={{ fontSize: 14, fontWeight: 600, color: '#1a1714', marginBottom: 4 }}>{p.label}</p>
-                        <p style={{ fontSize: 11, color: '#9e9890' }}>{getPeriodDateRange(p.id)}</p>
+                        {p.id !== 'custom' && (
+                          <p style={{ fontSize: 11, color: '#9e9890' }}>{getPeriodLabel(p.id)}</p>
+                        )}
                       </div>
                       {isSelected && <span style={{ fontSize: 13, color: '#1a1714', fontWeight: 700 }}>✓</span>}
                     </div>
@@ -894,6 +1192,41 @@ Return only valid JSON. No markdown, no explanation outside the JSON.`;
                 );
               })}
             </div>
+
+            {period === 'custom' && (
+              <div style={{ display: 'flex', gap: 10, marginBottom: 16 }}>
+                <div style={{ flex: 1 }}>
+                  <label style={{ display: 'block', fontSize: 11, color: '#9e9890', marginBottom: 4 }}>From</label>
+                  <input
+                    type="date"
+                    value={customStart}
+                    onChange={e => setCustomStart(e.target.value)}
+                    style={{
+                      width: '100%', boxSizing: 'border-box',
+                      border: '1px solid #e8e4dc', borderRadius: 8,
+                      padding: '8px 10px', fontSize: 13,
+                      fontFamily: 'inherit', color: '#1a1714',
+                      background: '#faf9f7', outline: 'none',
+                    }}
+                  />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <label style={{ display: 'block', fontSize: 11, color: '#9e9890', marginBottom: 4 }}>To</label>
+                  <input
+                    type="date"
+                    value={customEnd}
+                    onChange={e => setCustomEnd(e.target.value)}
+                    style={{
+                      width: '100%', boxSizing: 'border-box',
+                      border: '1px solid #e8e4dc', borderRadius: 8,
+                      padding: '8px 10px', fontSize: 13,
+                      fontFamily: 'inherit', color: '#1a1714',
+                      background: '#faf9f7', outline: 'none',
+                    }}
+                  />
+                </div>
+              </div>
+            )}
 
             <p style={{ fontSize: 11, color: '#b0aa9f', marginBottom: 20, lineHeight: 1.6 }}>
               Your data is sent to Claude AI for analysis only when you click Generate. Nothing is shared automatically.
@@ -912,9 +1245,12 @@ Return only valid JSON. No markdown, no explanation outside the JSON.`;
               </button>
               <button
                 onClick={handleGenerate}
+                disabled={period === 'custom' && (!customStart || !customEnd)}
                 style={{
-                  background: '#2d2a26', border: 'none', borderRadius: 8,
-                  padding: '10px 24px', fontSize: 13, cursor: 'pointer',
+                  background: (period === 'custom' && (!customStart || !customEnd)) ? '#c8c4bc' : '#2d2a26',
+                  border: 'none', borderRadius: 8,
+                  padding: '10px 24px', fontSize: 13,
+                  cursor: (period === 'custom' && (!customStart || !customEnd)) ? 'not-allowed' : 'pointer',
                   color: '#f7f5f0', fontFamily: 'inherit', fontWeight: 600,
                 }}
               >
@@ -932,19 +1268,19 @@ Return only valid JSON. No markdown, no explanation outside the JSON.`;
           background: '#f7f5f0',
           display: 'flex', flexDirection: 'column',
           alignItems: 'center', justifyContent: 'center',
+          gap: 16,
         }}>
           <style>{`@keyframes hc-pulse { 0%,100% { opacity:1; } 50% { opacity:0.55; } }`}</style>
           <p style={{
-            fontFamily: 'Lora, serif', fontSize: 24, color: '#1a1714',
+            fontFamily: 'Lora, serif', fontSize: 22, color: '#1a1714',
+            fontWeight: 400,
             animation: 'hc-pulse 2s ease-in-out infinite',
           }}>
-            Analysing your finances…
+            {loadingMessage}
           </p>
-          {loadingMsg2 && (
-            <p style={{ fontSize: 13, color: '#9e9890', marginTop: 14 }}>
-              This usually takes 10–15 seconds.
-            </p>
-          )}
+          <p style={{ fontSize: 13, color: '#9e9890' }}>
+            This usually takes 10–15 seconds.
+          </p>
         </div>
       )}
     </>
