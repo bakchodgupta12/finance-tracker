@@ -152,9 +152,8 @@ const PM_COLORS = ['#7eb5d6','#7ec8a0','#d6a8c8','#fdba74','#a8d6c8','#d6c8a8','
 
 const DATE_FILTERS = [
   { key: 'this-month', label: 'This Month' },
+  { key: 'last-month', label: 'Last Month' },
   { key: 'last-3',     label: 'Last 3 Months' },
-  { key: 'last-6',     label: 'Last 6 Months' },
-  { key: 'this-year',  label: 'This Year' },
   { key: 'all',        label: 'All Time' },
   { key: 'custom',     label: 'Custom' },
 ];
@@ -212,6 +211,15 @@ export default function ExpenseTracker({
           const d = parseExpenseDate(e.date);
           return d && d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
         });
+      case 'last-month': {
+        const start = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+        const end = new Date(now.getFullYear(), now.getMonth(), 0);
+        return exps.filter(e => {
+          if (!e.date || e.isPlaceholder) return false;
+          const d = parseExpenseDate(e.date);
+          return d && d >= start && d <= end;
+        });
+      }
       case 'last-3': {
         const cutoff = new Date(startOfToday);
         cutoff.setDate(cutoff.getDate() - 90);
@@ -221,21 +229,6 @@ export default function ExpenseTracker({
           return d && d >= cutoff && d <= startOfToday;
         });
       }
-      case 'last-6': {
-        const cutoff = new Date(startOfToday);
-        cutoff.setDate(cutoff.getDate() - 180);
-        return exps.filter(e => {
-          if (!e.date) return false;
-          const d = parseExpenseDate(e.date);
-          return d && d >= cutoff && d <= startOfToday;
-        });
-      }
-      case 'this-year':
-        return exps.filter(e => {
-          if (!e.date) return false;
-          const d = parseExpenseDate(e.date);
-          return d && d.getFullYear() === now.getFullYear() && d <= startOfToday;
-        });
       case 'all':
         return exps.filter(e => {
           if (!e.date) return false;
@@ -263,22 +256,16 @@ export default function ExpenseTracker({
       highlighted.add(now.getMonth());
       return highlighted;
     }
+    if (filter === 'last-month') {
+      const lm = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+      highlighted.add(lm.getMonth());
+      return highlighted;
+    }
     if (filter === 'last-3') {
       for (let i = 0; i <= 2; i++) {
         const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
         highlighted.add(d.getMonth());
       }
-      return highlighted;
-    }
-    if (filter === 'last-6') {
-      for (let i = 0; i <= 5; i++) {
-        const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-        highlighted.add(d.getMonth());
-      }
-      return highlighted;
-    }
-    if (filter === 'this-year') {
-      for (let i = 0; i <= now.getMonth(); i++) highlighted.add(i);
       return highlighted;
     }
     if (filter === 'all') {
@@ -335,18 +322,14 @@ export default function ExpenseTracker({
 
     // Determine inclusive month range to display
     let startY, startM, endY, endM;
-    if (dateFilter === 'last-3') {
+    if (dateFilter === 'last-month') {
+      const lm = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+      startY = lm.getFullYear(); startM = lm.getMonth() + 1;
+      endY = lm.getFullYear();   endM = lm.getMonth() + 1;
+    } else if (dateFilter === 'last-3') {
       const cutoff = new Date(today.getFullYear(), today.getMonth(), today.getDate());
       cutoff.setDate(cutoff.getDate() - 90);
       startY = cutoff.getFullYear(); startM = cutoff.getMonth() + 1;
-      endY = today.getFullYear();   endM = today.getMonth() + 1;
-    } else if (dateFilter === 'last-6') {
-      const cutoff = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-      cutoff.setDate(cutoff.getDate() - 180);
-      startY = cutoff.getFullYear(); startM = cutoff.getMonth() + 1;
-      endY = today.getFullYear();   endM = today.getMonth() + 1;
-    } else if (dateFilter === 'this-year') {
-      startY = today.getFullYear(); startM = 1;
       endY = today.getFullYear();   endM = today.getMonth() + 1;
     } else {
       // 'all' or 'custom' — span actual data range
