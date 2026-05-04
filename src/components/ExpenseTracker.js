@@ -532,8 +532,14 @@ export default function ExpenseTracker({
   const addExpense = () => {
     const id = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
     const mIdx = ALL_MONTHS.indexOf(selectedMonth);
-    const dayStr = String(today.getDate()).padStart(2, '0');
-    const defaultDate = `${selectedYear}-${String(mIdx + 1).padStart(2, '0')}-${dayStr}`;
+    const isCurrentMonth = mIdx === today.getMonth() && selectedYear === today.getFullYear();
+    let defaultDate;
+    if (isCurrentMonth) {
+      defaultDate = todayStr;
+    } else {
+      const lastDay = new Date(selectedYear, mIdx + 1, 0);
+      defaultDate = `${selectedYear}-${String(mIdx + 1).padStart(2, '0')}-${String(lastDay.getDate()).padStart(2, '0')}`;
+    }
     const newExp = {
       id,
       date: defaultDate,
